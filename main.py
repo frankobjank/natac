@@ -4,12 +4,23 @@ import collections
 import math
 from enum import Enum
 from pyray import *
-import test
 import hex_helper as hh
 
+mouse_button_left= 0
+mouse_button_right= 1
 
 screen_width=800
 screen_height=600
+
+
+def draw_xy_coords(spacing):
+    start_points_x = [(x, 0) for x in range(spacing, screen_width, spacing)]
+    for i in range(len(start_points_x)+1):
+        draw_text(str(spacing*i), spacing*i-5, 3, 11, WHITE)
+    start_points_y = [(0, y) for y in range(spacing, screen_height, spacing)]
+    for i in range(len(start_points_y)+1):
+        draw_text(str(spacing*i), 3, spacing*i-5, 11, WHITE)
+
 
 # layout = type, size, origin
 
@@ -21,6 +32,7 @@ resources = ["wood", "brick", "sheep", "wheat", "ore"]
 # https://docs.python.org/3/library/enum.html make resource class an ENUM
 
 class Resource(Enum):
+    # NAME = "value"
     WOOD = "wood"
     BRICK = "brick"
     SHEEP = "sheep"
@@ -28,9 +40,23 @@ class Resource(Enum):
     ORE = "ore"
     DESERT = "desert"
 
-    def get_color(self):
-        if self == "wood":
-            return #7b6f83
+    # colors defined as R, G, B, A where A is alpha (opacity). 255 or ff = solid, 0 = transparent
+    # NEED 8 DIGITS WHEN CONVERTED FROM HEX WITH GET_COLOR
+    def get_resource_color(self):
+        if self.value == "wood":
+            return 0x517d19ff
+        if self.value == "brick":
+            return 0x9c4300ff
+        if self.value == "sheep":
+            return 0x17b97fff
+        if self.value == "wheat":
+            return 0xf0ad00ff
+        if self.value == "ore":
+            return 0x7b6f83ff #int(str(hex(0xf0ad00)) + "ff", base=16)
+        if self.value == "water":
+            return 0x4fa6ebff
+        if self.value == "desert":
+            return 0xffd966ff
 
 
 
@@ -44,6 +70,9 @@ class State:
     def __init__(self):
         self.mouse = get_mouse_position()
         self.board = {}
+        self.selection = None
+        self.current_hex = None
+        
 state = State()
 
 # board["line"] = [hh.set_hex(q, r, -r-q) for q in range()]
@@ -57,22 +86,31 @@ size = 50 # (radius)
 pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(400, 300))
 
 def update(state):
+
     state.mouse = get_mouse_position()
-    # CheckCollisionPointPoly
-    # check_collision_point_poly(state.mouse,)
-    current_hex = hh.pixel_to_hex(pointy, state.mouse)
-    print(current_hex)
+    for hexes in state.board.values():
+        for hex in hexes:
+            if check_collision_point_poly(state.mouse, hh.polygon_corners(pointy, hex), 6):
+                state.current_hex = hh.pixel_to_hex(pointy, state.mouse)
+
+    if is_mouse_button_pressed(mouse_button_left):
+        state.selection = state.current_hex
+
 
 def render(state):
     begin_drawing()
     clear_background(BLACK)
     for hexes in state.board.values():
         for hex in hexes:
-            draw_poly_lines(hh.hex_to_pixel(pointy, hex), 6, size, 0, BLACK)
             draw_poly(hh.hex_to_pixel(pointy, hex), 6, size, 0, RED)
+            if state.selection:
+                draw_poly(hh.hex_to_pixel(pointy, state.selection), 6, size, 0, BLACK)
+            draw_poly_lines(hh.hex_to_pixel(pointy, hex), 6, size, 0, WHITE)
 
-    test.draw_x_coords(100) 
-    test.draw_y_coords(100)
+
+
+    draw_xy_coords(100) 
+    draw_text("Current hex")
     draw_text(f"{int(state.mouse.x)}, {int(state.mouse.y)}", int(state.mouse.x)+20, int(state.mouse.y)+20, 20, WHITE)
     end_drawing()
 

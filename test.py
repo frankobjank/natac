@@ -1,24 +1,47 @@
 from pyray import *
+from enum import Enum
+
 screen_width=800
 screen_height=600
 
-def draw_x_coords(spacing):
-    start_points = [(x, 0) for x in range(spacing, screen_width, spacing)]
-    for i in range(len(start_points)+1):
-        draw_text(str(spacing*i), spacing*i-5, 3, 11, WHITE)
+class Resource(Enum):
+    WOOD = "wood"
+    BRICK = "brick"
+    SHEEP = "sheep"
+    WHEAT = "wheat"
+    ORE = "ore"
+    DESERT = "desert"
 
-def draw_y_coords(spacing):
-    start_points = [(0, y) for y in range(spacing, screen_height, spacing)]
-    for i in range(len(start_points)+1):
-        draw_text(str(spacing*i), 3, spacing*i-5, 11, WHITE)
+    # colors defined as R, G, B, A where A (alpha/opacity) is 0-255, or % (0-1)
+    def get_resource_color(self):
+        if self.value == "wood":
+            return 0x517d19ff
+        if self.value == "brick":
+            return 0x9c4300ff
+        if self.value == "sheep":
+            return 0x17b97fff
+        if self.value == "wheat":
+            return 0xf0ad00ff
+        if self.value == "ore":
+            return 0x7b6f83ff #int(str(hex(0xf0ad00)) + "ff", base=16)
+        if self.value == "water":
+            return 0x4fa6ebff
+        if self.value == "desert":
+            return 0xffd966ff
+
+resource_list = [Resource.WOOD, Resource.BRICK, Resource.SHEEP, Resource.WHEAT, Resource.ORE]
+# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255) 
 
 def main():
-    init_window(screen_width, screen_height, "Natac")
+    init_window(screen_width, screen_height, "natac")
     set_target_fps(60)
     while not window_should_close():
         begin_drawing()
-        clear_background(BLACK)
-        
+        clear_background(get_color(0x4fa6ebff))
+
+        for i in range(len(resource_list)):
+            draw_rectangle(i*screen_width//5, 0, screen_width//5, screen_height, get_color(resource_list[i].get_resource_color()))
+            draw_text(f"{resource_list[i].value}", i*screen_width//5, screen_height//2, 20, BLACK)
         end_drawing()
     close_window()
 
