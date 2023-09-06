@@ -30,22 +30,18 @@ class Resource(Enum):
             return 0xffd966ff
 
 resource_list = [Resource.WOOD, Resource.BRICK, Resource.SHEEP, Resource.WHEAT, Resource.ORE]
-# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255) 
-
+test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255) 
 def main():
     init_window(screen_width, screen_height, "natac")
     set_target_fps(60)
     while not window_should_close():
         begin_drawing()
-        clear_background(get_color(0x4fa6ebff))
+        clear_background(WHITE)
 
-        for i in range(len(resource_list)):
-            draw_rectangle(i*screen_width//5, 0, screen_width//5, screen_height, get_color(resource_list[i].get_resource_color()))
-            draw_text(f"{resource_list[i].value}", i*screen_width//5, screen_height//2, 20, BLACK)
         end_drawing()
     close_window()
 
-# main()
+main()
 
 
 
@@ -56,6 +52,11 @@ def main():
 # board.append([hh.set_hex(q, 0, 0-q) for q in range(-2, 3)]) # middle row q[-2 2] r[0] s[2 -2]
 # board.append([hh.set_hex(q, 1, -1-q) for q in range(-2, 2)]) # middle bottom q[-2 1] r[1] s[1 -2]
 # board.append([hh.set_hex(q, 2, -2-q) for q in range(-2, 0)]) # bottom q[-2 0] r[2] s[0 -2]
+
+
+# for i in range(len(resource_list)):
+#     draw_rectangle(i*screen_width//5, 0, screen_width//5, screen_height, get_color(resource_list[i].get_resource_color()))
+#     draw_text(f"{resource_list[i].value}", i*screen_width//5, screen_height//2, 20, BLACK)
 
 
 # h = 2* size
