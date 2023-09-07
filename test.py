@@ -1,43 +1,45 @@
 from pyray import *
 from enum import Enum
+import random
 
 screen_width=800
 screen_height=600
+# each tile needs a resource, color
+# will be at multiple locations on board, so can't treat as constants until board is created
+# board can be created by iterating over hexes and calling Tile according to resource list/ random generation
 
-class Resource(Enum):
-    WOOD = "wood"
-    BRICK = "brick"
-    SHEEP = "sheep"
-    WHEAT = "wheat"
-    ORE = "ore"
-    DESERT = "desert"
-
+# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255) 
+class Tile(Enum):
     # colors defined as R, G, B, A where A (alpha/opacity) is 0-255, or % (0-1)
-    def get_resource_color(self):
-        if self.value == "wood":
-            return 0x517d19ff
-        if self.value == "brick":
-            return 0x9c4300ff
-        if self.value == "sheep":
-            return 0x17b97fff
-        if self.value == "wheat":
-            return 0xf0ad00ff
-        if self.value == "ore":
-            return 0x7b6f83ff #int(str(hex(0xf0ad00)) + "ff", base=16)
-        if self.value == "water":
-            return 0x4fa6ebff
-        if self.value == "desert":
-            return 0xffd966ff
+    FOREST = {"resource": "wood", "color": get_color(0x517d19ff)}
+    HILL = {"resource": "brick", "color": get_color(0x9c4300ff)}
+    PASTURE = {"resource": "sheep", "color": get_color(0x17b97fff)}
+    FIELD = {"resource": "wheat", "color": get_color(0xf0ad00ff)}
+    MOUNTAIN = {"resource": "ore", "color": get_color(0x7b6f83ff)}
+    DESERT = {"resource": None, "color": get_color(0xffd966ff)}
+    OCEAN = {"resource": None, "color": get_color(0x4fa6ebff)}
 
-resource_list = [Resource.WOOD, Resource.BRICK, Resource.SHEEP, Resource.WHEAT, Resource.ORE]
-test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255) 
+
+all_tiles = [Tile.FOREST, Tile.HILL, Tile.PASTURE, Tile.FIELD, Tile.MOUNTAIN, Tile.DESERT, Tile.OCEAN]
+board = {}
+divisions = 10
+for i in range(divisions):
+    # tile = all_tiles[random.randint(0, 6)]
+    tile = all_tiles[i%7]
+    board[(Rectangle(i*screen_width//divisions, 0, screen_width//divisions, screen_height))] = tile
+
+
+# {rectangle: tile}
+
 def main():
     init_window(screen_width, screen_height, "natac")
     set_target_fps(60)
     while not window_should_close():
         begin_drawing()
         clear_background(WHITE)
-
+        for rec, tile in board.items():
+            draw_rectangle(int(rec.x), int(rec.y), int(rec.width), int(rec.height), tile.value["color"])
+            draw_text(f"{tile.value['resource']}", int(rec.x), screen_height//2, 20, BLACK)
         end_drawing()
     close_window()
 
