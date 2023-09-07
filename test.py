@@ -28,6 +28,11 @@ for i in range(divisions):
     tile = all_tiles[i%7]
     board[(Rectangle(i*screen_width//divisions, 0, screen_width//divisions, screen_height))] = tile
 
+default_tile_setup=[Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
+                    Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.HILL,
+                    Tile.FIELD, Tile.FOREST, Tile.DESERT, Tile.FOREST, Tile.MOUNTAIN,
+                    Tile.FOREST, Tile.MOUNTAIN, Tile.FIELD, Tile.PASTURE,
+                    Tile.HILL, Tile.FIELD, Tile.PASTURE]
 
 # {rectangle: tile}
 
@@ -43,8 +48,19 @@ def main():
         end_drawing()
     close_window()
 
-main()
+# main()
 
+# {hex: tile}
+# if kept in dicts, board would be 3x nested dictionaries
+# board = {"top": {hex1: Tile.MOUNTAIN, hex2: Tile.HILL, hex3: Tile.PASTURE}}
+# to access color, board["top"][hex][tile].value["color"]
+tiles = []
+types = ["MOUNTAIN", "HILL"]
+for type_of_tile in types:
+    for tile in all_tiles:
+        if type_of_tile == tile.name:
+            tiles.append(tile)
+print(tiles)
 
 
 # board as list
