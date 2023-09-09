@@ -75,16 +75,18 @@ layout_flat = Orientation(3.0 / 2.0, 0.0, math.sqrt(3.0) / 2.0, math.sqrt(3.0), 
 def hex_to_pixel(layout, h):
     M = layout.orientation
     size = layout.size
-    origin = layout.origin
+    # origin = layout.origin
     x = (M.f0 * h.q + M.f1 * h.r) * size.x
     y = (M.f2 * h.q + M.f3 * h.r) * size.y
-    return Point(x + origin.x, y + origin.y)
+    # return Point(x + origin.x, y + origin.y)
+    return Point(x, y)
 
 def pixel_to_hex(layout, p):
     M = layout.orientation
     size = layout.size
-    origin = layout.origin
-    pt = Point((p.x - origin.x) / size.x, (p.y - origin.y) / size.y)
+    # origin = layout.origin
+    # pt = Point((p.x - origin.x) / size.x, (p.y - origin.y) / size.y)
+    pt = Point((p.x) / size.x, (p.y) / size.y)
     q = M.b0 * pt.x + M.b1 * pt.y
     r = M.b2 * pt.x + M.b3 * pt.y
     return set_hex(q, r, -q - r)
