@@ -3,25 +3,6 @@ from enum import Enum
 import random
 import hex_helper as hh
 
-KeyboardKey.KEY_E
-
-KEY_W= 87
-KEY_A= 65
-KEY_S= 83
-KEY_D= 68
-
-KEY_R= 82
-
-KEY_F= 70
-KEY_G= 71
-KEY_H= 72
-KEY_T= 84
-
-KEY_RIGHT= 262
-KEY_LEFT= 263
-KEY_DOWN= 264
-KEY_UP= 265
-
 screen_width=800
 screen_height=600
 
@@ -40,20 +21,21 @@ print(f"target = {camera.target.x, camera.target.y}")
 def main():
     init_window(screen_width, screen_height, "natac")
     set_target_fps(60)
+    classic_font = load_font("assets/classic_memesbruh03.ttf")
     while not window_should_close():
         begin_drawing()
         clear_background(WHITE)
 
-        if is_key_down(KEY_A):
+        if is_key_down(KeyboardKey.KEY_A):
             camera.rotation -= 2
-        elif is_key_down(KEY_D):
+        elif is_key_down(KeyboardKey.KEY_D):
             camera.rotation += 2
 
         camera.zoom += get_mouse_wheel_move() * 0.02
 
-        if is_key_down(KEY_W):
+        if is_key_down(KeyboardKey.KEY_W):
             camera.zoom += 0.02
-        elif is_key_down(KEY_S):
+        elif is_key_down(KeyboardKey.KEY_S):
             camera.zoom -= 0.02
 
         if camera.zoom > 3.0:
@@ -62,26 +44,26 @@ def main():
             camera.zoom = 0.1
 
         # Camera reset (zoom and rotation)
-        if is_key_pressed(KEY_R):
+        if is_key_pressed(KeyboardKey.KEY_R):
             camera.zoom = 1.0
             camera.rotation = 0.0
 
-        if is_key_down(KEY_LEFT):
+        if is_key_down(KeyboardKey.KEY_LEFT):
             camera.offset.x -= 1
-        elif is_key_down(KEY_RIGHT):
+        elif is_key_down(KeyboardKey.KEY_RIGHT):
             camera.offset.x += 1
-        elif is_key_down(KEY_DOWN):
+        elif is_key_down(KeyboardKey.KEY_DOWN):
             camera.offset.y += 1
-        elif is_key_down(KEY_UP):
+        elif is_key_down(KeyboardKey.KEY_UP):
             camera.offset.y -= 1
 
-        elif is_key_down(KEY_F):
+        elif is_key_down(KeyboardKey.KEY_F):
             camera.target.x -= 1
-        elif is_key_down(KEY_H):
+        elif is_key_down(KeyboardKey.KEY_H):
             camera.target.x += 1
-        elif is_key_down(KEY_G):
+        elif is_key_down(KeyboardKey.KEY_G):
             camera.target.y += 1
-        elif is_key_down(KEY_T):
+        elif is_key_down(KeyboardKey.KEY_T):
             camera.target.y -= 1
 
         if is_key_down(KeyboardKey.KEY_E):
@@ -106,14 +88,17 @@ def main():
         # draw_text("Inside of camera", 0, 0, 40, RED) # minus target
 
         end_mode_2d()
-        draw_text(f"target = {camera.target.x, camera.target.y}", 10, 10, 20, BLUE)
-        draw_text(f"offset = {camera.offset.x, camera.offset.y}", 10, 40, 20, BLACK)
-        draw_text(f"mouse = {get_mouse_x(), get_mouse_y()}", 10, 70, 20, GREEN)
+        draw_text_ex(classic_font, f"target = {camera.target.x, camera.target.y}", (10, 10), 25, 0, BLUE)
+        draw_text_ex(classic_font, f"offset = {camera.offset.x, camera.offset.y}", (10, 40), 25, 0, BLACK)
+        draw_text_ex(classic_font, f"mouse = {get_mouse_x(), get_mouse_y()}", (10, 70), 25, 0, GREEN)
         draw_circle(screen_width//2, screen_height//2, 5, BLACK)
         end_drawing()
+
+    unload_font(classic_font)
     close_window()
 
 main()
+
 
 
 
