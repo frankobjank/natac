@@ -73,7 +73,7 @@ def get_random_tiles():
         tiles.insert(desert_index, Tile.DESERT)
     return tiles
 
-        
+
 class State:
     def __init__(self):
         self.board = {}
@@ -82,13 +82,14 @@ class State:
         self.current_hex = None
         self.debug = False
         self.font = None
+        self.frame_counter = 0
     
     def initialize_camera(self):
         self.camera = Camera2D()
         self.camera.target = Vector2(0, 0)
         self.camera.offset = Vector2(screen_width/2, screen_height/2)
         self.camera.rotation = 0.0
-        self.camera.zoom = 1.0
+        self.camera.zoom = 0.9
         
 state = State()
 state.initialize_camera()
@@ -97,20 +98,39 @@ state.initialize_camera()
 
 
 def initialize_board(state):
-    # hex = [hh.set_hex(q, r, -r-q) for q in range()]
     tiles = default_tiles
     # tiles = get_random_tiles()
-    state.board.update({hh.set_hex(q, -2,  2-q): tiles[q] for q in range(3)}) # q[0 2] r[-2] s[2 0]
-    state.board.update({hh.set_hex(q, -1,  1-q): tiles[q+1+3] for q in range(-1, 3)}) # q[-1 2] r[-1] s[2 -1]
-    state.board.update({hh.set_hex(q,  0,  0-q): tiles[q+2+7] for q in range(-2, 3)}) # q[-2 2] r[0] s[2 -2]
-    state.board.update({hh.set_hex(q,  1, -1-q): tiles[q+2+12] for q in range(-2, 2)}) # q[-2 1] r[1] s[1 -2]
-    state.board.update({hh.set_hex(q,  2, -2-q): tiles[q+2+16] for q in range(-2, 1)}) # q[-2 0] r[2] s[0 -2]
 
+    state.board[hh.set_hex(0, -2, 2)] = tiles[0]
+    state.board[hh.set_hex(1, -2, 1)] = tiles[1]
+    state.board[hh.set_hex(2, -2, 0)] = tiles[2]
 
-    print(state.board.keys())
+    # q -1 -> 2
+    state.board[hh.set_hex(-1, -1, 2)] = tiles[3]
+    state.board[hh.set_hex(0, -1, 1)] = tiles[4]
+    state.board[hh.set_hex(1, -1, 0)] = tiles[5]
+    state.board[hh.set_hex(2, -1, -1)] = tiles[6]
+
+    # q -2 -> 2
+    state.board[hh.set_hex(-2, 0, 2)] = tiles[7]
+    state.board[hh.set_hex(-1, 0, 1)] = tiles[8]
+    state.board[hh.set_hex(0, 0, 0)] = tiles[9]
+    state.board[hh.set_hex(1, 0, -1)] = tiles[10]
+    state.board[hh.set_hex(2, 0, -2)] = tiles[11]
+
+    # q -2 -> 1
+    state.board[hh.set_hex(-2, 1, 1)] = tiles[12]
+    state.board[hh.set_hex(-1, 1, 0)] = tiles[13]
+    state.board[hh.set_hex(0, 1, -1)] = tiles[14]
+    state.board[hh.set_hex(1, 1, -2)] = tiles[15]
+
+    # q -2 -> 0
+    state.board[hh.set_hex(-2, 2, 0)] = tiles[16]
+    state.board[hh.set_hex(-1, 2, -1)] = tiles[17]
+    state.board[hh.set_hex(0, 2, -2)] = tiles[18]
 
     state.current_hex = hh.hex_tuple(q=0, r=0, s=0)
-    # print(state.current_hex)
+
 
 
 
@@ -118,6 +138,7 @@ def initialize_board(state):
 
 
 def update(state):
+    state.frame_counter += 1
     state.mouse = get_mouse_position()
     world_position = get_screen_to_world_2d(state.mouse, state.camera)
 
@@ -125,15 +146,14 @@ def update(state):
         if check_collision_point_poly(world_position, hh.polygon_corners(pointy, hex), 6):
             # bug - creates/selects hexes in the ocean to the left of the board
             state.current_hex = hh.hex_round(hh.pixel_to_hex(pointy, world_position))
-            # state.current_hex = hh.hex_round(hex)
 
     if is_mouse_button_pressed(mouse_button_left):
         state.selection = state.current_hex
 
-    if is_key_down(KeyboardKey.KEY_A):
-        state.camera.rotation -= 2
-    elif is_key_down(KeyboardKey.KEY_D):
-        state.camera.rotation += 2
+    # if is_key_down(KeyboardKey.KEY_A):
+    #     state.camera.rotation -= 2
+    # elif is_key_down(KeyboardKey.KEY_D):
+    #     state.camera.rotation += 2
 
     state.camera.zoom += get_mouse_wheel_move() * 0.03
 
@@ -149,11 +169,14 @@ def update(state):
 
     # Camera reset (zoom and rotation)
     if is_key_pressed(KeyboardKey.KEY_R):
-        state.camera.zoom = 1.0
+        state.camera.zoom = 0.9
         state.camera.rotation = 0.0
 
     if is_key_pressed(KeyboardKey.KEY_E):
         state.debug = not state.debug # toggle
+    
+    if is_key_pressed(KeyboardKey.KEY_F):
+        toggle_fullscreen()
 
 
 def render(state):
@@ -165,9 +188,6 @@ def render(state):
     hexes = list(state.board.keys())
     for i in range(len(hexes)):
         draw_poly(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, state.board[hexes[i]].value["color"])
-        # show selected hex
-        if state.current_hex:
-            draw_poly(hh.hex_to_pixel(pointy, state.current_hex), 6, size, 0, WHITE)
         # draw numbers, circles
         if type(all_tile_tokens[i]) == int:
             draw_circle(int(hh.hex_to_pixel(pointy, hexes[i]).x), int(hh.hex_to_pixel(pointy, hexes[i]).y), 18, RAYWHITE)
@@ -199,42 +219,31 @@ def render(state):
                 draw_circle(dot_x, dot_y, dot_size, BLACK)
                 draw_circle(dot_x+dot_x_offset*2, dot_y, dot_size, BLACK)
                 draw_circle(dot_x+dot_x_offset*4, dot_y, dot_size, BLACK)
-
-                
+        # draw black outlines
         draw_poly_lines(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, BLACK)
 
         # drawing circles in hex centers to center text
         # if state.debug == True:
             # draw_circle(int(hh.hex_to_pixel(pointy, hexes[i]).x), int(hh.hex_to_pixel(pointy, hexes[i]).y), 4, BLACK)
+    
+    # show selected hex
+    if state.current_hex:
+        draw_poly(hh.hex_to_pixel(pointy, state.current_hex), 6, size, 0, (255, 255, 255, 75))
 
-    if state.debug == True:
-        # world_position_s = get_screen_to_world_2d(state.mouse, state.camera)
-        draw_line(510-int(state.camera.offset.x), 110-int(state.camera.offset.y), 290-int(state.camera.offset.x), 490-int(state.camera.offset.y), BLACK)
-        draw_text_ex(state.font, "+ S -", (480-int(state.camera.offset.x), 80-int(state.camera.offset.y)), 20, 0, BLACK)
-        draw_line(180-int(state.camera.offset.x), 300-int(state.camera.offset.y), 625-int(state.camera.offset.x), 300-int(state.camera.offset.y), BLACK)
-        draw_text_ex(state.font, "-", (645-int(state.camera.offset.x), 270-int(state.camera.offset.y)), 20, 0, BLACK)
-        draw_text_ex(state.font, "R", (645-int(state.camera.offset.x), 290-int(state.camera.offset.y)), 20, 0, BLACK)
-        draw_text_ex(state.font, "+", (645-int(state.camera.offset.x), 310-int(state.camera.offset.y)), 20, 0, BLACK)
-        draw_line(290-int(state.camera.offset.x), 110-int(state.camera.offset.y), 510-int(state.camera.offset.x), 490-int(state.camera.offset.y), BLACK)
-        draw_text_ex(state.font, "- Q +", (490-int(state.camera.offset.x), 500-int(state.camera.offset.y)), 20, 0, BLACK)
-        
+
     end_mode_2d()
 
     if state.debug == True:
 
-        start_points_x = [(x, 100) for x in range(100, screen_width, 100)]
-        for i in range(1, len(start_points_x)+1):
-            draw_text_ex(state.font, str(100*i), (100*i-11*3//2, 3), 11, 0, BLACK)
-        start_points_y = [(100, y) for y in range(100, screen_height, 100)]
-        for i in range(1, len(start_points_y)+1):
-            draw_text_ex(state.font, str(100*i), (3, 100*i-5), 11, 0, BLACK)
-
-        draw_text_ex(state.font, f"mouse at: ({int(state.mouse.x)}, {int(state.mouse.y)})", (20, 20), 20, 0, WHITE)
+        
+        world_position = get_screen_to_world_2d(state.mouse, state.camera)
+        draw_text_ex(gui_get_font(), f"Mouse at: ({int(state.mouse.x)}, {int(state.mouse.y)})", (5, 5), 15, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"Mouse to world at: ({int(world_position.x)}, {int(world_position.y)})", (5, 25), 15, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"Current tile: {state.current_hex}", (5, 45), 15, 0, BLACK)
         if state.current_hex:
-            draw_text_ex(state.font, f"current tile: {state.current_hex}", (20, 50), 20, 0, WHITE)
-
-    # debug check box toggle
-    state.debug = gui_check_box(Rectangle(screen_width-100, 50, 20, 20), "DEBUG MODE", state.debug)
+            draw_text_ex(gui_get_font(), f"Corners = {hh.polygon_corners(pointy, state.current_hex)}", (5, 65), 15, 0, BLACK)
+            draw_text_ex(gui_get_font(), f"{check_collision_point_poly(world_position, hh.polygon_corners(pointy, state.current_hex), 6)}", (5, 85), 15, 0, BLACK)
+        
     
     end_drawing()
 
@@ -244,10 +253,12 @@ def main():
     set_target_fps(60)
     initialize_board(state)
     state.font = load_font("assets/classic_memesbruh03.ttf")
+    gui_set_font(load_font("assets/PublicPixel.ttf"))
     while not window_should_close():
         update(state)
         render(state)
     unload_font(state.font)
+    unload_font(gui_get_font())
     close_window()
 
 main()
