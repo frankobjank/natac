@@ -14,13 +14,12 @@ screen_width=800
 screen_height=600
 
 
-
-
+# USE HEX NEIGHBOR TO GENERATE BOARD
 
 
 # layout = type, size, origin
 size = 50 # (radius)
-pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(400, 300))
+pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
 # make sure to use hex_round with pixel_to_hex or wrong hex is sometimes selected
 
@@ -77,6 +76,7 @@ def get_random_tiles():
 class State:
     def __init__(self):
         self.board = {}
+        self.hex_triangles = {}
         self.selection = None
         self.mouse = get_mouse_position()
         self.current_hex = None
@@ -95,12 +95,14 @@ state = State()
 state.initialize_camera()
 
 
-
+# STATE.BOARD:
+# {Hex(q=0, r=-2, s=2): <Tile.MOUNTAIN: {'resource': 'ore', 'color': <cdata 'struct Color' owning 4 bytes>}>, ... }
 
 def initialize_board(state):
     tiles = default_tiles
     # tiles = get_random_tiles()
 
+    # q 0 -> 2
     state.board[hh.set_hex(0, -2, 2)] = tiles[0]
     state.board[hh.set_hex(1, -2, 1)] = tiles[1]
     state.board[hh.set_hex(2, -2, 0)] = tiles[2]
@@ -131,8 +133,9 @@ def initialize_board(state):
 
     state.current_hex = hh.hex_tuple(q=0, r=0, s=0)
 
-
-
+    hexes = state.board.keys()
+    for hex in hexes:
+        state.hex_triangles[hex] = hh.hex_triangles(pointy, hex)
 
 
 
@@ -142,18 +145,21 @@ def update(state):
     state.mouse = get_mouse_position()
     world_position = get_screen_to_world_2d(state.mouse, state.camera)
 
+    # USING COLLISION POINT POLY
+    # for hex in state.board.keys():
+    #     if check_collision_point_poly(world_position, hh.polygon_corners(pointy, hex), 6):
+    #         # bug - creates/selects hexes in the ocean to the left of the board
+    #         state.current_hex = hh.hex_round(hh.pixel_to_hex(pointy, world_position))
+    
+    # USING TRIANGLES
     for hex in state.board.keys():
-        if check_collision_point_poly(world_position, hh.polygon_corners(pointy, hex), 6):
-            # bug - creates/selects hexes in the ocean to the left of the board
-            state.current_hex = hh.hex_round(hh.pixel_to_hex(pointy, world_position))
+        for t in state.hex_triangles[hex]:
+            if check_collision_point_triangle(world_position, t[0], t[1], t[2]):
+                state.current_hex = hex
+
 
     if is_mouse_button_pressed(mouse_button_left):
         state.selection = state.current_hex
-
-    # if is_key_down(KeyboardKey.KEY_A):
-    #     state.camera.rotation -= 2
-    # elif is_key_down(KeyboardKey.KEY_D):
-    #     state.camera.rotation += 2
 
     state.camera.zoom += get_mouse_wheel_move() * 0.03
 
@@ -220,7 +226,7 @@ def render(state):
                 draw_circle(dot_x+dot_x_offset*2, dot_y, dot_size, BLACK)
                 draw_circle(dot_x+dot_x_offset*4, dot_y, dot_size, BLACK)
         # draw black outlines
-        draw_poly_lines(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, BLACK)
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, 2, BLACK)
 
         # drawing circles in hex centers to center text
         # if state.debug == True:
@@ -228,14 +234,12 @@ def render(state):
     
     # show selected hex
     if state.current_hex:
-        draw_poly(hh.hex_to_pixel(pointy, state.current_hex), 6, size, 0, (255, 255, 255, 75))
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, size-1, 0, 5, BLACK)
 
 
     end_mode_2d()
 
     if state.debug == True:
-
-        
         world_position = get_screen_to_world_2d(state.mouse, state.camera)
         draw_text_ex(gui_get_font(), f"Mouse at: ({int(state.mouse.x)}, {int(state.mouse.y)})", (5, 5), 15, 0, BLACK)
         draw_text_ex(gui_get_font(), f"Mouse to world at: ({int(world_position.x)}, {int(world_position.y)})", (5, 25), 15, 0, BLACK)
@@ -244,7 +248,6 @@ def render(state):
             draw_text_ex(gui_get_font(), f"Corners = {hh.polygon_corners(pointy, state.current_hex)}", (5, 65), 15, 0, BLACK)
             draw_text_ex(gui_get_font(), f"{check_collision_point_poly(world_position, hh.polygon_corners(pointy, state.current_hex), 6)}", (5, 85), 15, 0, BLACK)
         
-    
     end_drawing()
 
 
