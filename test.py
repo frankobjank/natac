@@ -10,22 +10,20 @@ def offset(lst, offset):
   return lst[offset:] + lst[:offset]
 
 pointy = hh.Layout(hh.layout_pointy, hh.Point(50, 50), hh.Point(400, 300))
-hex = hh.set_hex(0, 0, 0)
-corners = hh.polygon_corners(pointy, hex)
-hex_center = hh.hex_to_pixel(pointy, hex)
+origin = hh.set_hex(0, 0, 0)
+surrounding = []
+outer = []
 
-hex_tri = []
-for i in range(len(corners)):
-    hex_tri.append([corners[(i+1)%6], hex_center, corners[i]])
-# illustration of above loop:
-# triangle_points.append([corners[1], hex_center, corners[0]])
-# triangle_points.append([corners[2], hex_center, corners[1]])
-# triangle_points.append([corners[3], hex_center, corners[2]])
-# triangle_points.append([corners[4], hex_center, corners[3]])
-# triangle_points.append([corners[5], hex_center, corners[4]])
-# triangle_points.append([corners[0], hex_center, corners[5]])
+for i in range(6):
+    surrounding.append(hh.hex_neighbor(origin, i))
 
-problem = []
+for i in range(6):
+    outer.append(hh.hex_neighbor(surrounding[i], i))
+    outer.append(hh.hex_diagonal_neighbor(origin, i))
+all_hexes = []
+all_hexes.append(outer)
+all_hexes.append(surrounding)
+all_hexes.append(origin)
 
 def main():
     init_window(screen_width, screen_height, "natac")
@@ -35,20 +33,14 @@ def main():
         begin_drawing()
         clear_background(GRAY)
         mouse = get_mouse_position()
+        line = (Vector2(0, 300), Vector2(screen_width, 300))
+        draw_line_v(line[0], line[1], BLACK)
 
-        
-        
-        for t in hex_tri:
-            if check_collision_point_triangle(mouse, t[0], t[1], t[2]):
-                # draw_triangle(t[0], t[1], t[2], (WHITE[0], WHITE[1], WHITE[2], 150))
-                draw_poly(hh.hex_to_pixel(pointy, hex), 6, 50, 0, BLUE)
+        if check_collision_point_line(mouse, line[0], line[1], 5):
+            draw_line_ex(line[0], line[1], 5, BLACK)
 
-        
+
         draw_text_ex(gui_get_font(), f"Mouse at: ({int(mouse.x)}, {int(mouse.y)})", (5, 5), 15, 0, BLACK)
-        
-        for i in range(len(corners)):
-            draw_text_ex(gui_get_font(), f"{i}", (int(corners[i].x), int(corners[i].y)), 15, 0, RED)
-       
         end_drawing()
 
     unload_font(gui_get_font())
@@ -61,16 +53,33 @@ main()
 # w = int(math.sqrt(3)*size)
 
 
+# how to use hex_neighbor to create board
+# origin = hh.set_hex(0, 0, 0)
+# surrounding = []
+# outer = []
 
+# for i in range(6):
+#     surrounding.append(hh.hex_neighbor(origin, i))
 
+# for i in range(6):
+#     outer.append(hh.hex_neighbor(surrounding[i], i))
+#     outer.append(hh.hex_diagonal_neighbor(origin, i))
+# all_hexes = []
+# all_hexes.append(outer)
+# all_hexes.append(surrounding)
+# all_hexes.append(origin)
 
-#     draw_text_ex(gui_get_font(), f"Corner {i} = {corners[i]}", (5, 5+15*i), 12, 0, BLACK)
+# mouse = get_mouse_position()
 
+# draw_poly(hh.hex_to_pixel(pointy, origin), 6, 50, 60, BLACK)
+# draw_poly_lines_ex(hh.hex_to_pixel(pointy, origin), 6, 50, 0, 2, WHITE)
 
-# area_covered = set()
-# num_corners = 6
-# rec = Rectangle(300, 300, 100, 100)
-# for y in range(200, 500):
-#     for x in range(500):
-#         if check_collision_point_poly((x, y), corners, num_corners):
-#             area_covered.add((x, y))
+# for h in surrounding:
+#     draw_poly(hh.hex_to_pixel(pointy, h), 6, 50, 60, (0, 0, 0, 200))
+#     draw_poly_lines_ex(hh.hex_to_pixel(pointy, h), 6, 50, 0, 2, WHITE)
+
+# for h in outer:
+#     draw_poly(hh.hex_to_pixel(pointy, h), 6, 50, 60, (0, 0, 0, 100))
+#     draw_poly_lines_ex(hh.hex_to_pixel(pointy, h), 6, 50, 0, 2, WHITE)
+
+# draw_text_ex(gui_get_font(), f"Mouse at: ({int(mouse.x)}, {int(mouse.y)})", (5, 5), 15, 0, BLACK)

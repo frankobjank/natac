@@ -110,8 +110,15 @@ def hex_triangles(layout, h):
     hex_tri = []
     for i in range(0, 6):
         hex_tri.append([corners[(i+1)%6], center, corners[i]])
-
     return hex_tri
+
+# illustration of above loop (needed to configure vertices in counter-clockwise order):
+# triangle_points.append([corners[1], hex_center, corners[0]])
+# triangle_points.append([corners[2], hex_center, corners[1]])
+# triangle_points.append([corners[3], hex_center, corners[2]])
+# triangle_points.append([corners[4], hex_center, corners[3]])
+# triangle_points.append([corners[5], hex_center, corners[4]])
+# triangle_points.append([corners[0], hex_center, corners[5]])
 
 OffsetCoord = collections.namedtuple("OffsetCoord", ["col", "row"])
 

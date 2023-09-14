@@ -13,22 +13,33 @@ mouse_button_right= 1
 screen_width=800
 screen_height=600
 
+default_zoom = 1.1
+
+def vector_round(vector):
+    return (int(vector.x), int(vector.y))
+
+# To do:
+    # select vertices
+    # select corners
+    # Create ocean tiles, maybe ports in an Ocean Tiles class
+
 
 # USE HEX NEIGHBOR TO GENERATE BOARD
-
 
 # layout = type, size, origin
 size = 50 # (radius)
 pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
-# make sure to use hex_round with pixel_to_hex or wrong hex is sometimes selected
-
-# 2D camera for rotation - turn hexes and keep the rest the same
+all_ports = ["three_to_one", "wood_port", "brick_port", "sheep_port", "wheat_port", "ore_port"]
 
 all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
 all_tiles = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
+
 all_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
 dot_dict = {2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1}
+
+all_game_pieces = ["robber", "road", "settlement", "city"]
+
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255) 
 class Tile(Enum):
     # colors defined as R, G, B, A where A (alpha/opacity) is 0-255, or % (0-1)
@@ -79,7 +90,12 @@ class State:
         self.hex_triangles = {}
         self.selection = None
         self.mouse = get_mouse_position()
+
         self.current_hex = None
+        self.current_triangle = None
+        self.current_edge = None
+        self.current_node = None
+
         self.debug = False
         self.font = None
         self.frame_counter = 0
@@ -89,7 +105,7 @@ class State:
         self.camera.target = Vector2(0, 0)
         self.camera.offset = Vector2(screen_width/2, screen_height/2)
         self.camera.rotation = 0.0
-        self.camera.zoom = 0.9
+        self.camera.zoom = default_zoom
         
 state = State()
 state.initialize_camera()
@@ -146,6 +162,7 @@ def update(state):
     world_position = get_screen_to_world_2d(state.mouse, state.camera)
 
     # USING COLLISION POINT POLY
+    # make sure to use hex_round with pixel_to_hex or wrong hex is sometimes selected
     # for hex in state.board.keys():
     #     if check_collision_point_poly(world_position, hh.polygon_corners(pointy, hex), 6):
     #         # bug - creates/selects hexes in the ocean to the left of the board
@@ -156,16 +173,32 @@ def update(state):
         for t in state.hex_triangles[hex]:
             if check_collision_point_triangle(world_position, t[0], t[1], t[2]):
                 state.current_hex = hex
+                state.current_triangle = t
+    
+    if state.current_triangle:
+        # triangle[0] and triangle[2] are edge vertices
+        if check_collision_point_line(state.mouse, state.current_triangle[0], state.current_triangle[2], 40):
+            print(state.current_triangle[0], state.current_triangle[2])
+            
+            state.current_edge = (t[0], t[2])
+
+
 
 
     if is_mouse_button_pressed(mouse_button_left):
-        state.selection = state.current_hex
+        if state.current_triangle:
+            for p in state.current_triangle:
+                print(f"triangle vertices: {vector_round(p)}")
+        if state.current_edge:
+            print(f"edge = {state.current_edge}")
+        else:
+            print("no edge")
 
     state.camera.zoom += get_mouse_wheel_move() * 0.03
 
-    if is_key_down(KeyboardKey.KEY_W):
+    if is_key_down(KeyboardKey.KEY_RIGHT_BRACKET):
         state.camera.zoom += 0.03
-    elif is_key_down(KeyboardKey.KEY_S):
+    elif is_key_down(KeyboardKey.KEY_LEFT_BRACKET):
         state.camera.zoom -= 0.03
 
     if state.camera.zoom > 3.0:
@@ -175,7 +208,7 @@ def update(state):
 
     # Camera reset (zoom and rotation)
     if is_key_pressed(KeyboardKey.KEY_R):
-        state.camera.zoom = 0.9
+        state.camera.zoom = default_zoom
         state.camera.rotation = 0.0
 
     if is_key_pressed(KeyboardKey.KEY_E):
@@ -226,7 +259,7 @@ def render(state):
                 draw_circle(dot_x+dot_x_offset*2, dot_y, dot_size, BLACK)
                 draw_circle(dot_x+dot_x_offset*4, dot_y, dot_size, BLACK)
         # draw black outlines
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, 2, BLACK)
+        # draw_poly_lines_ex(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, 2, BLACK)
 
         # drawing circles in hex centers to center text
         # if state.debug == True:
@@ -236,17 +269,34 @@ def render(state):
     if state.current_hex:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, size-1, 0, 5, BLACK)
 
+    if state.current_triangle:
+        draw_triangle(state.current_triangle[0], state.current_triangle[1], state.current_triangle[2], RED)
+        draw_line_v(state.current_triangle[0], state.current_triangle[2], BLUE)
+
+    if state.current_edge:
+        draw_line_ex(state.current_edge[0], state.current_edge[1], 5, (BLACK))
+    
+
 
     end_mode_2d()
 
     if state.debug == True:
-        world_position = get_screen_to_world_2d(state.mouse, state.camera)
+        # world_position = get_screen_to_world_2d(state.mouse, state.camera)
+        # draw_text_ex(gui_get_font(), f"Mouse at: ({int(state.mouse.x)}, {int(state.mouse.y)})", (5, 5), 15, 0, BLACK)
+        # draw_text_ex(gui_get_font(), f"Mouse to world at: ({int(world_position.x)}, {int(world_position.y)})", (5, 25), 15, 0, BLACK)
+        # draw_text_ex(gui_get_font(), f"Current tile: {state.current_hex}", (5, 45), 15, 0, BLACK)
+        # if state.current_hex:
+        #     draw_text_ex(gui_get_font(), f"Corners = {hh.polygon_corners(pointy, state.current_hex)}", (5, 65), 15, 0, BLACK)
+        #     draw_text_ex(gui_get_font(), f"{check_collision_point_poly(world_position, hh.polygon_corners(pointy, state.current_hex), 6)}", (5, 85), 15, 0, BLACK)
+        
         draw_text_ex(gui_get_font(), f"Mouse at: ({int(state.mouse.x)}, {int(state.mouse.y)})", (5, 5), 15, 0, BLACK)
-        draw_text_ex(gui_get_font(), f"Mouse to world at: ({int(world_position.x)}, {int(world_position.y)})", (5, 25), 15, 0, BLACK)
-        draw_text_ex(gui_get_font(), f"Current tile: {state.current_hex}", (5, 45), 15, 0, BLACK)
         if state.current_hex:
-            draw_text_ex(gui_get_font(), f"Corners = {hh.polygon_corners(pointy, state.current_hex)}", (5, 65), 15, 0, BLACK)
-            draw_text_ex(gui_get_font(), f"{check_collision_point_poly(world_position, hh.polygon_corners(pointy, state.current_hex), 6)}", (5, 85), 15, 0, BLACK)
+            draw_text_ex(gui_get_font(), f"Current hex: {state.current_hex}", (5, 25), 15, 0, BLACK)
+        if state.current_triangle:
+            draw_text_ex(gui_get_font(), f"Current triangle: {[vector_round(state.current_triangle[i]) for i in range(0, 3)]}", (5, 45), 15, 0, BLACK)
+        if state.current_edge:
+            draw_text_ex(gui_get_font(), f"Current edge = {state.current_edge}", (5, 65), 15, 0, BLACK)
+
         
     end_drawing()
 
