@@ -23,6 +23,14 @@ def vector_round(vector):
     # select corners
     # Create ocean tiles, maybe ports in an Ocean Tiles class
 
+# Ocean tiles
+# 4
+# 2
+# 2
+# 2
+# 2
+# 2
+# 4
 
 # USE HEX NEIGHBOR TO GENERATE BOARD
 
@@ -179,8 +187,9 @@ def update(state):
         # triangle[0] and triangle[2] are edge vertices
         if check_collision_point_line(state.mouse, state.current_triangle[0], state.current_triangle[2], 40):
             print(state.current_triangle[0], state.current_triangle[2])
-            
-            state.current_edge = (t[0], t[2])
+            print("hello")
+            state.current_edge = (state.current_triangle[0], state.current_triangle[2])
+
 
 
 
