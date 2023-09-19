@@ -47,24 +47,24 @@ def main():
         nodes = (Vector2(400, 0), Vector2(0, 300), Vector2(400, 300), Vector2(800, 300), Vector2(400, 600))
         edges = ((nodes[0], nodes[2]), (nodes[1], nodes[2]), (nodes[2], nodes[3]), (nodes[2], nodes[4]))
 
+        current_node = None
+        current_edge = None
+        current_rectangle = None
 
-
-
+        for node in nodes:
+            if check_collision_point_circle(mouse, node, 15):
+                current_node = node
+                break
 
         for edge in edges:
             if check_collision_point_line(mouse, edge[0], edge[1], 8):
                 current_edge = edge
                 break
-            else:
-                current_edge = None
 
-        
-        for node in nodes:
-            if check_collision_point_circle(mouse, node, 15):
-                current_node = node
+        for rec in board:
+            if check_collision_point_rec(mouse, rec):
+                current_rectangle = rec
                 break
-            else:
-                current_node = None
             
         if is_mouse_button_pressed(MouseButton.MOUSE_BUTTON_LEFT):
             if current_node:
@@ -87,9 +87,7 @@ def main():
 
 
 
-        for rec in board:
-            if check_collision_point_rec(mouse, rec):
-                current_rectangle = rec
+
         if current_rectangle:
             draw_rectangle(int(current_rectangle.x), int(current_rectangle.y), int(current_rectangle.width), int(current_rectangle.height), (fade(RED, .5)))
         if selected_rectangle:
