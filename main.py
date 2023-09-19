@@ -10,7 +10,7 @@ import hex_helper as hh
 screen_width=800
 screen_height=600
 
-default_zoom = 1.1
+default_zoom = .9
 
 def vector_round(vector):
     return (int(vector.x), int(vector.y))
@@ -92,7 +92,8 @@ def get_random_tiles():
 
 class State:
     def __init__(self):
-        self.board = {}
+        self.resource_hexes = {}
+        self.ocean_hexes = {}
         self.hex_triangles = {}
         self.selection = None
         self.mouse = get_mouse_position()
@@ -125,37 +126,47 @@ def initialize_board(state):
     # tiles = get_random_tiles()
 
     # q 0 -> 2
-    state.board[hh.set_hex(0, -2, 2)] = tiles[0]
-    state.board[hh.set_hex(1, -2, 1)] = tiles[1]
-    state.board[hh.set_hex(2, -2, 0)] = tiles[2]
+    state.resource_hexes[hh.set_hex(0, -2, 2)] = tiles[0]
+    state.resource_hexes[hh.set_hex(1, -2, 1)] = tiles[1]
+    state.resource_hexes[hh.set_hex(2, -2, 0)] = tiles[2]
 
     # q -1 -> 2
-    state.board[hh.set_hex(-1, -1, 2)] = tiles[3]
-    state.board[hh.set_hex(0, -1, 1)] = tiles[4]
-    state.board[hh.set_hex(1, -1, 0)] = tiles[5]
-    state.board[hh.set_hex(2, -1, -1)] = tiles[6]
+    state.resource_hexes[hh.set_hex(-1, -1, 2)] = tiles[3]
+    state.resource_hexes[hh.set_hex(0, -1, 1)] = tiles[4]
+    state.resource_hexes[hh.set_hex(1, -1, 0)] = tiles[5]
+    state.resource_hexes[hh.set_hex(2, -1, -1)] = tiles[6]
 
     # q -2 -> 2
-    state.board[hh.set_hex(-2, 0, 2)] = tiles[7]
-    state.board[hh.set_hex(-1, 0, 1)] = tiles[8]
-    state.board[hh.set_hex(0, 0, 0)] = tiles[9]
-    state.board[hh.set_hex(1, 0, -1)] = tiles[10]
-    state.board[hh.set_hex(2, 0, -2)] = tiles[11]
+    state.resource_hexes[hh.set_hex(-2, 0, 2)] = tiles[7]
+    state.resource_hexes[hh.set_hex(-1, 0, 1)] = tiles[8]
+    state.resource_hexes[hh.set_hex(0, 0, 0)] = tiles[9]
+    state.resource_hexes[hh.set_hex(1, 0, -1)] = tiles[10]
+    state.resource_hexes[hh.set_hex(2, 0, -2)] = tiles[11]
 
     # q -2 -> 1
-    state.board[hh.set_hex(-2, 1, 1)] = tiles[12]
-    state.board[hh.set_hex(-1, 1, 0)] = tiles[13]
-    state.board[hh.set_hex(0, 1, -1)] = tiles[14]
-    state.board[hh.set_hex(1, 1, -2)] = tiles[15]
+    state.resource_hexes[hh.set_hex(-2, 1, 1)] = tiles[12]
+    state.resource_hexes[hh.set_hex(-1, 1, 0)] = tiles[13]
+    state.resource_hexes[hh.set_hex(0, 1, -1)] = tiles[14]
+    state.resource_hexes[hh.set_hex(1, 1, -2)] = tiles[15]
 
     # q -2 -> 0
-    state.board[hh.set_hex(-2, 2, 0)] = tiles[16]
-    state.board[hh.set_hex(-1, 2, -1)] = tiles[17]
-    state.board[hh.set_hex(0, 2, -2)] = tiles[18]
+    state.resource_hexes[hh.set_hex(-2, 2, 0)] = tiles[16]
+    state.resource_hexes[hh.set_hex(-1, 2, -1)] = tiles[17]
+    state.resource_hexes[hh.set_hex(0, 2, -2)] = tiles[18]
 
-    state.current_hex = hh.hex_tuple(q=0, r=0, s=0)
+    # ocean tiles
+    # o =((0, -3, 3),
+    #     (1, -3, 2),
+    #     (2, -3, 1),
+    #     (3, -3, 0))
 
-    hexes = state.board.keys()
+    state.ocean_hexes[hh.set_hex(0, -3, 3)] = Tile.OCEAN
+    state.ocean_hexes[hh.set_hex(1, -3, 2)] = Tile.OCEAN
+    state.ocean_hexes[hh.set_hex(2, -3, 1)] = Tile.OCEAN
+    state.ocean_hexes[hh.set_hex(3, -3, 0)] = Tile.OCEAN
+
+
+    hexes = state.resource_hexes.keys()
     for hex in hexes:
         state.hex_triangles[hex] = hh.hex_triangles(pointy, hex)
 
@@ -167,15 +178,21 @@ def update(state):
     state.mouse = get_mouse_position()
     world_position = get_screen_to_world_2d(state.mouse, state.camera)
 
+    # RESET current hex, triangle, edge, node
+    state.current_hex = None
+    state.current_triangle = None
+    state.current_edge = None
+    state.current_node = None
+
     # USING COLLISION POINT POLY
     # make sure to use hex_round with pixel_to_hex or wrong hex is sometimes selected
-    # for hex in state.board.keys():
+    # for hex in state.resource_hexes.keys():
     #     if check_collision_point_poly(world_position, hh.polygon_corners(pointy, hex), 6):
-    #         # bug - creates/selects hexes in the ocean to the left of the board
+    #         # bug - creates/selects hexes in the ocean to the left of the resource_hexes
     #         state.current_hex = hh.hex_round(hh.pixel_to_hex(pointy, world_position))
-    
+
     # USING TRIANGLES
-    for hex in state.board.keys():
+    for hex in state.resource_hexes.keys():
         for t in state.hex_triangles[hex]:
             if check_collision_point_triangle(world_position, t[0], t[1], t[2]):
                 state.current_hex = hex
@@ -183,21 +200,19 @@ def update(state):
     
     if state.current_triangle:
         # triangle[0] and triangle[2] are edge vertices
-        if check_collision_point_line(world_position, state.current_triangle[0], state.current_triangle[2], 40):
+        if check_collision_point_line(world_position, state.current_triangle[0], state.current_triangle[2], 10):
             state.current_edge = (state.current_triangle[0], state.current_triangle[2])
 
+    if state.current_edge:
+        for node in state.current_edge:
+            if check_collision_point_circle(world_position, node, 8):
+                state.current_node = node
 
 
 
 
     if is_mouse_button_pressed(MouseButton.MOUSE_BUTTON_LEFT):
-        if state.current_triangle:
-            print(f"edge points: {vector_round(state.current_triangle[0])}")
-            print(f"edge points: {vector_round(state.current_triangle[2])}")
-        if state.current_edge:
-            print(f"current edge = {state.current_edge}")
-        else:
-            print("no edge")
+        pass
 
     state.camera.zoom += get_mouse_wheel_move() * 0.03
 
@@ -229,9 +244,10 @@ def render(state):
     clear_background(BLUE)
 
     begin_mode_2d(state.camera)
-    hexes = list(state.board.keys())
+    hexes = list(state.resource_hexes.keys())
     for i in range(len(hexes)):
-        draw_poly(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, state.board[hexes[i]].value["color"])
+        # draw resource hexes
+        draw_poly(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, state.resource_hexes[hexes[i]].value["color"])
         # draw numbers, circles
         if type(all_tile_tokens[i]) == int:
             draw_circle(int(hh.hex_to_pixel(pointy, hexes[i]).x), int(hh.hex_to_pixel(pointy, hexes[i]).y), 18, RAYWHITE)
@@ -264,22 +280,28 @@ def render(state):
                 draw_circle(dot_x+dot_x_offset*2, dot_y, dot_size, BLACK)
                 draw_circle(dot_x+dot_x_offset*4, dot_y, dot_size, BLACK)
         # draw black outlines
-        # draw_poly_lines_ex(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, 2, BLACK)
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, 2, BLACK)
 
         # drawing circles in hex centers to center text
         # if state.debug == True:
             # draw_circle(int(hh.hex_to_pixel(pointy, hexes[i]).x), int(hh.hex_to_pixel(pointy, hexes[i]).y), 4, BLACK)
     
-    # show selected hex
-    if state.current_hex:
+    if state.current_node:
+        draw_circle_v(state.current_node, 8, BLACK)
+
+    # highlight selected edge
+    if state.current_edge and not state.current_node:
+        draw_line_ex(state.current_edge[0], state.current_edge[1], 10, (BLACK))
+    
+    # outline selected hex
+    if state.current_hex and not state.current_edge:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, size-1, 0, 5, BLACK)
 
-    if state.current_triangle:
-        # draw_triangle(state.current_triangle[0], state.current_triangle[1], state.current_triangle[2], RED)
-        draw_line_ex(state.current_triangle[0], state.current_triangle[2], 10, BLUE)
+    # show current triangle - for debugging
+    # if state.current_triangle:
+    #     # draw_triangle(state.current_triangle[0], state.current_triangle[1], state.current_triangle[2], RED)
+    #     draw_line_ex(state.current_triangle[0], state.current_triangle[2], 10, BLUE)
 
-    if state.current_edge:
-        draw_line_ex(state.current_edge[0], state.current_edge[1], 5, (BLACK))
     
 
 
@@ -299,10 +321,10 @@ def render(state):
         draw_text_ex(gui_get_font(), f"World mouse at: ({int(world_position.x)}, {int(world_position.y)})", (5, 5), 15, 0, BLACK)
         if state.current_hex:
             draw_text_ex(gui_get_font(), f"Current hex: {state.current_hex}", (5, 25), 15, 0, BLACK)
-        if state.current_triangle:
-            draw_text_ex(gui_get_font(), f"Current edge points: {vector_round(state.current_triangle[0])}, {vector_round(state.current_triangle[2])}", (5, 45), 15, 0, BLACK)
         if state.current_edge:
-            draw_text_ex(gui_get_font(), f"Current edge = {state.current_edge}", (5, 65), 15, 0, BLACK)
+            draw_text_ex(gui_get_font(), f"Current edge: {vector_round(state.current_edge[0])}, {vector_round(state.current_edge[1])}", (5, 45), 15, 0, BLACK)
+        if state.current_node:
+            draw_text_ex(gui_get_font(), f"Current node = {vector_round(state.current_node)}", (5, 65), 15, 0, BLACK)
 
         
     end_drawing()
