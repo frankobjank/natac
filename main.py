@@ -7,9 +7,6 @@ from enum import Enum
 from pyray import *
 import hex_helper as hh
 
-mouse_button_left= 0
-mouse_button_right= 1
-
 screen_width=800
 screen_height=600
 
@@ -22,6 +19,7 @@ def vector_round(vector):
     # select vertices
     # select corners
     # Create ocean tiles, maybe ports in an Ocean Tiles class
+    # draw robber, settlements/pieces
 
 # Ocean tiles
 # 4
@@ -185,21 +183,19 @@ def update(state):
     
     if state.current_triangle:
         # triangle[0] and triangle[2] are edge vertices
-        if check_collision_point_line(state.mouse, state.current_triangle[0], state.current_triangle[2], 40):
-            print(state.current_triangle[0], state.current_triangle[2])
-            print("hello")
+        if check_collision_point_line(world_position, state.current_triangle[0], state.current_triangle[2], 40):
             state.current_edge = (state.current_triangle[0], state.current_triangle[2])
 
 
 
 
 
-    if is_mouse_button_pressed(mouse_button_left):
+    if is_mouse_button_pressed(MouseButton.MOUSE_BUTTON_LEFT):
         if state.current_triangle:
-            for p in state.current_triangle:
-                print(f"triangle vertices: {vector_round(p)}")
+            print(f"edge points: {vector_round(state.current_triangle[0])}")
+            print(f"edge points: {vector_round(state.current_triangle[2])}")
         if state.current_edge:
-            print(f"edge = {state.current_edge}")
+            print(f"current edge = {state.current_edge}")
         else:
             print("no edge")
 
@@ -279,8 +275,8 @@ def render(state):
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, size-1, 0, 5, BLACK)
 
     if state.current_triangle:
-        draw_triangle(state.current_triangle[0], state.current_triangle[1], state.current_triangle[2], RED)
-        draw_line_v(state.current_triangle[0], state.current_triangle[2], BLUE)
+        # draw_triangle(state.current_triangle[0], state.current_triangle[1], state.current_triangle[2], RED)
+        draw_line_ex(state.current_triangle[0], state.current_triangle[2], 10, BLUE)
 
     if state.current_edge:
         draw_line_ex(state.current_edge[0], state.current_edge[1], 5, (BLACK))
@@ -298,11 +294,13 @@ def render(state):
         #     draw_text_ex(gui_get_font(), f"Corners = {hh.polygon_corners(pointy, state.current_hex)}", (5, 65), 15, 0, BLACK)
         #     draw_text_ex(gui_get_font(), f"{check_collision_point_poly(world_position, hh.polygon_corners(pointy, state.current_hex), 6)}", (5, 85), 15, 0, BLACK)
         
-        draw_text_ex(gui_get_font(), f"Mouse at: ({int(state.mouse.x)}, {int(state.mouse.y)})", (5, 5), 15, 0, BLACK)
+        world_position = get_screen_to_world_2d(state.mouse, state.camera)
+        # draw_text_ex(gui_get_font(), f"Mouse at: ({int(state.mouse.x)}, {int(state.mouse.y)})", (5, 5), 15, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"World mouse at: ({int(world_position.x)}, {int(world_position.y)})", (5, 5), 15, 0, BLACK)
         if state.current_hex:
             draw_text_ex(gui_get_font(), f"Current hex: {state.current_hex}", (5, 25), 15, 0, BLACK)
         if state.current_triangle:
-            draw_text_ex(gui_get_font(), f"Current triangle: {[vector_round(state.current_triangle[i]) for i in range(0, 3)]}", (5, 45), 15, 0, BLACK)
+            draw_text_ex(gui_get_font(), f"Current edge points: {vector_round(state.current_triangle[0])}, {vector_round(state.current_triangle[2])}", (5, 45), 15, 0, BLACK)
         if state.current_edge:
             draw_text_ex(gui_get_font(), f"Current edge = {state.current_edge}", (5, 65), 15, 0, BLACK)
 

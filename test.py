@@ -56,15 +56,17 @@ def main():
                 current_node = node
                 break
 
-        for edge in edges:
-            if check_collision_point_line(mouse, edge[0], edge[1], 8):
-                current_edge = edge
-                break
-
-        for rec in board:
-            if check_collision_point_rec(mouse, rec):
-                current_rectangle = rec
-                break
+        if not current_node:
+            for edge in edges:
+                if check_collision_point_line(mouse, edge[0], edge[1], 8):
+                    current_edge = edge
+                    break
+        
+        if not current_node and not current_edge:
+            for rec in board:
+                if check_collision_point_rec(mouse, rec):
+                    current_rectangle = rec
+                    break
             
         if is_mouse_button_pressed(MouseButton.MOUSE_BUTTON_LEFT):
             if current_node:
@@ -75,7 +77,7 @@ def main():
                     
             if current_edge:
                 if check_collision_point_line(mouse, current_edge[0], current_edge[1], 8):
-                        selected_edge = current_edge
+                    selected_edge = current_edge
             else:
                 selected_edge = None
                     
