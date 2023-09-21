@@ -55,23 +55,22 @@ class Tile(Enum):
     FIELD = {"resource": "wheat", "color": get_color(0xf0ad00ff)}
     MOUNTAIN = {"resource": "ore", "color": get_color(0x7b6f83ff)}
     DESERT = {"resource": None, "color": get_color(0xffd966ff)}
-    OCEAN = {"resource": None, "color": get_color(0x4fa6ebff)}
+    # OCEAN = {"resource": None, "color": get_color(0x4fa6ebff)}
 
 # maybe define ports as constants via Enum class 
 class Port(Enum):
-    THREE = {"port": "three", "color": get_color(0x4fa6ebff)}
-    WHEAT = "wheat_port"
-    ORE = "ore_port"
-    WOOD = "wood_port"
-    BRICK = "brick_port"
-    SHEEP = "sheep_port"
-    NONE = None
+    THREE = "three"
+    WHEAT = "wheat"
+    ORE = "ore"
+    WOOD = "wood"
+    BRICK = "brick"
+    SHEEP = "sheep"
 
-default_resource_tiles=[Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
-                    Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.HILL,
-                    Tile.FIELD, Tile.FOREST, Tile.DESERT, Tile.FOREST, Tile.MOUNTAIN,
-                    Tile.FOREST, Tile.MOUNTAIN, Tile.FIELD, Tile.PASTURE,
-                    Tile.HILL, Tile.FIELD, Tile.PASTURE]
+default_tiles= [Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
+                Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.HILL,
+                Tile.FIELD, Tile.FOREST, Tile.DESERT, Tile.FOREST, Tile.MOUNTAIN,
+                Tile.FOREST, Tile.MOUNTAIN, Tile.FIELD, Tile.PASTURE,
+                Tile.HILL, Tile.FIELD, Tile.PASTURE]
 
 # default_ocean_tiles=["three_port", None, "wheat_port", None, 
 #                     None, "ore_port",
@@ -81,13 +80,13 @@ default_resource_tiles=[Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
 #                     None, "sheep_port", 
 #                     "three", None, "three", None]
 
-default_ocean_tiles=[Port.THREE, None, Port.WHEAT, None, 
-                    None, Port.ORE,
-                    Port.WOOD, None,
-                    None, Port.THREE,
-                    Port.BRICK, None,
-                    None, Port.SHEEP, 
-                    Port.THREE, None, Port.THREE, None]
+default_ports= [Port.THREE, None, Port.WHEAT, None, 
+                None, Port.ORE,
+                Port.WOOD, None,
+                None, Port.THREE,
+                Port.BRICK, None,
+                None, Port.SHEEP, 
+                Port.THREE, None, Port.THREE, None]
 
 # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep
 def get_random_tiles():
@@ -149,7 +148,7 @@ state.initialize_camera()
 # {Hex(q=0, r=-2, s=2): <Tile.MOUNTAIN: {'resource': 'ore', 'color': <cdata 'struct Color' owning 4 bytes>}>, ... }
 
 def initialize_board(state):
-    tiles = default_resource_tiles
+    tiles = default_tiles
     # tiles = get_random_tiles()
 
     # resource tiles
@@ -182,44 +181,39 @@ def initialize_board(state):
     state.resource_hexes[hh.set_hex(-1, 2, -1)] = tiles[17]
     state.resource_hexes[hh.set_hex(0, 2, -2)] = tiles[18]
 
-    ports = default_ocean_tiles
+    ports = default_ports
 
     # ocean tiles
-    state.ocean_hexes[hh.set_hex(0, -3, 3)] = Tile.OCEAN
-    state.ocean_hexes[(0, -3, 3)].value["resource"] = ports[0]
-    state.ocean_hexes[hh.set_hex(1, -3, 2)] = Tile.OCEAN
-    state.ocean_hexes[hh.set_hex(2, -3, 1)] = Tile.OCEAN
-    state.ocean_hexes[hh.set_hex(3, -3, 0)] = Tile.OCEAN
+    state.ocean_hexes[hh.set_hex(0, -3, 3)] = ports[0]
+    state.ocean_hexes[hh.set_hex(1, -3, 2)] = ports[1]
+    state.ocean_hexes[hh.set_hex(2, -3, 1)] = ports[2]
+    state.ocean_hexes[hh.set_hex(3, -3, 0)] = ports[3]
 
-    state.ocean_hexes[hh.set_hex(-1, -2, 3)] = Tile.OCEAN
-    state.ocean_hexes[hh.set_hex(3, -2, -1)] = Tile.OCEAN
+    state.ocean_hexes[hh.set_hex(-1, -2, 3)] = ports[4]
+    state.ocean_hexes[hh.set_hex(3, -2, -1)] = ports[5]
 
-    state.ocean_hexes[hh.set_hex(-2, -1, 3)] = Tile.OCEAN
-    state.ocean_hexes[hh.set_hex(3, -1, -2)] = Tile.OCEAN
+    state.ocean_hexes[hh.set_hex(-2, -1, 3)] = ports[6]
+    state.ocean_hexes[hh.set_hex(3, -1, -2)] = ports[7]
 
-    state.ocean_hexes[hh.set_hex(-3, 0, 3)] = Tile.OCEAN
-    state.ocean_hexes[hh.set_hex(3, 0, -3)] = Tile.OCEAN
+    state.ocean_hexes[hh.set_hex(-3, 0, 3)] = ports[8]
+    state.ocean_hexes[hh.set_hex(3, 0, -3)] = ports[9]
 
-    state.ocean_hexes[hh.set_hex(-3, 1, 2)] = Tile.OCEAN
-    state.ocean_hexes[hh.set_hex(2, 1, -3)] = Tile.OCEAN
+    state.ocean_hexes[hh.set_hex(-3, 1, 2)] = ports[10]
+    state.ocean_hexes[hh.set_hex(2, 1, -3)] = ports[11]
 
-    state.ocean_hexes[hh.set_hex(-3, 2, 1)] = Tile.OCEAN
-    state.ocean_hexes[hh.set_hex(1, 2, -3)] = Tile.OCEAN
+    state.ocean_hexes[hh.set_hex(-3, 2, 1)] = ports[12]
+    state.ocean_hexes[hh.set_hex(1, 2, -3)] = ports[13]
 
-    state.ocean_hexes[hh.set_hex(-3, 3, 0)] = Tile.OCEAN
-    state.ocean_hexes[hh.set_hex(-2, 3, -1)] = Tile.OCEAN
-    state.ocean_hexes[hh.set_hex(-1, 3, -2)] = Tile.OCEAN
-    state.ocean_hexes[hh.set_hex(0, 3, -3)] = Tile.OCEAN
+    state.ocean_hexes[hh.set_hex(-3, 3, 0)] = ports[14]
+    state.ocean_hexes[hh.set_hex(-2, 3, -1)] = ports[15]
+    state.ocean_hexes[hh.set_hex(-1, 3, -2)] = ports[16]
+    state.ocean_hexes[hh.set_hex(0, 3, -3)] = ports[17]
 
     # add land and ocean to hex_triangles
     for hex in state.resource_hexes.keys():
         state.hex_triangles[hex] = hh.hex_triangles(pointy, hex)
     for hex in state.ocean_hexes.keys():
         state.hex_triangles[hex] = hh.hex_triangles(pointy, hex)
-    
-    print(state.ocean_hexes[(0, -3, 3)].value)
-
-initialize_board(state)
 
 
 
@@ -327,10 +321,17 @@ def render(state):
                 draw_circle(dot_x+dot_x_offset*4, dot_y, dot_size, RED)
         # draw black outlines
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, 2, BLACK)
-
+    
         # drawing circles in hex centers to center text
         # if state.debug == True:
             # draw_circle(int(hh.hex_to_pixel(pointy, hexes[i]).x), int(hh.hex_to_pixel(pointy, hexes[i]).y), 4, BLACK)
+
+
+    for hex, port in state.ocean_hexes.items():
+        if port:
+            text_location = ((hh.hex_to_pixel(pointy, hex).x-(measure_text_ex(gui_get_font(), port.value, 15, 0)).x//2, hh.hex_to_pixel(pointy, hex).y))
+            draw_text_ex(gui_get_font(), port.value, text_location, 15, 0, BLACK)
+
     
     if state.current_node:
         draw_circle_v(state.current_node, 8, BLACK)
@@ -342,6 +343,7 @@ def render(state):
     # outline selected hex
     if state.current_hex and not state.current_edge:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, size, 0, 6, BLACK)
+
 
     # draw triangles for debugging
     # if state.current_triangle:
@@ -390,5 +392,5 @@ def main():
     unload_font(gui_get_font())
     close_window()
 
-# main()
+main()
 
