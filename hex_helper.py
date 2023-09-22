@@ -180,3 +180,5 @@ def rdoubled_to_cube(h):
     r = h.row
     s = -q - r
     return set_hex(q, r, s)
+
+# source: https://www.redblobgames.com/grids/hexagons/

@@ -13,7 +13,7 @@ screen_height=600
 default_zoom = .9
 
 def vector_round(vector):
-    return (int(vector.x), int(vector.y))
+    return Vector2(int(vector.x), int(vector.y))
 
 # To do:
     # select vertices
@@ -59,12 +59,12 @@ class Tile(Enum):
 
 # maybe define ports as constants via Enum class 
 class Port(Enum):
-    THREE = "three"
-    WHEAT = "wheat"
-    ORE = "ore"
-    WOOD = "wood"
-    BRICK = "brick"
-    SHEEP = "sheep"
+    THREE = " ? \n3:1"
+    WHEAT = " 2:1 \nwheat"
+    ORE = "2:1\nore"
+    WOOD = " 2:1 \nwood"
+    BRICK = " 2:1 \nbrick"
+    SHEEP = " 2:1 \nsheep"
 
 default_tiles= [Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
                 Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.HILL,
@@ -118,17 +118,26 @@ def get_random_tiles():
 
 class State:
     def __init__(self):
+        # hex dicts
         self.resource_hexes = {}
         self.ocean_hexes = {}
         self.hex_triangles = {}
-        self.selection = None
-        self.mouse = get_mouse_position()
 
+        # selecting via mouse
+        self.mouse = get_mouse_position()
+        self.selection = None
         self.current_hex = None
         self.current_triangle = None
         self.current_edge = None
         self.current_node = None
 
+        # game pieces
+        self.robber_hex = None
+        self.roads = {} # {player: road edges}
+        self.settlements = {} # {player: settlement nodes}
+        self.cities = {} # {player: city nodes}
+
+        # GLOBAL general vars
         self.debug = False
         self.font = None
         self.frame_counter = 0
@@ -215,6 +224,9 @@ def initialize_board(state):
     for hex in state.ocean_hexes.keys():
         state.hex_triangles[hex] = hh.hex_triangles(pointy, hex)
 
+    # start robber in desert
+    state.robber_hex = hh.hex_tuple(0, 0, 0)
+
 
 
 def update(state):
@@ -288,12 +300,13 @@ def render(state):
         # draw numbers, circles
         if type(all_tile_tokens[i]) == int:
             draw_circle(int(hh.hex_to_pixel(pointy, hexes[i]).x), int(hh.hex_to_pixel(pointy, hexes[i]).y), 18, RAYWHITE)
-            text_size = measure_text_ex(state.font, f"{all_tile_tokens[i]}", 20, 0)
+            text_size = measure_text_ex(gui_get_font(), f"{all_tile_tokens[i]}", 20, 0)
             center_numbers_offset = (int(hh.hex_to_pixel(pointy, hexes[i]).x-text_size.x/2+2), int(hh.hex_to_pixel(pointy, hexes[i]).y-text_size.y/2-1))
             if all_tile_tokens[i] == 8 or all_tile_tokens[i] == 6:
-                draw_text_ex(state.font, str(all_tile_tokens[i]), center_numbers_offset, 20, 0, RED)
+                draw_text_ex(gui_get_font(), str(all_tile_tokens[i]), center_numbers_offset, 22, 0, BLACK)
+                draw_text_ex(gui_get_font(), str(all_tile_tokens[i]), center_numbers_offset, 20, 0, RED)
             else:
-                draw_text_ex(state.font, str(all_tile_tokens[i]), center_numbers_offset, 20, 0, BLACK)
+                draw_text_ex(gui_get_font(), str(all_tile_tokens[i]), center_numbers_offset, 20, 0, BLACK)
             # draw dots, wrote out all possibilities
             dot_x_offset = 4
             dot_size = 2.8
@@ -315,10 +328,15 @@ def render(state):
                 draw_circle(dot_x+dot_x_offset*3, dot_y, dot_size, BLACK)
             elif dot_dict[all_tile_tokens[i]] == 5:
                 draw_circle(dot_x-dot_x_offset*4, dot_y, dot_size, RED)
+                draw_circle_lines(dot_x-dot_x_offset*4, dot_y, dot_size, BLACK)
                 draw_circle(dot_x-dot_x_offset*2, dot_y, dot_size, RED)
+                draw_circle_lines(dot_x-dot_x_offset*2, dot_y, dot_size, BLACK)
                 draw_circle(dot_x, dot_y, dot_size, RED)
+                draw_circle_lines(dot_x, dot_y, dot_size, BLACK)
                 draw_circle(dot_x+dot_x_offset*2, dot_y, dot_size, RED)
+                draw_circle_lines(dot_x+dot_x_offset*2, dot_y, dot_size, BLACK)
                 draw_circle(dot_x+dot_x_offset*4, dot_y, dot_size, RED)
+                draw_circle_lines(dot_x+dot_x_offset*4, dot_y, dot_size, BLACK)
         # draw black outlines
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, 2, BLACK)
     
@@ -329,8 +347,8 @@ def render(state):
 
     for hex, port in state.ocean_hexes.items():
         if port:
-            text_location = ((hh.hex_to_pixel(pointy, hex).x-(measure_text_ex(gui_get_font(), port.value, 15, 0)).x//2, hh.hex_to_pixel(pointy, hex).y))
-            draw_text_ex(gui_get_font(), port.value, text_location, 15, 0, BLACK)
+            text_location = ((hh.hex_to_pixel(pointy, hex).x-(measure_text_ex(gui_get_font(), port.value, 16, 0)).x//2, hh.hex_to_pixel(pointy, hex).y-16))
+            draw_text_ex(gui_get_font(), port.value, text_location, 16, 0, BLACK)
 
     
     if state.current_node:
@@ -343,6 +361,14 @@ def render(state):
     # outline selected hex
     if state.current_hex and not state.current_edge:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, size, 0, 6, BLACK)
+
+    # draw robber
+    radiusH = 12
+    radiusV = 24
+    hex_center = vector_round(hh.hex_to_pixel(pointy, state.robber_hex))
+    draw_circle(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, BLACK)
+    draw_ellipse(int(hex_center.x), int(hex_center.y), radiusH, radiusV, BLACK)
+    draw_rectangle(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH, BLACK)
 
 
     # draw triangles for debugging
@@ -383,12 +409,10 @@ def main():
     init_window(screen_width, screen_height, "Natac")
     set_target_fps(60)
     initialize_board(state)
-    state.font = load_font("assets/classic_memesbruh03.ttf")
-    gui_set_font(load_font("assets/PublicPixel.ttf"))
+    gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
     while not window_should_close():
         update(state)
         render(state)
-    unload_font(state.font)
     unload_font(gui_get_font())
     close_window()
 
