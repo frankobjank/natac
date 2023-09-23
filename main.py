@@ -118,28 +118,14 @@ default_ports= [Port.THREE, None, Port.WHEAT, None,
 # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep
 def get_random_tiles():
     tiles = []
-    tile_counts = {Tile.MOUNTAIN: 0, Tile.FOREST: 0, Tile.FIELD: 0, Tile.HILL: 0, Tile.PASTURE: 0}
-    tiles_for_random=[Tile.MOUNTAIN, Tile.FOREST, Tile.FIELD, Tile.HILL, Tile.PASTURE]
-    while len(tiles) < 18:
-        for i in range(18):
-            rand_tile = tiles_for_random[random.randrange(5)]
-            tile_counts[rand_tile] += 1
-            if rand_tile == Tile.MOUNTAIN or rand_tile == Tile.FOREST or rand_tile == Tile.FIELD:
-                if tile_counts[rand_tile] <= 4:
-                    tiles.append(rand_tile)
-                else:
-                    continue
-            elif rand_tile == Tile.HILL or rand_tile == Tile.PASTURE:
-                if tile_counts[rand_tile] <= 3:
-                    tiles.append(rand_tile)
-                else:
-                    continue
-
-    desert_index = random.randrange(19)
-    if desert_index == 18:
-        tiles.append(Tile.DESERT)
-    else:
-        tiles.insert(desert_index, Tile.DESERT)
+    tile_counts = {Tile.MOUNTAIN: 4, Tile.FOREST: 4, Tile.FIELD: 4, Tile.HILL: 3, Tile.PASTURE: 3, Tile.DESERT: 1}
+    tiles_for_random=[Tile.MOUNTAIN, Tile.FOREST, Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.DESERT]
+    while len(tiles) < 19:
+        for i in range(19):
+            rand_tile = tiles_for_random[random.randrange(6)]
+            if tile_counts[rand_tile] != 0:
+                tiles.append(rand_tile)
+                tile_counts[rand_tile] -= 1
     return tiles
 
 
@@ -186,8 +172,8 @@ state.initialize_camera()
 # {Hex(q=0, r=-2, s=2): <Tile.MOUNTAIN: {'resource': 'ore', 'color': <cdata 'struct Color' owning 4 bytes>}>, ... }
 
 def initialize_board(state):
-    tiles = default_tiles
-    # tiles = get_random_tiles()
+    # tiles = default_tiles
+    tiles = get_random_tiles()
 
     # resource tiles
     # q 0 -> 2
