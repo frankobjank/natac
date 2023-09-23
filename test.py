@@ -12,23 +12,25 @@ def offset(lst, offset):
 pointy = hh.Layout(hh.layout_pointy, hh.Point(50, 50), hh.Point(400, 300))
 origin = hh.set_hex(0, 0, 0)
 
+
 def main():
     init_window(screen_width, screen_height, "natac")
     gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
     set_target_fps(60)
     while not window_should_close():
         begin_drawing()
-        clear_background(GRAY)
+        clear_background(WHITE)
         mouse = get_mouse_position()
-        draw_text_ex(gui_get_font(), "Hello\nHello", (screen_width//2, screen_height//2), 18, 0, BLACK)
-        
+        # center = (x=400, y=300)
+        draw_triangle((x, y-20), (x-20, y), (x+20, y), BLACK)
+        draw_rectangle(x-20, y, 40, 25, BLACK)
 
         end_drawing()
 
     unload_font(gui_get_font())
     close_window()
 
-main()
+# main()
 
 # dimensions of a hex
 # h = 2* size
@@ -79,3 +81,6 @@ main()
            
         # if check_collision_point_circle(mouse, robber["circle"]["center"], robber["circle"]["radius"]):
         #    draw_circle_v(robber["circle"]["center"], robber["circle"]["radius"], GRAY)
+
+
+# why are there gui functions that aren't in the cheatsheet? 

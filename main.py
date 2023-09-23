@@ -46,7 +46,14 @@ dot_dict = {2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1}
 
 all_game_pieces = ["robber", "road", "settlement", "city"]
 
-# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255) 
+# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
+
+class Player(Enum): # where to store players' settlements, cards, VPs, etc?
+    RED = {"color": get_color(0xe1282fff), } 
+    BLUE = {"color": get_color(0x2974b8ff)}
+    ORANGE = {"color": get_color(0xd46a24ff)}
+    WHITE = {"color": get_color(0xd6d6d6ff)}
+
 class Tile(Enum):
     # colors defined as R, G, B, A where A (alpha/opacity) is 0-255, or % (0-1)
     FOREST = {"resource": "wood", "color": get_color(0x517d19ff)}
@@ -132,10 +139,11 @@ class State:
         self.current_node = None
 
         # game pieces
+        # move robber with current_hex, maybe need to adjust selection to ignore edges and nodes
         self.robber_hex = None
-        self.roads = {} # {player: road edges}
-        self.settlements = {} # {player: settlement nodes}
-        self.cities = {} # {player: city nodes}
+        # cities, settlements -> nodes; roads -> edges
+        self.player = {"cities": None, "settlements": None, "roads": None, "ports": None, "resource_cards": None, "development_cards": None, "victory_points": 0} 
+
 
         # GLOBAL general vars
         self.debug = False
@@ -261,7 +269,14 @@ def update(state):
 
 
     if is_mouse_button_pressed(MouseButton.MOUSE_BUTTON_LEFT):
-        pass
+        if state.current_node:
+            state.selection = state.current_node
+        elif state.current_edge:
+            state.selection = state.current_edge
+        elif state.current_hex:
+            state.selection = state.current_hex
+    
+
 
     state.camera.zoom += get_mouse_wheel_move() * 0.03
 
@@ -279,6 +294,9 @@ def update(state):
     if is_key_pressed(KeyboardKey.KEY_R):
         state.camera.zoom = default_zoom
         state.camera.rotation = 0.0
+        # reset board
+        initialize_board(state)
+
 
     if is_key_pressed(KeyboardKey.KEY_E):
         state.debug = not state.debug # toggle
