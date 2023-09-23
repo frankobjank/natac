@@ -12,14 +12,15 @@ screen_height=600
 
 default_zoom = .9
 
-def vector_round(vector):
-    return Vector2(int(vector.x), int(vector.y))
+def vector2_round(vector2):
+    return Vector2(int(vector2.x), int(vector2.y))
 
 # To do:
     # select vertices
     # select corners
     # Create ocean tiles, maybe ports in an Ocean Tiles class
     # draw robber, settlements/pieces
+    # canonical representation of nodes, edges so tile B-A is same as A-B
 
 # Ocean tiles
 # 4
@@ -48,8 +49,27 @@ all_game_pieces = ["robber", "road", "settlement", "city"]
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
 
+class Node:
+    def __init__(self, vector2) -> Vector2:
+        self.vector2 = vector2
+        self.x = vector2.x
+        self.y = vector2.y
+        # 3 hexes
+    
+    def __repr__(self):
+        return f"Node at {vector2_round(self.vector2)}"
+
+class Edge:
+    def __init__(self, node_1, node_2):
+        self.node_1 = node_1
+        self.node_2 = node_2
+        # 2 hexes edge is touching
+    
+    def __repr__(self):
+        return f"Edge between {self.node_1} and {self.node_2}"
+
 class Player(Enum): # where to store players' settlements, cards, VPs, etc?
-    RED = {"color": get_color(0xe1282fff), } 
+    RED = {"color": get_color(0xe1282fff)} 
     BLUE = {"color": get_color(0x2974b8ff)}
     ORANGE = {"color": get_color(0xd46a24ff)}
     WHITE = {"color": get_color(0xd6d6d6ff)}
@@ -142,6 +162,7 @@ class State:
         # move robber with current_hex, maybe need to adjust selection to ignore edges and nodes
         self.robber_hex = None
         # cities, settlements -> nodes; roads -> edges
+        self.roads = {Player.RED: ["edge1", "edge2"], Player.BLUE: ["edge3", "edge4"]}
         self.player = {"cities": None, "settlements": None, "roads": None, "ports": None, "resource_cards": None, "development_cards": None, "victory_points": 0} 
 
 
@@ -383,7 +404,7 @@ def render(state):
     # draw robber
     radiusH = 12
     radiusV = 24
-    hex_center = vector_round(hh.hex_to_pixel(pointy, state.robber_hex))
+    hex_center = vector2_round(hh.hex_to_pixel(pointy, state.robber_hex))
     draw_circle(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, BLACK)
     draw_ellipse(int(hex_center.x), int(hex_center.y), radiusH, radiusV, BLACK)
     draw_rectangle(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH, BLACK)
@@ -400,30 +421,26 @@ def render(state):
 
     end_mode_2d()
 
-    if state.debug == True:
-        # world_position = get_screen_to_world_2d(state.mouse, state.camera)
-        # draw_text_ex(gui_get_font(), f"Mouse at: ({int(state.mouse.x)}, {int(state.mouse.y)})", (5, 5), 15, 0, BLACK)
-        # draw_text_ex(gui_get_font(), f"Mouse to world at: ({int(world_position.x)}, {int(world_position.y)})", (5, 25), 15, 0, BLACK)
-        # draw_text_ex(gui_get_font(), f"Current tile: {state.current_hex}", (5, 45), 15, 0, BLACK)
-        # if state.current_hex:
-        #     draw_text_ex(gui_get_font(), f"Corners = {hh.polygon_corners(pointy, state.current_hex)}", (5, 65), 15, 0, BLACK)
-        #     draw_text_ex(gui_get_font(), f"{check_collision_point_poly(world_position, hh.polygon_corners(pointy, state.current_hex), 6)}", (5, 85), 15, 0, BLACK)
-        
+    if state.debug == True:        
         world_position = get_screen_to_world_2d(state.mouse, state.camera)
         # draw_text_ex(gui_get_font(), f"Mouse at: ({int(state.mouse.x)}, {int(state.mouse.y)})", (5, 5), 15, 0, BLACK)
         draw_text_ex(gui_get_font(), f"World mouse at: ({int(world_position.x)}, {int(world_position.y)})", (5, 5), 15, 0, BLACK)
         if state.current_hex:
             draw_text_ex(gui_get_font(), f"Current hex: {state.current_hex}", (5, 25), 15, 0, BLACK)
         if state.current_edge:
-            draw_text_ex(gui_get_font(), f"Current edge: {vector_round(state.current_edge[0])}, {vector_round(state.current_edge[1])}", (5, 45), 15, 0, BLACK)
+            draw_text_ex(gui_get_font(), f"Current edge: {vector2_round(state.current_edge[0])}, {vector2_round(state.current_edge[1])}", (5, 45), 15, 0, BLACK)
         if state.current_node:
-            draw_text_ex(gui_get_font(), f"Current node = {vector_round(state.current_node)}", (5, 65), 15, 0, BLACK)
+            draw_text_ex(gui_get_font(), f"Current node = {vector2_round(state.current_node)}", (5, 65), 15, 0, BLACK)
+        if state.selection:
+            draw_text_ex(gui_get_font(), f"Current selection = {state.selection}", (5, 85), 15, 0, BLACK)
+        
 
         
     end_drawing()
 
 
 def main():
+    set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
     init_window(screen_width, screen_height, "Natac")
     set_target_fps(60)
     initialize_board(state)
