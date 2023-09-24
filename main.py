@@ -47,24 +47,6 @@ dot_dict = {2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1}
 default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
 # random_tile_tokens = {"A": 5, "B": 2, "C": 6, "D": 3, "E": 8, "F": 10, "G": 9, "H": 12, "I": 11, "J": 4, "K": 8, "L": 10, "M": 9, "N": 4, "O": 5, "P": 6, "Q": 3, "R": 11}
 
-class Node:
-    def __init__(self, vector2) -> Vector2:
-        self.vector2 = vector2
-        self.x = vector2.x
-        self.y = vector2.y
-        # 3 hexes
-    
-    def __repr__(self):
-        return f"Node at {vector2_round(self.vector2)}"
-
-class Edge:
-    def __init__(self, node_1, node_2):
-        self.node_1 = node_1
-        self.node_2 = node_2
-        # 2 hexes edge is touching
-    
-    def __repr__(self):
-        return f"Edge between {self.node_1} and {self.node_2}"
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
 class Player(Enum): # where to store players' settlements, cards, VPs, etc?
@@ -81,9 +63,8 @@ class Tile(Enum):
     FIELD = {"resource": "wheat", "color": get_color(0xf0ad00ff)}
     MOUNTAIN = {"resource": "ore", "color": get_color(0x7b6f83ff)}
     DESERT = {"resource": None, "color": get_color(0xffd966ff)}
-    # OCEAN = {"resource": None, "color": get_color(0x4fa6ebff)}
+    OCEAN = {"resource": None, "color": get_color(0x4fa6ebff)}
 
-# maybe define ports as constants via Enum class 
 class Port(Enum):
     THREE = " ? \n3:1"
     WHEAT = " 2:1 \nwheat"
@@ -92,19 +73,66 @@ class Port(Enum):
     BRICK = " 2:1 \nbrick"
     SHEEP = " 2:1 \nsheep"
 
-# default_tiles= [Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
-#                 Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.HILL,
-#                 Tile.FIELD, Tile.FOREST, Tile.DESERT, Tile.FOREST, Tile.MOUNTAIN,
-#                 Tile.FOREST, Tile.MOUNTAIN, Tile.FIELD, Tile.PASTURE,
-#                 Tile.HILL, Tile.FIELD, Tile.PASTURE]
+# class HexTile:
+#     def __init__(self, hex_tuple, tile_type, number_token):
+#         self.hex_tuple = hex_tuple
+#         self.tile_type = tile_type
+#         self.number_token = number_token
+
+#     def __repr__(self):
+#         return f"Hex at {self.hex_tuple}. Tile = {self.tile_type}. Value = {self.number_token}"
+
+class Edge:
+    def __init__(self, node_1, node_2):
+        self.node_1 = node_1
+        self.node_2 = node_2
+        # 2 hexes edge is touching
+    
+    def __repr__(self):
+        return f"Edge between {self.node_1} and {self.node_2}"
+
+class Node:
+    def __init__(self, vector2) -> Vector2:
+        self.vector2 = vector2
+        self.x = vector2.x
+        self.y = vector2.y
+        # 3 hexes
+    
+    def __repr__(self):
+        return f"Node at {vector2_round(self.vector2)}"
+
+default_tiles= [Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
+                Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.HILL,
+                Tile.FIELD, Tile.FOREST, Tile.DESERT, Tile.FOREST, Tile.MOUNTAIN,
+                Tile.FOREST, Tile.MOUNTAIN, Tile.FIELD, Tile.PASTURE,
+                Tile.HILL, Tile.FIELD, Tile.PASTURE]
 # default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
+hexes_for_board = [hh.set_hex(0, -2, 2),
+                hh.set_hex(1, -2, 1),
+                hh.set_hex(2, -2, 0),
+                hh.set_hex(-1, -1, 2),
+                hh.set_hex(0, -1, 1),
+                hh.set_hex(1, -1, 0),
+                hh.set_hex(2, -1, -1),
+                hh.set_hex(-2, 0, 2),
+                hh.set_hex(-1, 0, 1),
+                hh.set_hex(0, 0, 0),
+                hh.set_hex(1, 0, -1),
+                hh.set_hex(2, 0, -2),
+                hh.set_hex(-2, 1, 1),
+                hh.set_hex(-1, 1, 0),
+                hh.set_hex(0, 1, -1),
+                hh.set_hex(1, 1, -2),
+                hh.set_hex(-2, 2, 0),
+                hh.set_hex(-1, 2, -1),
+                hh.set_hex(0, 2, -2)]
 
 # dict combining the above lists:
-default_tiles= {Tile.MOUNTAIN:10, Tile.PASTURE:2, Tile.FOREST:9,
-                Tile.FIELD:12, Tile.HILL:6, Tile.PASTURE:4, Tile.HILL:10,
-                Tile.FIELD:9, Tile.FOREST:11, Tile.DESERT:None, Tile.FOREST:3, Tile.MOUNTAIN:8,
-                Tile.FOREST:8, Tile.MOUNTAIN:3, Tile.FIELD:4, Tile.PASTURE:5,
-                Tile.HILL:5, Tile.FIELD:6, Tile.PASTURE:11}
+# default_tiles= {Tile.MOUNTAIN:10, Tile.PASTURE:2, Tile.FOREST:9,
+#                 Tile.FIELD:12, Tile.HILL:6, Tile.PASTURE:4, Tile.HILL:10,
+#                 Tile.FIELD:9, Tile.FOREST:11, Tile.DESERT:None, Tile.FOREST:3, Tile.MOUNTAIN:8,
+#                 Tile.FOREST:8, Tile.MOUNTAIN:3, Tile.FIELD:4, Tile.PASTURE:5,
+#                 Tile.HILL:5, Tile.FIELD:6, Tile.PASTURE:11}
 
 
 default_ports= [Port.THREE, None, Port.WHEAT, None, 
@@ -174,43 +202,16 @@ state.initialize_camera()
 
 
 # STATE.BOARD:
-# {Hex: {Tile: resource, color}, number_token}
+# state.resource_hexes[hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
 def initialize_board(state):
-    # tiles = default_tiles
-    tiles = get_random_tiles()
-
-    # resource tiles
-    # q 0 -> 2
-    state.resource_hexes[hh.set_hex(0, -2, 2)] = tiles[0]
-    state.resource_hexes[hh.set_hex(1, -2, 1)] = tiles[1]
-    state.resource_hexes[hh.set_hex(2, -2, 0)] = tiles[2]
-
-    # q -1 -> 2
-    state.resource_hexes[hh.set_hex(-1, -1, 2)] = tiles[3]
-    state.resource_hexes[hh.set_hex(0, -1, 1)] = tiles[4]
-    state.resource_hexes[hh.set_hex(1, -1, 0)] = tiles[5]
-    state.resource_hexes[hh.set_hex(2, -1, -1)] = tiles[6]
-
-    # q -2 -> 2
-    state.resource_hexes[hh.set_hex(-2, 0, 2)] = tiles[7]
-    state.resource_hexes[hh.set_hex(-1, 0, 1)] = tiles[8]
-    state.resource_hexes[hh.set_hex(0, 0, 0)] = tiles[9]
-    state.resource_hexes[hh.set_hex(1, 0, -1)] = tiles[10]
-    state.resource_hexes[hh.set_hex(2, 0, -2)] = tiles[11]
-
-    # q -2 -> 1
-    state.resource_hexes[hh.set_hex(-2, 1, 1)] = tiles[12]
-    state.resource_hexes[hh.set_hex(-1, 1, 0)] = tiles[13]
-    state.resource_hexes[hh.set_hex(0, 1, -1)] = tiles[14]
-    state.resource_hexes[hh.set_hex(1, 1, -2)] = tiles[15]
-
-    # q -2 -> 0
-    state.resource_hexes[hh.set_hex(-2, 2, 0)] = tiles[16]
-    state.resource_hexes[hh.set_hex(-1, 2, -1)] = tiles[17]
-    state.resource_hexes[hh.set_hex(0, 2, -2)] = tiles[18]
+    # tiles = get_random_tiles()
+    tiles = default_tiles
+    tokens = default_tile_tokens
+    hexes = hexes_for_board
+    for i in range(19):
+        state.resource_hexes[hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
 
     ports = default_ports
-
     # ocean tiles
     state.ocean_hexes[hh.set_hex(0, -3, 3)] = ports[0]
     state.ocean_hexes[hh.set_hex(1, -3, 2)] = ports[1]
@@ -247,7 +248,7 @@ def initialize_board(state):
     
     # start robber in desert
     for hex, tile in state.resource_hexes.items():
-        if tile == Tile.DESERT:
+        if tile[0] == Tile.DESERT:
             state.robber_hex = hex
     
 
@@ -327,12 +328,14 @@ def render(state):
     clear_background(BLUE)
 
     begin_mode_2d(state.camera)
+
+    # state.resource_hexes[hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
     hexes = list(state.resource_hexes.keys())
     for i in range(len(hexes)):
         # draw resource hexes
-        draw_poly(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, state.resource_hexes[hexes[i]].value["color"])
+        draw_poly(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, state.resource_hexes[hexes[i]]["tile"].value["color"])
         # draw numbers, circles
-        if type(all_tile_tokens[i]) == int:
+        if type(all_tile_tokens[i]):
             draw_circle(int(hh.hex_to_pixel(pointy, hexes[i]).x), int(hh.hex_to_pixel(pointy, hexes[i]).y), 18, RAYWHITE)
             text_size = measure_text_ex(gui_get_font(), f"{all_tile_tokens[i]}", 20, 0)
             center_numbers_offset = (int(hh.hex_to_pixel(pointy, hexes[i]).x-text_size.x/2+2), int(hh.hex_to_pixel(pointy, hexes[i]).y-text_size.y/2-1))
