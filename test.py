@@ -3,6 +3,18 @@ from enum import Enum
 import random
 import hex_helper as hh
 
+
+# all things hexes are used for:
+    # node:
+        # placing settlements and cities
+        # collecting resources
+        # connecting to ports
+    # edges:
+        # building roads
+    # number token
+    # contains robber
+
+
 screen_width=800
 screen_height=600
 
@@ -43,7 +55,10 @@ def main():
     unload_font(gui_get_font())
     close_window()
 
-main()
+# main()
+
+
+
 
 # dimensions of a hex
 # h = 2* size
@@ -96,4 +111,10 @@ main()
         #    draw_circle_v(robber["circle"]["center"], robber["circle"]["radius"], GRAY)
 
 
-# why are there gui functions that aren't in the cheatsheet? 
+# default_ocean_tiles=["three_port", None, "wheat_port", None, 
+#                     None, "ore_port",
+#                     "wood_port", None,
+#                     None, "three",
+#                     "brick_port", None,
+#                     None, "sheep_port", 
+#                     "three", None, "three", None]

@@ -37,17 +37,15 @@ def vector2_round(vector2):
 size = 50 # (radius)
 pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
+all_game_pieces = ["road", "settlement", "city", "robber"]
+all_tiles = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
+all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
 all_ports = ["three_to_one", "wood_port", "brick_port", "sheep_port", "wheat_port", "ore_port"]
 
-all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
-all_tiles = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
-
-all_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
 dot_dict = {2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1}
 
-all_game_pieces = ["robber", "road", "settlement", "city"]
-
-# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
+default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
+# random_tile_tokens = {"A": 5, "B": 2, "C": 6, "D": 3, "E": 8, "F": 10, "G": 9, "H": 12, "I": 11, "J": 4, "K": 8, "L": 10, "M": 9, "N": 4, "O": 5, "P": 6, "Q": 3, "R": 11}
 
 class Node:
     def __init__(self, vector2) -> Vector2:
@@ -68,6 +66,7 @@ class Edge:
     def __repr__(self):
         return f"Edge between {self.node_1} and {self.node_2}"
 
+# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
 class Player(Enum): # where to store players' settlements, cards, VPs, etc?
     RED = {"color": get_color(0xe1282fff)} 
     BLUE = {"color": get_color(0x2974b8ff)}
@@ -93,19 +92,20 @@ class Port(Enum):
     BRICK = " 2:1 \nbrick"
     SHEEP = " 2:1 \nsheep"
 
-default_tiles= [Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
-                Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.HILL,
-                Tile.FIELD, Tile.FOREST, Tile.DESERT, Tile.FOREST, Tile.MOUNTAIN,
-                Tile.FOREST, Tile.MOUNTAIN, Tile.FIELD, Tile.PASTURE,
-                Tile.HILL, Tile.FIELD, Tile.PASTURE]
+# default_tiles= [Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
+#                 Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.HILL,
+#                 Tile.FIELD, Tile.FOREST, Tile.DESERT, Tile.FOREST, Tile.MOUNTAIN,
+#                 Tile.FOREST, Tile.MOUNTAIN, Tile.FIELD, Tile.PASTURE,
+#                 Tile.HILL, Tile.FIELD, Tile.PASTURE]
+# default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
 
-# default_ocean_tiles=["three_port", None, "wheat_port", None, 
-#                     None, "ore_port",
-#                     "wood_port", None,
-#                     None, "three",
-#                     "brick_port", None,
-#                     None, "sheep_port", 
-#                     "three", None, "three", None]
+# dict combining the above lists:
+default_tiles= {Tile.MOUNTAIN:10, Tile.PASTURE:2, Tile.FOREST:9,
+                Tile.FIELD:12, Tile.HILL:6, Tile.PASTURE:4, Tile.HILL:10,
+                Tile.FIELD:9, Tile.FOREST:11, Tile.DESERT:None, Tile.FOREST:3, Tile.MOUNTAIN:8,
+                Tile.FOREST:8, Tile.MOUNTAIN:3, Tile.FIELD:4, Tile.PASTURE:5,
+                Tile.HILL:5, Tile.FIELD:6, Tile.PASTURE:11}
+
 
 default_ports= [Port.THREE, None, Port.WHEAT, None, 
                 None, Port.ORE,
@@ -115,7 +115,7 @@ default_ports= [Port.THREE, None, Port.WHEAT, None,
                 None, Port.SHEEP, 
                 Port.THREE, None, Port.THREE, None]
 
-# 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep
+# 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
 def get_random_tiles():
     tiles = []
     tile_counts = {Tile.MOUNTAIN: 4, Tile.FOREST: 4, Tile.FIELD: 4, Tile.HILL: 3, Tile.PASTURE: 3, Tile.DESERT: 1}
@@ -123,7 +123,7 @@ def get_random_tiles():
     while len(tiles) < 19:
         for i in range(19):
             rand_tile = tiles_for_random[random.randrange(6)]
-            if tile_counts[rand_tile] != 0:
+            if tile_counts[rand_tile] > 0:
                 tiles.append(rand_tile)
                 tile_counts[rand_tile] -= 1
     return tiles
@@ -134,6 +134,7 @@ class State:
         # hex dicts
         self.resource_hexes = {}
         self.ocean_hexes = {}
+        self.ocean_and_resources = {}
         self.hex_triangles = {}
 
         # selecting via mouse
@@ -148,7 +149,11 @@ class State:
         # move robber with current_hex, maybe need to adjust selection to ignore edges and nodes
         self.robber_hex = None
         # cities, settlements -> nodes; roads -> edges
-        self.roads = {Player.RED: ["edge1", "edge2"], Player.BLUE: ["edge3", "edge4"]}
+        # all edges: player
+        self.roads = {"edge1": Player.BLUE, "edge2": Player.RED, "edge3":Player.BLUE}
+        # settlements and cities can both be nodes so need to decide if both should be included
+        # in same dict or separate
+        self.settlements = {"node1": Player.BLUE}
         self.player = {"cities": None, "settlements": None, "roads": None, "ports": None, "resource_cards": None, "development_cards": None, "victory_points": 0} 
 
 
@@ -169,8 +174,7 @@ state.initialize_camera()
 
 
 # STATE.BOARD:
-# {Hex(q=0, r=-2, s=2): <Tile.MOUNTAIN: {'resource': 'ore', 'color': <cdata 'struct Color' owning 4 bytes>}>, ... }
-
+# {Hex: {Tile: resource, color}, number_token}
 def initialize_board(state):
     # tiles = default_tiles
     tiles = get_random_tiles()
@@ -239,13 +243,15 @@ def initialize_board(state):
     for hex in state.ocean_hexes.keys():
         state.hex_triangles[hex] = hh.hex_triangles(pointy, hex)
 
+    state.ocean_and_resources = state.resource_hexes.update(state.ocean_hexes)
+    
     # start robber in desert
-    state.robber_hex = hh.hex_tuple(0, 0, 0)
+    for hex, tile in state.resource_hexes.items():
+        if tile == Tile.DESERT:
+            state.robber_hex = hex
+    
 
-
-
-def update(state):
-    state.frame_counter += 1
+def get_user_input(state):
     state.mouse = get_mouse_position()
     world_position = get_screen_to_world_2d(state.mouse, state.camera)
 
@@ -282,6 +288,9 @@ def update(state):
             state.selection = state.current_edge
         elif state.current_hex:
             state.selection = state.current_hex
+
+def update(state):
+    state.frame_counter += 1
     
 
 
@@ -432,6 +441,7 @@ def main():
     initialize_board(state)
     gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
     while not window_should_close():
+        get_user_input(state)
         update(state)
         render(state)
     unload_font(gui_get_font())
