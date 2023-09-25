@@ -42,7 +42,7 @@ def main():
     set_target_fps(60)
     while not window_should_close():
         begin_drawing()
-        clear_background(WHITE)
+        clear_background(Color.WHITE)
         mouse = Node(get_mouse_position())
         x=400
         y=300

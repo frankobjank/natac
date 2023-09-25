@@ -42,10 +42,8 @@ all_tiles = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"
 all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
 all_ports = ["three_to_one", "wood_port", "brick_port", "sheep_port", "wheat_port", "ore_port"]
 
-dot_dict = {2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1}
 
-default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
-# random_tile_tokens = {"A": 5, "B": 2, "C": 6, "D": 3, "E": 8, "F": 10, "G": 9, "H": 12, "I": 11, "J": 4, "K": 8, "L": 10, "M": 9, "N": 4, "O": 5, "P": 6, "Q": 3, "R": 11}
+default_tile_tokens_dict = [{10: 3}, {2: 1}, {9: 4}, {12: 1}, {6: 5}, {4: 3}, {10: 3}, {9: 4}, {11: 2}, {None: None}, {3: 2}, {8: 5}, {8: 5}, {3: 2}, {4: 3}, {5: 4}, {5: 4}, {6: 5}, {11: 2}]
 
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
@@ -73,15 +71,6 @@ class Port(Enum):
     BRICK = " 2:1 \nbrick"
     SHEEP = " 2:1 \nsheep"
 
-# class HexTile:
-#     def __init__(self, hex_tuple, tile_type, number_token):
-#         self.hex_tuple = hex_tuple
-#         self.tile_type = tile_type
-#         self.number_token = number_token
-
-#     def __repr__(self):
-#         return f"Hex at {self.hex_tuple}. Tile = {self.tile_type}. Value = {self.number_token}"
-
 class Edge:
     def __init__(self, node_1, node_2):
         self.node_1 = node_1
@@ -92,7 +81,7 @@ class Edge:
         return f"Edge between {self.node_1} and {self.node_2}"
 
 class Node:
-    def __init__(self, vector2) -> Vector2:
+    def __init__(self, vector2):
         self.vector2 = vector2
         self.x = vector2.x
         self.y = vector2.y
@@ -178,10 +167,9 @@ class State:
         self.robber_hex = None
         # cities, settlements -> nodes; roads -> edges
         # all edges: player
-        self.roads = {"edge1": Player.BLUE, "edge2": Player.RED, "edge3":Player.BLUE}
-        # settlements and cities can both be nodes so need to decide if both should be included
-        # in same dict or separate
-        self.settlements = {"node1": Player.BLUE}
+        self.edges = {"edge1": Player.BLUE, "edge2": Player.RED, "edge3":Player.BLUE}
+        # nodes, vertices of 3 hexes. settlements and cities
+        self.nodes = {"node1": {"hexes": ["hex1", "hex2", "hex3"], "player": Player.BLUE}}
         self.player = {"cities": None, "settlements": None, "roads": None, "ports": None, "resource_cards": None, "development_cards": None, "victory_points": 0} 
 
 
@@ -206,7 +194,7 @@ state.initialize_camera()
 def initialize_board(state):
     # tiles = get_random_tiles()
     tiles = default_tiles
-    tokens = default_tile_tokens
+    tokens = default_tile_tokens_dict
     hexes = hexes_for_board
     for i in range(19):
         state.resource_hexes[hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
@@ -244,11 +232,12 @@ def initialize_board(state):
     for hex in state.ocean_hexes.keys():
         state.hex_triangles[hex] = hh.hex_triangles(pointy, hex)
 
-    state.ocean_and_resources = state.resource_hexes.update(state.ocean_hexes)
+    # state.ocean_and_resources = state.ocean_and_resources.update(state.resource_hexes)
+    # state.ocean_and_resources = state.ocean_and_resources.update(state.ocean_hexes)
     
     # start robber in desert
-    for hex, tile in state.resource_hexes.items():
-        if tile[0] == Tile.DESERT:
+    for hex, tile_dict in state.resource_hexes.items():
+        if tile_dict["tile"] == Tile.DESERT:
             state.robber_hex = hex
     
 
@@ -335,35 +324,37 @@ def render(state):
         # draw resource hexes
         draw_poly(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, state.resource_hexes[hexes[i]]["tile"].value["color"])
         # draw numbers, circles
-        if type(all_tile_tokens[i]):
-            draw_circle(int(hh.hex_to_pixel(pointy, hexes[i]).x), int(hh.hex_to_pixel(pointy, hexes[i]).y), 18, RAYWHITE)
-            text_size = measure_text_ex(gui_get_font(), f"{all_tile_tokens[i]}", 20, 0)
-            center_numbers_offset = (int(hh.hex_to_pixel(pointy, hexes[i]).x-text_size.x/2+2), int(hh.hex_to_pixel(pointy, hexes[i]).y-text_size.y/2-1))
-            if all_tile_tokens[i] == 8 or all_tile_tokens[i] == 6:
-                draw_text_ex(gui_get_font(), str(all_tile_tokens[i]), center_numbers_offset, 22, 0, BLACK)
-                draw_text_ex(gui_get_font(), str(all_tile_tokens[i]), center_numbers_offset, 20, 0, RED)
-            else:
-                draw_text_ex(gui_get_font(), str(all_tile_tokens[i]), center_numbers_offset, 20, 0, BLACK)
+        token_dict = state.resource_hexes[hexes[i]]["token"]
+        for token, probability in token_dict.items():
+            if token != None:
+                draw_circle(int(hh.hex_to_pixel(pointy, hexes[i]).x), int(hh.hex_to_pixel(pointy, hexes[i]).y), 18, RAYWHITE)
+                text_size = measure_text_ex(gui_get_font(), f"{token}", 20, 0)
+                center_numbers_offset = Vector2(int(hh.hex_to_pixel(pointy, hexes[i]).x-text_size.x/2+2), int(hh.hex_to_pixel(pointy, hexes[i]).y-text_size.y/2-1))
+                if token == 8 or token == 6:
+                    draw_text_ex(gui_get_font(), str(token), center_numbers_offset, 22, 0, BLACK)
+                    draw_text_ex(gui_get_font(), str(token), center_numbers_offset, 20, 0, RED)
+                else:
+                    draw_text_ex(gui_get_font(), str(token), center_numbers_offset, 20, 0, BLACK)
             # draw dots, wrote out all possibilities
             dot_x_offset = 4
             dot_size = 2.8
             dot_x = int(hh.hex_to_pixel(pointy, hexes[i]).x)
             dot_y = int(hh.hex_to_pixel(pointy, hexes[i]).y)+25
-            if dot_dict[all_tile_tokens[i]] == 1:
+            if probability == 1:
                 draw_circle(dot_x, dot_y, dot_size, BLACK)
-            elif dot_dict[all_tile_tokens[i]] == 2:
+            elif probability == 2:
                 draw_circle(dot_x-dot_x_offset, dot_y, dot_size, BLACK)
                 draw_circle(dot_x+dot_x_offset, dot_y, dot_size, BLACK)
-            elif dot_dict[all_tile_tokens[i]] == 3:
+            elif probability == 3:
                 draw_circle(dot_x-dot_x_offset*2, dot_y, dot_size, BLACK)
                 draw_circle(dot_x, dot_y, dot_size, BLACK)
                 draw_circle(dot_x+dot_x_offset*2, dot_y, dot_size, BLACK)
-            elif dot_dict[all_tile_tokens[i]] == 4:
+            elif probability == 4:
                 draw_circle(dot_x-dot_x_offset*3, dot_y, dot_size, BLACK)
                 draw_circle(dot_x-dot_x_offset, dot_y, dot_size, BLACK)
                 draw_circle(dot_x+dot_x_offset, dot_y, dot_size, BLACK)
                 draw_circle(dot_x+dot_x_offset*3, dot_y, dot_size, BLACK)
-            elif dot_dict[all_tile_tokens[i]] == 5:
+            elif probability == 5:
                 draw_circle(dot_x-dot_x_offset*4, dot_y, dot_size, RED)
                 draw_circle_lines(dot_x-dot_x_offset*4, dot_y, dot_size, BLACK)
                 draw_circle(dot_x-dot_x_offset*2, dot_y, dot_size, RED)
@@ -384,7 +375,7 @@ def render(state):
 
     for hex, port in state.ocean_hexes.items():
         if port:
-            text_location = ((hh.hex_to_pixel(pointy, hex).x-(measure_text_ex(gui_get_font(), port.value, 16, 0)).x//2, hh.hex_to_pixel(pointy, hex).y-16))
+            text_location = Vector2(hh.hex_to_pixel(pointy, hex).x-(measure_text_ex(gui_get_font(), port.value, 16, 0)).x//2, hh.hex_to_pixel(pointy, hex).y-16)
             draw_text_ex(gui_get_font(), port.value, text_location, 16, 0, BLACK)
 
     
@@ -422,15 +413,15 @@ def render(state):
     if state.debug == True:        
         world_position = get_screen_to_world_2d(state.mouse, state.camera)
         # draw_text_ex(gui_get_font(), f"Mouse at: ({int(state.mouse.x)}, {int(state.mouse.y)})", (5, 5), 15, 0, BLACK)
-        draw_text_ex(gui_get_font(), f"World mouse at: ({int(world_position.x)}, {int(world_position.y)})", (5, 5), 15, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"World mouse at: ({int(world_position.x)}, {int(world_position.y)})", Vector2(5, 5), 15, 0, BLACK)
         if state.current_hex:
-            draw_text_ex(gui_get_font(), f"Current hex: {state.current_hex}", (5, 25), 15, 0, BLACK)
+            draw_text_ex(gui_get_font(), f"Current hex: {state.current_hex}", Vector2(5, 25), 15, 0, BLACK)
         if state.current_edge:
-            draw_text_ex(gui_get_font(), f"Current edge: {vector2_round(state.current_edge[0])}, {vector2_round(state.current_edge[1])}", (5, 45), 15, 0, BLACK)
+            draw_text_ex(gui_get_font(), f"Current edge: {vector2_round(state.current_edge[0])}, {vector2_round(state.current_edge[1])}", Vector2(5, 45), 15, 0, BLACK)
         if state.current_node:
-            draw_text_ex(gui_get_font(), f"Current node = {vector2_round(state.current_node)}", (5, 65), 15, 0, BLACK)
+            draw_text_ex(gui_get_font(), f"Current node = {vector2_round(state.current_node)}", Vector2(5, 65), 15, 0, BLACK)
         if state.selection:
-            draw_text_ex(gui_get_font(), f"Current selection = {state.selection}", (5, 85), 15, 0, BLACK)
+            draw_text_ex(gui_get_font(), f"Current selection = {state.selection}", Vector2(5, 85), 15, 0, BLACK)
         
 
         
