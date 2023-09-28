@@ -228,12 +228,6 @@ def initialize_board(state):
     state.ocean_hexes[hh.set_hex(-1, 3, -2)] = ports[16]
     state.ocean_hexes[hh.set_hex(0, 3, -3)] = ports[17]
 
-    # add land and ocean to hex_triangles
-    for hex in state.resource_hexes.keys():
-        state.hex_triangles[hex] = hh.hex_triangles(pointy, hex)
-    for hex in state.ocean_hexes.keys():
-        state.hex_triangles[hex] = hh.hex_triangles(pointy, hex)
-
     # state.ocean_and_resources = state.ocean_and_resources.update(state.resource_hexes)
     # state.ocean_and_resources = state.ocean_and_resources.update(state.ocean_hexes)
     
@@ -251,7 +245,7 @@ def get_user_input(state):
     state.current_hex = None
     state.current_hex_2 = None
     state.current_hex_3 = None
-    state.current_triangle = None
+
     state.current_edge = None
     state.current_node = None
 
@@ -269,22 +263,6 @@ def get_user_input(state):
             
 
     
-    # USING TRIANGLES INCLUDING OCEAN
-    # for hex, six_tri in state.hex_triangles.items():
-    #     for t in six_tri:
-    #         if check_collision_point_triangle(world_position, t[0], t[1], t[2]):
-    #             state.current_hex = hex
-    #             state.current_triangle = t
-    
-    # if state.current_triangle:
-    #     # triangle[0] and triangle[2] are edge vertices
-    #     if check_collision_point_line(world_position, state.current_triangle[0], state.current_triangle[2], 10):
-    #         state.current_edge = (state.current_triangle[0], state.current_triangle[2])
-
-    # if state.current_edge:
-    #     for node in state.current_edge:
-    #         if check_collision_point_circle(world_position, node, 8):
-    #             state.current_node = node
 
 
 
@@ -450,7 +428,7 @@ def render(state):
 
 
 def main():
-    set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
+    # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
     init_window(screen_width, screen_height, "Natac")
     set_target_fps(60)
     initialize_board(state)

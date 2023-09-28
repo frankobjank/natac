@@ -118,3 +118,20 @@ def main():
 #                     "brick_port", None,
 #                     None, "sheep_port", 
 #                     "three", None, "three", None]
+
+    # USING TRIANGLES INCLUDING OCEAN
+    # for hex, six_tri in state.hex_triangles.items():
+    #     for t in six_tri:
+    #         if check_collision_point_triangle(world_position, t[0], t[1], t[2]):
+    #             state.current_hex = hex
+    #             state.current_triangle = t
+    
+    # if state.current_triangle:
+    #     # triangle[0] and triangle[2] are edge vertices
+    #     if check_collision_point_line(world_position, state.current_triangle[0], state.current_triangle[2], 10):
+    #         state.current_edge = (state.current_triangle[0], state.current_triangle[2])
+
+    # if state.current_edge:
+    #     for node in state.current_edge:
+    #         if check_collision_point_circle(world_position, node, 8):
+    #             state.current_node = node
