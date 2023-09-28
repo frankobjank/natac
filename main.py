@@ -158,6 +158,8 @@ class State:
         self.mouse = get_mouse_position()
         self.selection = None
         self.current_hex = None
+        self.current_hex_2 = None
+        self.current_hex_3 = None
         self.current_triangle = None
         self.current_edge = None
         self.current_node = None
@@ -247,26 +249,42 @@ def get_user_input(state):
 
     # RESET current hex, triangle, edge, node
     state.current_hex = None
+    state.current_hex_2 = None
+    state.current_hex_3 = None
     state.current_triangle = None
     state.current_edge = None
     state.current_node = None
+
+    hexes = list(state.resource_hexes.keys())
+    hex_count = 0
+    for i in range(len(hexes)):
+        # check radius
+        if check_collision_point_circle(world_position, hh.hex_to_pixel(pointy, hexes[i]), 60):
+            if hex_count == 1:
+                state.current_hex_2 = state.current_hex
+            if hex_count == 2:
+                state.current_hex_3 = state.current_hex
+            state.current_hex = hexes[i]
+            hex_count += 1
+            
+
     
     # USING TRIANGLES INCLUDING OCEAN
-    for hex, six_tri in state.hex_triangles.items():
-        for t in six_tri:
-            if check_collision_point_triangle(world_position, t[0], t[1], t[2]):
-                state.current_hex = hex
-                state.current_triangle = t
+    # for hex, six_tri in state.hex_triangles.items():
+    #     for t in six_tri:
+    #         if check_collision_point_triangle(world_position, t[0], t[1], t[2]):
+    #             state.current_hex = hex
+    #             state.current_triangle = t
     
-    if state.current_triangle:
-        # triangle[0] and triangle[2] are edge vertices
-        if check_collision_point_line(world_position, state.current_triangle[0], state.current_triangle[2], 10):
-            state.current_edge = (state.current_triangle[0], state.current_triangle[2])
+    # if state.current_triangle:
+    #     # triangle[0] and triangle[2] are edge vertices
+    #     if check_collision_point_line(world_position, state.current_triangle[0], state.current_triangle[2], 10):
+    #         state.current_edge = (state.current_triangle[0], state.current_triangle[2])
 
-    if state.current_edge:
-        for node in state.current_edge:
-            if check_collision_point_circle(world_position, node, 8):
-                state.current_node = node
+    # if state.current_edge:
+    #     for node in state.current_edge:
+    #         if check_collision_point_circle(world_position, node, 8):
+    #             state.current_node = node
 
 
 
@@ -278,11 +296,10 @@ def get_user_input(state):
             state.selection = state.current_edge
         elif state.current_hex:
             state.selection = state.current_hex
+        print(state.current_hex)
 
 def update(state):
     state.frame_counter += 1
-    
-
 
     state.camera.zoom += get_mouse_wheel_move() * 0.03
 
@@ -379,16 +396,20 @@ def render(state):
             draw_text_ex(gui_get_font(), port.value, text_location, 16, 0, BLACK)
 
     
-    if state.current_node:
-        draw_circle_v(state.current_node, 8, BLACK)
+    # if state.current_node:
+    #     draw_circle_v(state.current_node, 8, BLACK)
 
-    # highlight selected edge
-    if state.current_edge and not state.current_node:
-        draw_line_ex(state.current_edge[0], state.current_edge[1], 10, (BLACK))
+    # # highlight selected edge
+    # if state.current_edge and not state.current_node:
+    #     draw_line_ex(state.current_edge[0], state.current_edge[1], 10, (BLACK))
     
     # outline selected hex
-    if state.current_hex and not state.current_edge:
+    if state.current_hex: # and not state.current_edge:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, size, 0, 6, BLACK)
+    if state.current_hex_2:
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_2), 6, 50, 0, 6, BLACK)
+    if state.current_hex_3:
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_3), 6, 50, 0, 6, BLACK)
 
     # draw robber
     radiusH = 12
