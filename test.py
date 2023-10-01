@@ -39,23 +39,23 @@ origin = hh.set_hex(0, 0, 0)
 
 unsorted_hexes = [
                 hh.set_hex(0, -2, 2),
-                #hh.set_hex(1, -2, 1),
-                #hh.set_hex(2, -2, 0),
-                #hh.set_hex(-1, -1, 2),
+                hh.set_hex(1, -2, 1),
+                hh.set_hex(2, -2, 0),
+                hh.set_hex(-1, -1, 2),
                 hh.set_hex(0, -1, 1),
                 hh.set_hex(1, -1, 0),
-                #hh.set_hex(2, -1, -1),
-                #hh.set_hex(-2, 0, 2),
+                hh.set_hex(2, -1, -1),
+                hh.set_hex(-2, 0, 2),
                 hh.set_hex(-1, 0, 1),
                 hh.set_hex(0, 0, 0),
                 hh.set_hex(1, 0, -1),
-                #hh.set_hex(2, 0, -2),
-                #hh.set_hex(-2, 1, 1),
+                hh.set_hex(2, 0, -2),
+                hh.set_hex(-2, 1, 1),
                 hh.set_hex(-1, 1, 0),
                 hh.set_hex(0, 1, -1),
-                #hh.set_hex(1, 1, -2),
-                #hh.set_hex(-2, 2, 0),
-                #hh.set_hex(-1, 2, -1),
+                hh.set_hex(1, 1, -2),
+                hh.set_hex(-2, 2, 0),
+                hh.set_hex(-1, 2, -1),
                 hh.set_hex(0, 2, -2)
                 ]
 
@@ -118,15 +118,15 @@ def main():
                     break
         
         if current_hex_3:
-            # & to find intersection of all 3 hex corners 
-            # next(iter()) gets the (one and only) element in the resulting set
-            current_node = next(iter(hh.corners_set_tuples(pointy, current_hex) & hh.corners_set_tuples(pointy, current_hex_2) & hh.corners_set_tuples(pointy, current_hex_3)))
+            current_node = (current_hex, current_hex_2, current_hex_3)
+            # & for intersection of sets. next(iter()) gets the (one and only) element
+            current_node_point = next(iter(hh.corners_set_tuples(pointy, current_hex) & hh.corners_set_tuples(pointy, current_hex_2) & hh.corners_set_tuples(pointy, current_hex_3)))
 
         # defining current_edge as 2 points
         elif current_hex_2:
             # this way is much easier than looping through edges
-            # current_edge = (current_hex, current_hex_2)
-            current_edge = list(hh.corners_set_tuples(pointy, current_hex).intersection(hh.corners_set_tuples(pointy, current_hex_2)))
+            current_edge = (current_hex, current_hex_2)
+            current_edge_corners = list(hh.corners_set_tuples(pointy, current_hex).intersection(hh.corners_set_tuples(pointy, current_hex_2)))
 
             # loop through edges (to maintain screen and game separation)
             # for edge in edges:
@@ -156,19 +156,20 @@ def main():
             draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex_3), 6, 50, 0, 5, BLACK)
         
         if current_node:
-            draw_circle_v(current_node, 5, RED)
+            draw_circle_v(current_node_point, 5, RED)
 
         if current_edge:       
-            draw_line_ex(current_edge[0], current_edge[1], 6, BLUE)
+            draw_line_ex(current_edge_corners[0], current_edge_corners[1], 6, BLUE)
         
 
 
         # draw_axes()
 
-        draw_text_ex(gui_get_font(), f"Mouse at: ({int(mouse.x)}, {int(mouse.y)})", Vector2(5, 5), 20, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"Mouse at: ({int(mouse.x)}, {int(mouse.y)})", Vector2(5, 5), 15, 0, BLACK)
 
 
-        draw_text_ex(gui_get_font(), f"Current edge: {current_edge}", Vector2(5, 25), 20, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"Current edge: {current_edge}", Vector2(5, 25), 15, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"Current node: {current_node}", Vector2(5, 45), 15, 0, BLACK)
 
 
         end_drawing()

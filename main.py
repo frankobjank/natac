@@ -15,6 +15,8 @@ default_zoom = .9
 def vector2_round(vector2):
     return Vector2(int(vector2.x), int(vector2.y))
 
+# Altnerate idea to build board - use hh.hex_neighbor()
+
 # To do:
     # select vertices
     # select corners
@@ -31,7 +33,6 @@ def vector2_round(vector2):
 # 2
 # 4
 
-# USE HEX NEIGHBOR TO GENERATE BOARD
 
 # layout = type, size, origin
 size = 50 # (radius)
@@ -71,24 +72,23 @@ class Port(Enum):
     BRICK = " 2:1 \nbrick"
     SHEEP = " 2:1 \nsheep"
 
-class Edge:
-    def __init__(self, node_1, node_2):
-        self.node_1 = node_1
-        self.node_2 = node_2
-        # 2 hexes edge is touching
+# class Edge:
+#     def __init__(self, node_1, node_2):
+#         self.node_1 = node_1
+#         self.node_2 = node_2
     
-    def __repr__(self):
-        return f"Edge between {self.node_1} and {self.node_2}"
+#     def __repr__(self):
+#         return f"Edge between {self.node_1} and {self.node_2}"
 
-class Node:
-    def __init__(self, vector2):
-        self.vector2 = vector2
-        self.x = vector2.x
-        self.y = vector2.y
-        # 3 hexes
+# class Node:
+#     def __init__(self, vector2):
+#         self.vector2 = vector2
+#         self.x = vector2.x
+#         self.y = vector2.y
+#         # 3 hexes
     
-    def __repr__(self):
-        return f"Node at {vector2_round(self.vector2)}"
+#     def __repr__(self):
+#         return f"Node at {vector2_round(self.vector2)}"
 
 default_tiles= [Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
                 Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.HILL,
@@ -96,7 +96,7 @@ default_tiles= [Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
                 Tile.FOREST, Tile.MOUNTAIN, Tile.FIELD, Tile.PASTURE,
                 Tile.HILL, Tile.FIELD, Tile.PASTURE]
 # default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
-hexes_for_board = [hh.set_hex(0, -2, 2),
+unsorted_hexes = [hh.set_hex(0, -2, 2),
                 hh.set_hex(1, -2, 1),
                 hh.set_hex(2, -2, 0),
                 hh.set_hex(-1, -1, 2),
@@ -160,7 +160,7 @@ class State:
         self.current_hex = None
         self.current_hex_2 = None
         self.current_hex_3 = None
-        self.current_triangle = None
+        # self.current_triangle = None
         self.current_edge = None
         self.current_node = None
 
