@@ -5,6 +5,8 @@ from operator import itemgetter, attrgetter
 import hex_helper as hh
 
 
+
+
 # all things hexes are used for:
     # node:
         # placing settlements and cities
@@ -64,23 +66,24 @@ unsorted_hexes = [
 
 hexes = sorted(unsorted_hexes, key=attrgetter("q", "r", "s"), reverse=True)
 
-edges = set()
+nodes = []
+edges = []
+edge_corners = []
+node_points = []
 for i in range(len(hexes)):
-    hex_center_1 = hh.hex_to_pixel(pointy, hexes[i])
     for j in range(i+1, len(hexes)):
-        hex_center_2 = hh.hex_to_pixel(pointy, hexes[j])
-        if check_collision_circles(hex_center_1, 60, hex_center_2, 60):
-            edges.add((hexes[i], hexes[j]))
-
-corners = []
-
-for edge in edges:
-    hex_corners_1 = hh.corners_set_tuples(pointy, edge[0])
-    hex_corners_2 = hh.corners_set_tuples(pointy, edge[1])
-
-corners = hex_corners_1.intersection(hex_corners_2)
+        if check_collision_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[j]), 60):
+            edges.append((hexes[i], hexes[j]))
+            edge_corners.append(list(hh.corners_set_tuples(pointy, hexes[i]).intersection(hh.corners_set_tuples(pointy, hexes[j]))))
+            for k in range(j+1, len(hexes)):
+                if check_collision_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[k]), 60):
+                    nodes.append((hexes[i], hexes[j], hexes[k]))
 
 
+for node in nodes:
+    node_point = list((hh.corners_set_tuples(pointy, node[0]) & hh.corners_set_tuples(pointy, node[1]) & hh.corners_set_tuples(pointy, node[2])))
+    if node_point != []:
+        node_points.append(node_point[0])
 
 
 # check if corners overlap with other hex corners
@@ -161,7 +164,11 @@ def main():
         if current_edge:       
             draw_line_ex(current_edge_corners[0], current_edge_corners[1], 6, BLUE)
         
+        # for node in node_points:
+            # draw_circle_v(node, 7, RED)
 
+        # for corners in edge_corners:
+            # draw_line_ex(corners[0], corners[1], 6, BLUE)
 
         # draw_axes()
 
@@ -259,3 +266,24 @@ main()
     #             state.current_node = node
 
 
+
+
+# Altnerate idea to build board - use hh.hex_neighbor()
+
+# Ocean tiles
+# 4
+# 2
+# 2
+# 2
+# 2
+# 2
+# 4
+
+
+# draw triangles for debugging
+# if state.current_triangle:
+#     draw_triangle(state.current_triangle[0], state.current_triangle[1], state.current_triangle[2], RED)
+#     draw_line_ex(state.current_triangle[0], state.current_triangle[2], 10, BLUE)
+# for six_tri in state.hex_triangles.values():
+#     for t in six_tri:
+#         draw_triangle_lines(t[0], t[1], t[2], RED)

@@ -1,8 +1,8 @@
 from __future__ import division
 from __future__ import print_function
-# import collections
-# import math
+from operator import itemgetter, attrgetter
 import random
+from collections import namedtuple
 from enum import Enum
 from pyray import *
 import hex_helper as hh
@@ -15,23 +15,6 @@ default_zoom = .9
 def vector2_round(vector2):
     return Vector2(int(vector2.x), int(vector2.y))
 
-# Altnerate idea to build board - use hh.hex_neighbor()
-
-# To do:
-    # select vertices
-    # select corners
-    # Create ocean tiles, maybe ports in an Ocean Tiles class
-    # draw robber, settlements/pieces
-    # canonical representation of nodes, edges so tile B-A is same as A-B
-
-# Ocean tiles
-# 4
-# 2
-# 2
-# 2
-# 2
-# 2
-# 4
 
 
 # layout = type, size, origin
@@ -55,7 +38,7 @@ class Player(Enum): # where to store players' settlements, cards, VPs, etc?
     WHITE = {"color": get_color(0xd6d6d6ff)}
 
 class Tile(Enum):
-    # colors defined as R, G, B, A where A (alpha/opacity) is 0-255, or % (0-1)
+    # colors defined as R, G, B, A where A is alpha/opacity
     FOREST = {"resource": "wood", "color": get_color(0x517d19ff)}
     HILL = {"resource": "brick", "color": get_color(0x9c4300ff)}
     PASTURE = {"resource": "sheep", "color": get_color(0x17b97fff)}
@@ -72,23 +55,6 @@ class Port(Enum):
     BRICK = " 2:1 \nbrick"
     SHEEP = " 2:1 \nsheep"
 
-# class Edge:
-#     def __init__(self, node_1, node_2):
-#         self.node_1 = node_1
-#         self.node_2 = node_2
-    
-#     def __repr__(self):
-#         return f"Edge between {self.node_1} and {self.node_2}"
-
-# class Node:
-#     def __init__(self, vector2):
-#         self.vector2 = vector2
-#         self.x = vector2.x
-#         self.y = vector2.y
-#         # 3 hexes
-    
-#     def __repr__(self):
-#         return f"Node at {vector2_round(self.vector2)}"
 
 default_tiles= [Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
                 Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.HILL,
@@ -96,25 +62,50 @@ default_tiles= [Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
                 Tile.FOREST, Tile.MOUNTAIN, Tile.FIELD, Tile.PASTURE,
                 Tile.HILL, Tile.FIELD, Tile.PASTURE]
 # default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
-unsorted_hexes = [hh.set_hex(0, -2, 2),
-                hh.set_hex(1, -2, 1),
-                hh.set_hex(2, -2, 0),
-                hh.set_hex(-1, -1, 2),
-                hh.set_hex(0, -1, 1),
-                hh.set_hex(1, -1, 0),
-                hh.set_hex(2, -1, -1),
-                hh.set_hex(-2, 0, 2),
-                hh.set_hex(-1, 0, 1),
-                hh.set_hex(0, 0, 0),
-                hh.set_hex(1, 0, -1),
-                hh.set_hex(2, 0, -2),
-                hh.set_hex(-2, 1, 1),
-                hh.set_hex(-1, 1, 0),
-                hh.set_hex(0, 1, -1),
-                hh.set_hex(1, 1, -2),
-                hh.set_hex(-2, 2, 0),
-                hh.set_hex(-1, 2, -1),
-                hh.set_hex(0, 2, -2)]
+unsorted_resource_hexes = [hh.set_hex(0, -2, 2),
+                        hh.set_hex(1, -2, 1),
+                        hh.set_hex(2, -2, 0),
+                        hh.set_hex(-1, -1, 2),
+                        hh.set_hex(0, -1, 1),
+                        hh.set_hex(1, -1, 0),
+                        hh.set_hex(2, -1, -1),
+                        hh.set_hex(-2, 0, 2),
+                        hh.set_hex(-1, 0, 1),
+                        hh.set_hex(0, 0, 0),
+                        hh.set_hex(1, 0, -1),
+                        hh.set_hex(2, 0, -2),
+                        hh.set_hex(-2, 1, 1),
+                        hh.set_hex(-1, 1, 0),
+                        hh.set_hex(0, 1, -1),
+                        hh.set_hex(1, 1, -2),
+                        hh.set_hex(-2, 2, 0),
+                        hh.set_hex(-1, 2, -1),
+                        hh.set_hex(0, 2, -2)]
+
+unsorted_ocean_hexes = [hh.set_hex(0, -3, 3),
+                        hh.set_hex(1, -3, 2),
+                        hh.set_hex(2, -3, 1),
+                        hh.set_hex(3, -3, 0),
+
+                        hh.set_hex(-1, -2, 3),
+                        hh.set_hex(3, -2, -1),
+
+                        hh.set_hex(-2, -1, 3),
+                        hh.set_hex(3, -1, -2),
+
+                        hh.set_hex(-3, 0, 3),
+                        hh.set_hex(3, 0, -3),
+
+                        hh.set_hex(-3, 1, 2),
+                        hh.set_hex(2, 1, -3),
+
+                        hh.set_hex(-3, 2, 1),
+                        hh.set_hex(1, 2, -3),
+                        hh.set_hex(-3, 3, 0),
+                        hh.set_hex(-2, 3, -1),
+                        hh.set_hex(-1, 3, -2),
+                        hh.set_hex(0, 3, -3)]
+
 
 # dict combining the above lists:
 # default_tiles= {Tile.MOUNTAIN:10, Tile.PASTURE:2, Tile.FOREST:9,
@@ -153,32 +144,37 @@ class State:
         self.ocean_hexes = {}
         self.ocean_and_resources = {}
         self.hex_triangles = {}
+        self.hexes_sorted = []
 
         # selecting via mouse
-        self.mouse = get_mouse_position()
-        self.selection = None
+        self.world_position = None
         self.current_hex = None
         self.current_hex_2 = None
         self.current_hex_3 = None
-        # self.current_triangle = None
         self.current_edge = None
         self.current_node = None
+
+        # stage a selection
+        self.stage_selection = False
+        # actual selection 
+        self.selection = None
 
         # game pieces
         # move robber with current_hex, maybe need to adjust selection to ignore edges and nodes
         self.robber_hex = None
-        # cities, settlements -> nodes; roads -> edges
-        # all edges: player
-        self.edges = {"edge1": Player.BLUE, "edge2": Player.RED, "edge3":Player.BLUE}
-        # nodes, vertices of 3 hexes. settlements and cities
-        self.nodes = {"node1": {"hexes": ["hex1", "hex2", "hex3"], "player": Player.BLUE}}
-        self.player = {"cities": None, "settlements": None, "roads": None, "ports": None, "resource_cards": None, "development_cards": None, "victory_points": 0} 
+        # {edges: "player": player} where player is None if no roads present 
+        self.edges = {}
+        # {nodes: {"player": player, "type": "city" or "settlement"}}
+        self.nodes = {}
+        self.player = {"cities": None, "settlements": None, "roads": None, "ports": None, "resource_cards": None, "development_cards": None, "victory_points": 0}
 
 
         # GLOBAL general vars
         self.debug = False
         self.font = None
         self.frame_counter = 0
+        self.reset = False
+        
     
     def initialize_camera(self):
         self.camera = Camera2D()
@@ -197,51 +193,77 @@ def initialize_board(state):
     # tiles = get_random_tiles()
     tiles = default_tiles
     tokens = default_tile_tokens_dict
-    hexes = hexes_for_board
-    for i in range(19):
-        state.resource_hexes[hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
-
     ports = default_ports
-    # ocean tiles
-    state.ocean_hexes[hh.set_hex(0, -3, 3)] = ports[0]
-    state.ocean_hexes[hh.set_hex(1, -3, 2)] = ports[1]
-    state.ocean_hexes[hh.set_hex(2, -3, 1)] = ports[2]
-    state.ocean_hexes[hh.set_hex(3, -3, 0)] = ports[3]
 
-    state.ocean_hexes[hh.set_hex(-1, -2, 3)] = ports[4]
-    state.ocean_hexes[hh.set_hex(3, -2, -1)] = ports[5]
+    # set up dict {hex: {"tile": tile, "token": token}}
+    for i in range(19):
+        state.resource_hexes[unsorted_resource_hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
 
-    state.ocean_hexes[hh.set_hex(-2, -1, 3)] = ports[6]
-    state.ocean_hexes[hh.set_hex(3, -1, -2)] = ports[7]
-
-    state.ocean_hexes[hh.set_hex(-3, 0, 3)] = ports[8]
-    state.ocean_hexes[hh.set_hex(3, 0, -3)] = ports[9]
-
-    state.ocean_hexes[hh.set_hex(-3, 1, 2)] = ports[10]
-    state.ocean_hexes[hh.set_hex(2, 1, -3)] = ports[11]
-
-    state.ocean_hexes[hh.set_hex(-3, 2, 1)] = ports[12]
-    state.ocean_hexes[hh.set_hex(1, 2, -3)] = ports[13]
-
-    state.ocean_hexes[hh.set_hex(-3, 3, 0)] = ports[14]
-    state.ocean_hexes[hh.set_hex(-2, 3, -1)] = ports[15]
-    state.ocean_hexes[hh.set_hex(-1, 3, -2)] = ports[16]
-    state.ocean_hexes[hh.set_hex(0, 3, -3)] = ports[17]
+    # ocean dict {hex: port}
+    for i in range(18):
+        state.ocean_hexes[unsorted_ocean_hexes[i]] = ports[i]
 
     # state.ocean_and_resources = state.ocean_and_resources.update(state.resource_hexes)
     # state.ocean_and_resources = state.ocean_and_resources.update(state.ocean_hexes)
-    
+
+    # sorts hexes by q, r, then s, so edges and nodes should be standardized
+        # although using sets makes this unnecessary? since order wouldn't matter for sets
+    all_hexes = unsorted_resource_hexes + unsorted_ocean_hexes
+    all_hexes_sorted = sorted(all_hexes, key=attrgetter("q", "r", "s"), reverse=True)
+
+    for i in range(len(all_hexes_sorted)):
+        for j in range(i+1, len(all_hexes_sorted)):
+            if check_collision_circles(hh.hex_to_pixel(pointy, all_hexes_sorted[i]), 60, hh.hex_to_pixel(pointy, all_hexes_sorted[j]), 60):
+                state.edges[(all_hexes_sorted[i], all_hexes_sorted[j])] = {"player": None}
+                # edge_corners.append(list(hh.corners_set_tuples(pointy, hexes[i]).intersection(hh.corners_set_tuples(pointy, hexes[j]))))
+                for k in range(j+1, len(all_hexes_sorted)):
+                    if check_collision_circles(hh.hex_to_pixel(pointy, all_hexes_sorted[i]), 60, hh.hex_to_pixel(pointy, all_hexes_sorted[k]), 60):
+                        state.nodes[(all_hexes_sorted[i], all_hexes_sorted[j], all_hexes_sorted[k])]  = {"player": None, "type": None}
+    state.hexes_sorted = all_hexes_sorted
+
     # start robber in desert
     for hex, tile_dict in state.resource_hexes.items():
         if tile_dict["tile"] == Tile.DESERT:
             state.robber_hex = hex
+
+    # for demo, initiate default roads and settlements
+
     
 
 def get_user_input(state):
-    state.mouse = get_mouse_position()
-    world_position = get_screen_to_world_2d(state.mouse, state.camera)
+    state.world_position = get_screen_to_world_2d(get_mouse_position(), state.camera)
+    
+    state.stage_selection = False
 
-    # RESET current hex, triangle, edge, node
+    if is_mouse_button_pressed(MouseButton.MOUSE_BUTTON_LEFT):
+        state.stage_selection = True
+        print(state.current_hex)
+
+    # camera controls
+    state.camera.zoom += get_mouse_wheel_move() * 0.03
+
+    if is_key_down(KeyboardKey.KEY_RIGHT_BRACKET):
+        state.camera.zoom += 0.03
+    elif is_key_down(KeyboardKey.KEY_LEFT_BRACKET):
+        state.camera.zoom -= 0.03
+
+    # camera and board reset (zoom and rotation)
+    if is_key_pressed(KeyboardKey.KEY_R):
+        state.reset = True
+
+
+
+    if is_key_pressed(KeyboardKey.KEY_E):
+        state.debug = not state.debug # toggle
+    
+    if is_key_pressed(KeyboardKey.KEY_F):
+        toggle_fullscreen()
+
+
+def update(state):
+    state.frame_counter += 1
+    
+    # reset current hex, edge, node every frame
     state.current_hex = None
     state.current_hex_2 = None
     state.current_hex_3 = None
@@ -250,60 +272,60 @@ def get_user_input(state):
     state.current_node = None
 
     hexes = list(state.resource_hexes.keys())
-    hex_count = 0
-    for i in range(len(hexes)):
-        # check radius
-        if check_collision_point_circle(world_position, hh.hex_to_pixel(pointy, hexes[i]), 60):
-            if hex_count == 1:
-                state.current_hex_2 = state.current_hex
-            if hex_count == 2:
-                state.current_hex_3 = state.current_hex
-            state.current_hex = hexes[i]
-            hex_count += 1
-            
-
     
+    # check radius for current hex
+    for hex in hexes:
+        if check_collision_point_circle(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+            state.current_hex = hex
+            break
+    # 2nd loop for edges - current_hex_2
+    for hex in hexes:
+        if state.current_hex != hex:
+            if check_collision_point_circle(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+                state.current_hex_2 = hex
+                break
+    # 3rd loop for nodes - current_hex_3
+    for hex in hexes:
+        if state.current_hex != hex and state.current_hex_2 != hex:
+            if check_collision_point_circle(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+                state.current_hex_3 = hex
+                break
+    
+    if state.current_hex_3:
+        state.current_node = (state.current_hex, state.current_hex_2, state.current_hex_3)
+        # & for intersection of sets. next(iter()) gets the (one and only) element
+        
+        # can calc node_point on the fly
+        # state.current_node_point = next(iter(hh.corners_set_tuples(pointy, state.current_hex) & hh.corners_set_tuples(pointy, state.current_hex_2) & hh.corners_set_tuples(pointy, state.current_hex_3)))
+    
+    # defining current_edge as 2 points
+    elif state.current_hex_2:
+        state.current_edge = (state.current_hex, state.current_hex_2)
+        
+        # can calc edge_corners on the fly
+        # current_edge_corners = list(hh.corners_set_tuples(pointy, state.current_hex) & hh.corners_set_tuples(pointy, state.current_hex_2))
 
-
-
-
-    if is_mouse_button_pressed(MouseButton.MOUSE_BUTTON_LEFT):
+    if state.stage_selection == True:
         if state.current_node:
             state.selection = state.current_node
         elif state.current_edge:
             state.selection = state.current_edge
         elif state.current_hex:
             state.selection = state.current_hex
-        print(state.current_hex)
+        else:
+            state.selection = None
 
-def update(state):
-    state.frame_counter += 1
-
-    state.camera.zoom += get_mouse_wheel_move() * 0.03
-
-    if is_key_down(KeyboardKey.KEY_RIGHT_BRACKET):
-        state.camera.zoom += 0.03
-    elif is_key_down(KeyboardKey.KEY_LEFT_BRACKET):
-        state.camera.zoom -= 0.03
-
+    # automatic zoom reset
     if state.camera.zoom > 3.0:
         state.camera.zoom = 3.0
     elif state.camera.zoom < 0.1:
         state.camera.zoom = 0.1
 
-    # Camera reset (zoom and rotation)
-    if is_key_pressed(KeyboardKey.KEY_R):
+    # reset camera and board
+    if state.reset == True:
         state.camera.zoom = default_zoom
         state.camera.rotation = 0.0
-        # reset board
         initialize_board(state)
-
-
-    if is_key_pressed(KeyboardKey.KEY_E):
-        state.debug = not state.debug # toggle
-    
-    if is_key_pressed(KeyboardKey.KEY_F):
-        toggle_fullscreen()
 
 
 def render(state):
@@ -368,26 +390,32 @@ def render(state):
             # draw_circle(int(hh.hex_to_pixel(pointy, hexes[i]).x), int(hh.hex_to_pixel(pointy, hexes[i]).y), 4, BLACK)
 
 
+
     for hex, port in state.ocean_hexes.items():
         if port:
             text_location = Vector2(hh.hex_to_pixel(pointy, hex).x-(measure_text_ex(gui_get_font(), port.value, 16, 0)).x//2, hh.hex_to_pixel(pointy, hex).y-16)
             draw_text_ex(gui_get_font(), port.value, text_location, 16, 0, BLACK)
 
     
-    # if state.current_node:
-    #     draw_circle_v(state.current_node, 8, BLACK)
-
-    # # highlight selected edge
-    # if state.current_edge and not state.current_node:
-    #     draw_line_ex(state.current_edge[0], state.current_edge[1], 10, (BLACK))
     
     # outline selected hex
     if state.current_hex: # and not state.current_edge:
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, size, 0, 6, BLACK)
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, 50, 0, 6, BLACK)
     if state.current_hex_2:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_2), 6, 50, 0, 6, BLACK)
     if state.current_hex_3:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_3), 6, 50, 0, 6, BLACK)
+
+    if state.current_node:
+        # current_node_point = list(hh.corners_set_tuples(pointy, state.current_hex) & hh.corners_set_tuples(pointy, state.current_hex_2) & hh.corners_set_tuples(pointy, state.current_hex_3))
+        current_node_point = list(hh.corners_set_tuples(pointy, state.current_node[0]) & hh.corners_set_tuples(pointy, state.current_node[1]) & hh.corners_set_tuples(pointy, state.current_node[2]))
+        if current_node_point != []:
+            draw_circle_v(current_node_point[0], 9, RED)
+
+    # # highlight selected edge
+    if state.current_edge and not state.current_node:
+        current_edge_corners = list(hh.corners_set_tuples(pointy, state.current_hex) & hh.corners_set_tuples(pointy, state.current_hex_2))
+        draw_line_ex(current_edge_corners[0], current_edge_corners[1], 10, (BLUE))
 
     # draw robber
     radiusH = 12
@@ -398,28 +426,17 @@ def render(state):
     draw_rectangle(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH, BLACK)
 
 
-    # draw triangles for debugging
-    # if state.current_triangle:
-    #     draw_triangle(state.current_triangle[0], state.current_triangle[1], state.current_triangle[2], RED)
-    #     draw_line_ex(state.current_triangle[0], state.current_triangle[2], 10, BLUE)
-    # for six_tri in state.hex_triangles.values():
-    #     for t in six_tri:
-    #         draw_triangle_lines(t[0], t[1], t[2], RED)
-
 
     end_mode_2d()
 
     if state.debug == True:        
-        world_position = get_screen_to_world_2d(state.mouse, state.camera)
-        draw_text_ex(gui_get_font(), f"World mouse at: ({int(world_position.x)}, {int(world_position.y)})", Vector2(5, 5), 15, 0, BLACK)
-        if state.current_hex:
-            draw_text_ex(gui_get_font(), f"Current hex: {state.current_hex}", Vector2(5, 25), 15, 0, BLACK)
-        if state.current_edge:
-            draw_text_ex(gui_get_font(), f"Current edge: {vector2_round(state.current_edge[0])}, {vector2_round(state.current_edge[1])}", Vector2(5, 45), 15, 0, BLACK)
-        if state.current_node:
-            draw_text_ex(gui_get_font(), f"Current node = {vector2_round(state.current_node)}", Vector2(5, 65), 15, 0, BLACK)
-        if state.selection:
-            draw_text_ex(gui_get_font(), f"Current selection = {state.selection}", Vector2(5, 85), 15, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"World mouse at: ({int(state.world_position.x)}, {int(state.world_position.y)})", Vector2(5, 5), 15, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"Current hex: {state.current_hex}", Vector2(5, 25), 15, 0, BLACK)
+        # draw_text_ex(gui_get_font(), f"Current hex_2: {state.current_hex_2}", Vector2(5, 45), 15, 0, BLACK)
+        # draw_text_ex(gui_get_font(), f"Current hex_3 = {state.current_hex_3}", Vector2(5, 65), 15, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"Current edge: {state.current_edge}", Vector2(5, 45), 15, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"Current node = {state.current_node}", Vector2(5, 65), 15, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"Current selection = {state.selection}", Vector2(5, 85), 10, 0, BLACK)
         
 
         
