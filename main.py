@@ -411,7 +411,6 @@ def render(state):
 
     if state.debug == True:        
         world_position = get_screen_to_world_2d(state.mouse, state.camera)
-        # draw_text_ex(gui_get_font(), f"Mouse at: ({int(state.mouse.x)}, {int(state.mouse.y)})", (5, 5), 15, 0, BLACK)
         draw_text_ex(gui_get_font(), f"World mouse at: ({int(world_position.x)}, {int(world_position.y)})", Vector2(5, 5), 15, 0, BLACK)
         if state.current_hex:
             draw_text_ex(gui_get_font(), f"Current hex: {state.current_hex}", Vector2(5, 25), 15, 0, BLACK)

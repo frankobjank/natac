@@ -1,6 +1,7 @@
 from pyray import *
 from enum import Enum
 import random
+from operator import itemgetter, attrgetter
 import hex_helper as hh
 
 
@@ -14,6 +15,18 @@ import hex_helper as hh
     # number token
     # contains robber
 
+def vector2_round(vector2):
+    return Vector2(int(vector2.x), int(vector2.y))
+
+def draw_axes():
+    draw_line(510, 110, 290, 490, BLACK)
+    draw_text_ex(gui_get_font(), "+ S -", (480, 80), 20, 0, BLACK)
+    draw_line(180, 300, 625, 300, BLACK)
+    draw_text_ex(gui_get_font(), "-", (645, 270), 20, 0, BLACK)
+    draw_text_ex(gui_get_font(), "R", (645, 290), 20, 0, BLACK)
+    draw_text_ex(gui_get_font(), "+", (645, 310), 20, 0, BLACK)
+    draw_line(290, 110, 510, 490, BLACK)
+    draw_text_ex(gui_get_font(), "- Q +", (490, 500), 20, 0, BLACK)
 
 screen_width=800
 screen_height=600
@@ -24,38 +37,146 @@ def offset(lst, offset):
 pointy = hh.Layout(hh.layout_pointy, hh.Point(50, 50), hh.Point(400, 300))
 origin = hh.set_hex(0, 0, 0)
 
-def vector2_round(vector2):
-    return int(vector2.x), int(vector2.y)
+unsorted_hexes = [
+                hh.set_hex(0, -2, 2),
+                #hh.set_hex(1, -2, 1),
+                #hh.set_hex(2, -2, 0),
+                #hh.set_hex(-1, -1, 2),
+                hh.set_hex(0, -1, 1),
+                hh.set_hex(1, -1, 0),
+                #hh.set_hex(2, -1, -1),
+                #hh.set_hex(-2, 0, 2),
+                hh.set_hex(-1, 0, 1),
+                hh.set_hex(0, 0, 0),
+                hh.set_hex(1, 0, -1),
+                #hh.set_hex(2, 0, -2),
+                #hh.set_hex(-2, 1, 1),
+                hh.set_hex(-1, 1, 0),
+                hh.set_hex(0, 1, -1),
+                #hh.set_hex(1, 1, -2),
+                #hh.set_hex(-2, 2, 0),
+                #hh.set_hex(-1, 2, -1),
+                hh.set_hex(0, 2, -2)
+                ]
 
-class Node:
-    def __init__(self, vector2) -> Vector2:
-        self.vector2 = vector2
-        self.x = vector2.x
-        self.y = vector2.y
-    
-    def __repr__(self):
-        return f"Node at {vector2_round(self.vector2)}"
+
+
+
+hexes = sorted(unsorted_hexes, key=attrgetter("q", "r", "s"), reverse=True)
+
+edges = set()
+for i in range(len(hexes)):
+    hex_center_1 = hh.hex_to_pixel(pointy, hexes[i])
+    for j in range(i+1, len(hexes)):
+        hex_center_2 = hh.hex_to_pixel(pointy, hexes[j])
+        if check_collision_circles(hex_center_1, 60, hex_center_2, 60):
+            edges.add((hexes[i], hexes[j]))
+
+corners = []
+
+for edge in edges:
+    hex_corners_1 = hh.corners_set_tuples(pointy, edge[0])
+    hex_corners_2 = hh.corners_set_tuples(pointy, edge[1])
+
+corners = hex_corners_1.intersection(hex_corners_2)
+
+
+
+
+# check if corners overlap with other hex corners
 
 def main():
     init_window(screen_width, screen_height, "natac")
     gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
     set_target_fps(60)
     while not window_should_close():
+        # user input/ update
+        mouse = get_mouse_position()
+
+        current_hex = None
+        current_hex_2 = None
+        current_hex_3 = None
+        current_edge = None
+        current_node = None
+
+        # check radius for current hex
+        for hex in hexes:
+            if check_collision_point_circle(mouse, hh.hex_to_pixel(pointy, hex), 60):
+                current_hex = hex
+                break
+        # 2nd loop for edges - current_hex_2
+        for hex in hexes:
+            if current_hex != hex:
+                if check_collision_point_circle(mouse, hh.hex_to_pixel(pointy, hex), 60):
+                    current_hex_2 = hex
+                    break
+        # 3rd loop for nodes - current_hex_3
+        for hex in hexes:
+            if current_hex != hex and current_hex_2 != hex:
+                if check_collision_point_circle(mouse, hh.hex_to_pixel(pointy, hex), 60):
+                    current_hex_3 = hex
+                    break
+        
+        if current_hex_3:
+            # & to find intersection of all 3 hex corners 
+            # next(iter()) gets the (one and only) element in the resulting set
+            current_node = next(iter(hh.corners_set_tuples(pointy, current_hex) & hh.corners_set_tuples(pointy, current_hex_2) & hh.corners_set_tuples(pointy, current_hex_3)))
+
+        # defining current_edge as 2 points
+        elif current_hex_2:
+            # this way is much easier than looping through edges
+            # current_edge = (current_hex, current_hex_2)
+            current_edge = list(hh.corners_set_tuples(pointy, current_hex).intersection(hh.corners_set_tuples(pointy, current_hex_2)))
+
+            # loop through edges (to maintain screen and game separation)
+            # for edge in edges:
+            #     if edge == (current_hex, current_hex_2):
+            #         current_edge = edge
+            #         current_edge_points = list(hh.corners_set_tuples(pointy, current_hex).intersection(hh.corners_set_tuples(pointy, current_hex_2)))
+            #         break
+                    
+
+
+        # render
         begin_drawing()
-        clear_background(Color.WHITE)
-        mouse = Node(get_mouse_position())
-        x=400
-        y=300
-        draw_triangle((x, y-20), (x-20, y), (x+20, y), BLACK)
-        draw_rectangle(x-20, y, 40, 25, BLACK)
-        print(mouse.x)
+        clear_background(WHITE)
+        for hex in hexes:
+            hex_center = hh.hex_to_pixel(pointy, hex)
+            draw_poly(hex_center, 6, 50, 0, GRAY)
+            draw_poly_lines(hex_center, 6, 50, 0, BLACK)
+        for hex in hexes:
+            hex_center = hh.hex_to_pixel(pointy, hex)
+            draw_circle_lines(int(hex_center.x), int(hex_center.y), 60, DARKGRAY)
+        
+        if current_hex:
+            draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex), 6, 50, 0, 5, BLACK)
+        if current_hex_2:
+            draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex_2), 6, 50, 0, 5, BLACK)
+        if current_hex_3:
+            draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex_3), 6, 50, 0, 5, BLACK)
+        
+        if current_node:
+            draw_circle_v(current_node, 5, RED)
+
+        if current_edge:       
+            draw_line_ex(current_edge[0], current_edge[1], 6, BLUE)
+        
+
+
+        # draw_axes()
+
+        draw_text_ex(gui_get_font(), f"Mouse at: ({int(mouse.x)}, {int(mouse.y)})", Vector2(5, 5), 20, 0, BLACK)
+
+
+        draw_text_ex(gui_get_font(), f"Current edge: {current_edge}", Vector2(5, 25), 20, 0, BLACK)
+
 
         end_drawing()
 
     unload_font(gui_get_font())
     close_window()
 
-# main()
+main()
 
 
 
@@ -135,3 +256,5 @@ def main():
     #     for node in state.current_edge:
     #         if check_collision_point_circle(world_position, node, 8):
     #             state.current_node = node
+
+

@@ -106,6 +106,15 @@ def polygon_corners(layout, h):
         corners.append(Vector2(center.x + offset.x, center.y + offset.y))
     return corners
 
+def corners_set_tuples(layout, h):
+    corners = set()
+    center = hex_to_pixel(layout, h)
+    for i in range(0, 6):
+        offset = hex_corner_offset(layout, i)
+        # corners.add(Vector2(center.x + offset.x, center.y + offset.y))
+        corners.add((center.x + offset.x, center.y + offset.y))
+    return corners
+
 def hex_triangles(layout, h):
     corners = polygon_corners(layout, h)
     center = hex_to_pixel(layout, h)
