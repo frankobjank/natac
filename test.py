@@ -5,8 +5,14 @@ from operator import itemgetter, attrgetter
 import hex_helper as hh
 
 
-# all possible classes
-# 
+
+# classes
+# player = {"cities": None, "settlements": None, "roads": None, "ports": None, "resource_cards": None, "development_cards": None, "victory_points": 0}
+
+# {edges: "player": player} where player is None if no roads present 
+# edge()
+# self.nodes = {}
+
 
 # all things hexes are used for:
     # node:
@@ -40,54 +46,72 @@ def offset(lst, offset):
 pointy = hh.Layout(hh.layout_pointy, hh.Point(50, 50), hh.Point(400, 300))
 origin = hh.set_hex(0, 0, 0)
 
-unsorted_hexes = [
-                hh.set_hex(0, -2, 2),
-                hh.set_hex(1, -2, 1),
-                hh.set_hex(2, -2, 0),
-                hh.set_hex(-1, -1, 2),
-                hh.set_hex(0, -1, 1),
-                hh.set_hex(1, -1, 0),
-                hh.set_hex(2, -1, -1),
-                hh.set_hex(-2, 0, 2),
-                hh.set_hex(-1, 0, 1),
-                hh.set_hex(0, 0, 0),
-                hh.set_hex(1, 0, -1),
-                hh.set_hex(2, 0, -2),
-                hh.set_hex(-2, 1, 1),
-                hh.set_hex(-1, 1, 0),
-                hh.set_hex(0, 1, -1),
-                hh.set_hex(1, 1, -2),
-                hh.set_hex(-2, 2, 0),
-                hh.set_hex(-1, 2, -1),
-                hh.set_hex(0, 2, -2)
-                ]
+hexes = [hh.set_hex(0, -2, 2),
+        hh.set_hex(1, -2, 1),
+        hh.set_hex(2, -2, 0),
+        hh.set_hex(-1, -1, 2),
+        hh.set_hex(0, -1, 1),
+        hh.set_hex(1, -1, 0),
+        hh.set_hex(2, -1, -1),
+        hh.set_hex(-2, 0, 2),
+        hh.set_hex(-1, 0, 1),
+        hh.set_hex(0, 0, 0),
+        hh.set_hex(1, 0, -1),
+        hh.set_hex(2, 0, -2),
+        hh.set_hex(-2, 1, 1),
+        hh.set_hex(-1, 1, 0),
+        hh.set_hex(0, 1, -1),
+        hh.set_hex(1, 1, -2),
+        hh.set_hex(-2, 2, 0),
+        hh.set_hex(-1, 2, -1),
+        hh.set_hex(0, 2, -2)
+        ]
 
+def sort_hexes(hexes) -> list:
+    return sorted(hexes, key=attrgetter("q", "r", "s"))
 
+class Edge:
+    def __init__(self, hex_a, hex_b):
+        assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
+        sorted_hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
+        self.hex_a = sorted_hexes[0]
+        self.hex_b = sorted_hexes[1]
+        self.player = None
+    
+    def __repr__(self):
+        return f"Edge({self.hex_a}, {self.hex_b})"
+        
+    def get_edge_points(self) -> list:
+        return list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b))
 
+class Node:
+    def __init__(self, hex_a, hex_b, hex_c):
+        sorted_hexes = sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s"))
+        self.hex_a = sorted_hexes[0]
+        self.hex_b = sorted_hexes[1]
+        self.hex_c = sorted_hexes[2]
+        self.player = None
+        self.type = None # city or settlement
 
-hexes = sorted(unsorted_hexes, key=attrgetter("q", "r", "s"), reverse=True)
+    def __repr__(self):
+        return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
+
+    def get_node_point(self) -> tuple:
+        node_point = list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b) & hh.corners_set_tuples(pointy, self.hex_c))
+        if len(node_point) != 0:
+            return node_point[0]
 
 nodes = []
 edges = []
-edge_corners = []
-node_points = []
 for i in range(len(hexes)):
     for j in range(i+1, len(hexes)):
         if check_collision_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[j]), 60):
-            edges.append((hexes[i], hexes[j]))
-            edge_corners.append(list(hh.corners_set_tuples(pointy, hexes[i]).intersection(hh.corners_set_tuples(pointy, hexes[j]))))
+            edges.append(Edge(hexes[i], hexes[j]))
             for k in range(j+1, len(hexes)):
                 if check_collision_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[k]), 60):
-                    nodes.append((hexes[i], hexes[j], hexes[k]))
+                    nodes.append(Node(hexes[i], hexes[j], hexes[k]))
 
 
-for node in nodes:
-    node_point = list((hh.corners_set_tuples(pointy, node[0]) & hh.corners_set_tuples(pointy, node[1]) & hh.corners_set_tuples(pointy, node[2])))
-    if node_point != []:
-        node_points.append(node_point[0])
-
-
-# check if corners overlap with other hex corners
 
 def main():
     init_window(screen_width, screen_height, "natac")
@@ -121,23 +145,23 @@ def main():
                     current_hex_3 = hex
                     break
         
+        # finding node with all current hexes
         if current_hex_3:
+            
             current_node = (current_hex, current_hex_2, current_hex_3)
-            # & for intersection of sets. next(iter()) gets the (one and only) element
-            current_node_point = next(iter(hh.corners_set_tuples(pointy, current_hex) & hh.corners_set_tuples(pointy, current_hex_2) & hh.corners_set_tuples(pointy, current_hex_3)))
+            sorted_hexes = sorted((current_hex, current_hex_2, current_hex_3), key=attrgetter("q", "r", "s"))
+            for node in nodes:
+                if node.hex_a == sorted_hexes[0] and node.hex_b == sorted_hexes[1] and node.hex_c == sorted_hexes[2]:
+                    current_node = node
+                    break
 
-        # defining current_edge as 2 points
+        # finding edge with both current hexes
         elif current_hex_2:
-            # this way is much easier than looping through edges
-            current_edge = (current_hex, current_hex_2)
-            current_edge_corners = list(hh.corners_set_tuples(pointy, current_hex).intersection(hh.corners_set_tuples(pointy, current_hex_2)))
-
-            # loop through edges (to maintain screen and game separation)
-            # for edge in edges:
-            #     if edge == (current_hex, current_hex_2):
-            #         current_edge = edge
-            #         current_edge_points = list(hh.corners_set_tuples(pointy, current_hex).intersection(hh.corners_set_tuples(pointy, current_hex_2)))
-            #         break
+            sorted_hexes = sorted((current_hex, current_hex_2), key=attrgetter("q", "r", "s"))
+            for edge in edges:
+                if edge.hex_a == sorted_hexes[0] and edge.hex_b == sorted_hexes[1]:
+                    current_edge = edge
+                    break
                     
 
 
@@ -160,10 +184,11 @@ def main():
             draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex_3), 6, 50, 0, 5, BLACK)
         
         if current_node:
-            draw_circle_v(current_node_point, 5, RED)
+            draw_circle_v(current_node.get_node_point(), 5, RED)
 
-        if current_edge:       
-            draw_line_ex(current_edge_corners[0], current_edge_corners[1], 6, BLUE)
+        if current_edge:
+            corners = current_edge.get_edge_points()
+            draw_line_ex(corners[0], corners[1], 6, BLUE)
         
         # for node in node_points:
             # draw_circle_v(node, 7, RED)

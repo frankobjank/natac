@@ -39,14 +39,69 @@ all_ports = ["three_to_one", "wood_port", "brick_port", "sheep_port", "wheat_por
 
 default_tile_tokens_dict = [{10: 3}, {2: 1}, {9: 4}, {12: 1}, {6: 5}, {4: 3}, {10: 3}, {9: 4}, {11: 2}, {None: None}, {3: 2}, {8: 5}, {8: 5}, {3: 2}, {4: 3}, {5: 4}, {5: 4}, {6: 5}, {11: 2}]
 
+def sort_hexes(hexes) -> list:
+    return sorted(hexes, key=attrgetter("q", "r", "s"))
+
+class Edge:
+    def __init__(self, hex_a, hex_b):
+        assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
+        sorted_hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
+        self.hex_a = sorted_hexes[0]
+        self.hex_b = sorted_hexes[1]
+        self.player = None
+    
+    def __repr__(self):
+        return f"Edge({self.hex_a}, {self.hex_b})"
+        
+    def get_edge_points(self) -> list:
+        return list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b))
+    
+class Node:
+    def __init__(self, hex_a, hex_b, hex_c):
+        sorted_hexes = sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s"))
+        self.hex_a = sorted_hexes[0]
+        self.hex_b = sorted_hexes[1]
+        self.hex_c = sorted_hexes[2]
+        self.player = None
+        self.type = None # city or settlement
+
+    def __repr__(self):
+        return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
+
+    def get_node_point(self):
+        node_point = list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b) & hh.corners_set_tuples(pointy, self.hex_c))
+        if len(node_point) != 0:
+            return node_point[0]
+
+
+class Player:
+    def __init__(self, color):
+        self.color = color
+        self.cities = []
+        self.settlements = []
+        self.roads = []
+        self.ports = []
+        self.hand = []
+        self.development_cards = []
+        self.victory_points = 0
+    
+    def __repr__(self):
+        return f"Player {self.color}: cities {self.cities}, settlements {self.settlements}, roads {self.roads}"
+
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
-class Player(Enum): # where to store players' settlements, cards, VPs, etc?
-    RED = {"color": get_color(0xe1282fff)} 
-    BLUE = {"color": get_color(0x2974b8ff)}
-    ORANGE = {"color": get_color(0xd46a24ff)}
-    WHITE = {"color": get_color(0xd6d6d6ff)}
+class PlayerColors(Enum):
+    RED = get_color(0xe1282fff)
+    BLUE = get_color(0x2974b8ff)
+    ORANGE = get_color(0xd46a24ff)
+    WHITE = get_color(0xd6d6d6ff)
 
+red_player = Player(PlayerColors.RED)
+blue_player = Player(PlayerColors.BLUE)
+orange_player = Player(PlayerColors.ORANGE)
+white_player = Player(PlayerColors.WHITE)
+
+# break this out to TileColors(Enum) and Tile class - resource, hexes, players?
 class Tile(Enum):
     # colors defined as R, G, B, A where A is alpha/opacity
     FOREST = {"resource": "wood", "color": get_color(0x517d19ff)}
@@ -72,49 +127,49 @@ default_tiles= [Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
                 Tile.FOREST, Tile.MOUNTAIN, Tile.FIELD, Tile.PASTURE,
                 Tile.HILL, Tile.FIELD, Tile.PASTURE]
 # default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
-unsorted_resource_hexes = [hh.set_hex(0, -2, 2),
-                        hh.set_hex(1, -2, 1),
-                        hh.set_hex(2, -2, 0),
-                        hh.set_hex(-1, -1, 2),
-                        hh.set_hex(0, -1, 1),
-                        hh.set_hex(1, -1, 0),
-                        hh.set_hex(2, -1, -1),
-                        hh.set_hex(-2, 0, 2),
-                        hh.set_hex(-1, 0, 1),
-                        hh.set_hex(0, 0, 0),
-                        hh.set_hex(1, 0, -1),
-                        hh.set_hex(2, 0, -2),
-                        hh.set_hex(-2, 1, 1),
-                        hh.set_hex(-1, 1, 0),
-                        hh.set_hex(0, 1, -1),
-                        hh.set_hex(1, 1, -2),
-                        hh.set_hex(-2, 2, 0),
-                        hh.set_hex(-1, 2, -1),
-                        hh.set_hex(0, 2, -2)]
+resource_hexes = [hh.set_hex(0, -2, 2),
+            hh.set_hex(1, -2, 1),
+            hh.set_hex(2, -2, 0),
+            hh.set_hex(-1, -1, 2),
+            hh.set_hex(0, -1, 1),
+            hh.set_hex(1, -1, 0),
+            hh.set_hex(2, -1, -1),
+            hh.set_hex(-2, 0, 2),
+            hh.set_hex(-1, 0, 1),
+            hh.set_hex(0, 0, 0),
+            hh.set_hex(1, 0, -1),
+            hh.set_hex(2, 0, -2),
+            hh.set_hex(-2, 1, 1),
+            hh.set_hex(-1, 1, 0),
+            hh.set_hex(0, 1, -1),
+            hh.set_hex(1, 1, -2),
+            hh.set_hex(-2, 2, 0),
+            hh.set_hex(-1, 2, -1),
+            hh.set_hex(0, 2, -2)]
 
-unsorted_ocean_hexes = [hh.set_hex(0, -3, 3),
-                        hh.set_hex(1, -3, 2),
-                        hh.set_hex(2, -3, 1),
-                        hh.set_hex(3, -3, 0),
+ocean_hexes = [hh.set_hex(0, -3, 3),
+            hh.set_hex(1, -3, 2),
+            hh.set_hex(2, -3, 1),
+            hh.set_hex(3, -3, 0),
 
-                        hh.set_hex(-1, -2, 3),
-                        hh.set_hex(3, -2, -1),
+            hh.set_hex(-1, -2, 3),
+            hh.set_hex(3, -2, -1),
 
-                        hh.set_hex(-2, -1, 3),
-                        hh.set_hex(3, -1, -2),
+            hh.set_hex(-2, -1, 3),
+            hh.set_hex(3, -1, -2),
 
-                        hh.set_hex(-3, 0, 3),
-                        hh.set_hex(3, 0, -3),
+            hh.set_hex(-3, 0, 3),
+            hh.set_hex(3, 0, -3),
 
-                        hh.set_hex(-3, 1, 2),
-                        hh.set_hex(2, 1, -3),
+            hh.set_hex(-3, 1, 2),
+            hh.set_hex(2, 1, -3),
 
-                        hh.set_hex(-3, 2, 1),
-                        hh.set_hex(1, 2, -3),
-                        hh.set_hex(-3, 3, 0),
-                        hh.set_hex(-2, 3, -1),
-                        hh.set_hex(-1, 3, -2),
-                        hh.set_hex(0, 3, -3)]
+            hh.set_hex(-3, 2, 1),
+            hh.set_hex(1, 2, -3),
+            hh.set_hex(-3, 3, 0),
+            hh.set_hex(-2, 3, -1),
+            hh.set_hex(-1, 3, -2),
+            hh.set_hex(0, 3, -3)]
 
 
 # dict combining the above lists:
@@ -174,9 +229,9 @@ class State:
         self.robber_hex = None
         # turn edges, nodes, players into classes
         # {edges: "player": player} where player is None if no roads present 
-        self.edges = {}
+        self.edges = []
         # {nodes: {"player": player, "type": "city" or "settlement"}}
-        self.nodes = {}
+        self.nodes = []
         self.players = []
         self.player = {"cities": None, "settlements": None, "roads": None, "ports": None, "resource_cards": None, "development_cards": None, "victory_points": 0}
 
@@ -201,6 +256,7 @@ state.initialize_camera()
 
 # STATE.BOARD:
 # state.resource_hexes[hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
+# will need to pass in tiles instead of using global variables at some point
 def initialize_board(state):
     # tiles = get_random_tiles()
     tiles = default_tiles
@@ -209,29 +265,28 @@ def initialize_board(state):
 
     # set up dict {hex: {"tile": tile, "token": token}}
     for i in range(19):
-        state.resource_hexes[unsorted_resource_hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
+        state.resource_hexes[resource_hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
 
     # ocean dict {hex: port}
     for i in range(18):
-        state.ocean_hexes[unsorted_ocean_hexes[i]] = ports[i]
+        state.ocean_hexes[ocean_hexes[i]] = ports[i]
 
     # state.ocean_and_resources = state.ocean_and_resources.update(state.resource_hexes)
     # state.ocean_and_resources = state.ocean_and_resources.update(state.ocean_hexes)
 
     # sorts hexes by q, r, then s, so edges and nodes should be standardized
         # although using sets makes this unnecessary? since order wouldn't matter for sets
-    all_hexes = unsorted_resource_hexes + unsorted_ocean_hexes
-    all_hexes_sorted = sorted(all_hexes, key=attrgetter("q", "r", "s"), reverse=True)
+    all_hexes = resource_hexes + ocean_hexes
 
-    for i in range(len(all_hexes_sorted)):
-        for j in range(i+1, len(all_hexes_sorted)):
-            if check_collision_circles(hh.hex_to_pixel(pointy, all_hexes_sorted[i]), 60, hh.hex_to_pixel(pointy, all_hexes_sorted[j]), 60):
-                state.edges[(all_hexes_sorted[i], all_hexes_sorted[j])] = {"player": None}
+    # triple 'for' loop to fill state.edges and state.nodes lists
+    for i in range(len(all_hexes)):
+        for j in range(i+1, len(all_hexes)):
+            if check_collision_circles(hh.hex_to_pixel(pointy, all_hexes[i]), 60, hh.hex_to_pixel(pointy, all_hexes[j]), 60):
+                state.edges.append(Edge(all_hexes[i], all_hexes[j]))
                 # edge_corners.append(list(hh.corners_set_tuples(pointy, hexes[i]).intersection(hh.corners_set_tuples(pointy, hexes[j]))))
-                for k in range(j+1, len(all_hexes_sorted)):
-                    if check_collision_circles(hh.hex_to_pixel(pointy, all_hexes_sorted[i]), 60, hh.hex_to_pixel(pointy, all_hexes_sorted[k]), 60):
-                        state.nodes[(all_hexes_sorted[i], all_hexes_sorted[j], all_hexes_sorted[k])]  = {"player": None, "type": None}
-    state.hexes_sorted = all_hexes_sorted
+                for k in range(j+1, len(all_hexes)):
+                    if check_collision_circles(hh.hex_to_pixel(pointy, all_hexes[i]), 60, hh.hex_to_pixel(pointy, all_hexes[k]), 60):
+                        state.nodes.append(Node(all_hexes[i], all_hexes[j], all_hexes[k]))
 
     # start robber in desert
     for hex, tile_dict in state.resource_hexes.items():
@@ -239,15 +294,7 @@ def initialize_board(state):
             state.robber_hex = hex
 
     # for demo, initiate default roads and settlements
-    # state.edges[]
 
-def get_edge_points(edge):
-    return list(hh.corners_set_tuples(pointy, edge[0]) & hh.corners_set_tuples(pointy, edge[1]))
-
-def get_node_point(node):
-    node_point = list(hh.corners_set_tuples(pointy, node[0]) & hh.corners_set_tuples(pointy, node[1]) & hh.corners_set_tuples(pointy, node[2]))
-    if len(node_point) != 0:
-        return node_point[0]
 
 def get_user_input(state):
     state.world_position = get_screen_to_world_2d(get_mouse_position(), state.camera)
@@ -310,19 +357,22 @@ def update(state):
                 state.current_hex_3 = hex
                 break
     
+
+
     if state.current_hex_3:
-        state.current_node = (state.current_hex, state.current_hex_2, state.current_hex_3)
-        # & for intersection of sets. next(iter()) gets the (one and only) element
-        
-        # can calc node_point on the fly
-        # state.current_node_point = next(iter(hh.corners_set_tuples(pointy, state.current_hex) & hh.corners_set_tuples(pointy, state.current_hex_2) & hh.corners_set_tuples(pointy, state.current_hex_3)))
+        sorted_hexes = sorted((state.current_hex, state.current_hex_2, state.current_hex_3), key=attrgetter("q", "r", "s"))
+        for node in state.nodes:
+            if node.hex_a == sorted_hexes[0] and node.hex_b == sorted_hexes[1] and node.hex_c == sorted_hexes[2]:
+                state.current_node = node
+                break
     
     # defining current_edge as 2 points
     elif state.current_hex_2:
-        state.current_edge = (state.current_hex, state.current_hex_2)
-        
-        # can calc edge_corners on the fly
-        # current_edge_corners = list(hh.corners_set_tuples(pointy, state.current_hex) & hh.corners_set_tuples(pointy, state.current_hex_2))
+        sorted_hexes = sorted((state.current_hex, state.current_hex_2), key=attrgetter("q", "r", "s"))
+        for edge in state.edges:
+            if edge.hex_a == sorted_hexes[0] and edge.hex_b == sorted_hexes[1]:
+                state.current_edge = edge
+                break
 
     if state.stage_selection == True:
         if state.current_node:
@@ -409,13 +459,10 @@ def render(state):
             # draw_circle(int(hh.hex_to_pixel(pointy, hexes[i]).x), int(hh.hex_to_pixel(pointy, hexes[i]).y), 4, BLACK)
 
 
-
     for hex, port in state.ocean_hexes.items():
         if port:
             text_location = Vector2(hh.hex_to_pixel(pointy, hex).x-(measure_text_ex(gui_get_font(), port.value, 16, 0)).x//2, hh.hex_to_pixel(pointy, hex).y-16)
             draw_text_ex(gui_get_font(), port.value, text_location, 16, 0, BLACK)
-
-    
     
     # outline selected hex
     if state.current_hex: # and not state.current_edge:
@@ -426,13 +473,12 @@ def render(state):
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_3), 6, 50, 0, 6, BLACK)
 
     if state.current_node:
-        # current_node_point = list(hh.corners_set_tuples(pointy, state.current_hex) & hh.corners_set_tuples(pointy, state.current_hex_2) & hh.corners_set_tuples(pointy, state.current_hex_3))
-        draw_circle_v(get_node_point(state.current_node), 9, RED)
+        draw_circle_v(state.current_node.get_node_point(), 9, RED)
 
-    # # highlight selected edge
+    # highlight selected edge
     if state.current_edge and not state.current_node:
-        edge_points = get_edge_points(state.current_edge)
-        draw_line_ex(edge_points[0], edge_points[1], 10, (BLUE))
+        corners = state.current_edge.get_edge_points()
+        draw_line_ex(corners[0], corners[1], 10, (BLUE))
 
     # draw robber
     radiusH = 12
@@ -441,9 +487,6 @@ def render(state):
     draw_circle(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, BLACK)
     draw_ellipse(int(hex_center.x), int(hex_center.y), radiusH, radiusV, BLACK)
     draw_rectangle(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH, BLACK)
-
-    # for three_hexes, node_contents in state.nodes.items():
-        # pass
         
 
     end_mode_2d()
