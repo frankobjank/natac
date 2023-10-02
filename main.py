@@ -14,8 +14,18 @@ default_zoom = .9
 
 def vector2_round(vector2):
     return Vector2(int(vector2.x), int(vector2.y))
+# add cities, settlements, roads, ports (not just ocean tiles)
+# Red 
+# node (0, -2, 2), (1, -2, 1), (0, -1, 1)
+# node (-2, 0, 2), (-1, 0, 1), (-2, 1, 1)
+# edge (1, -2, 1), (0, -1, 1)
+# edge (-1, 0, 1), (-2, 1, 1)
 
-
+# Blue
+# node (-2, 1, 1), (-1, 1, 0), (-2, 2, 0)
+# node (0, 1, -1), (1, 1, -2), (0, 2, -2)
+# edge (-1, 1, 0), (-2, 2, 0)
+# edge (0, 1, -1), (1, 1, -2)
 
 # layout = type, size, origin
 size = 50 # (radius)
@@ -162,10 +172,12 @@ class State:
         # game pieces
         # move robber with current_hex, maybe need to adjust selection to ignore edges and nodes
         self.robber_hex = None
+        # turn edges, nodes, players into classes
         # {edges: "player": player} where player is None if no roads present 
         self.edges = {}
         # {nodes: {"player": player, "type": "city" or "settlement"}}
         self.nodes = {}
+        self.players = []
         self.player = {"cities": None, "settlements": None, "roads": None, "ports": None, "resource_cards": None, "development_cards": None, "victory_points": 0}
 
 
@@ -227,8 +239,15 @@ def initialize_board(state):
             state.robber_hex = hex
 
     # for demo, initiate default roads and settlements
+    # state.edges[]
 
-    
+def get_edge_points(edge):
+    return list(hh.corners_set_tuples(pointy, edge[0]) & hh.corners_set_tuples(pointy, edge[1]))
+
+def get_node_point(node):
+    node_point = list(hh.corners_set_tuples(pointy, node[0]) & hh.corners_set_tuples(pointy, node[1]) & hh.corners_set_tuples(pointy, node[2]))
+    if len(node_point) != 0:
+        return node_point[0]
 
 def get_user_input(state):
     state.world_position = get_screen_to_world_2d(get_mouse_position(), state.camera)
@@ -408,14 +427,12 @@ def render(state):
 
     if state.current_node:
         # current_node_point = list(hh.corners_set_tuples(pointy, state.current_hex) & hh.corners_set_tuples(pointy, state.current_hex_2) & hh.corners_set_tuples(pointy, state.current_hex_3))
-        current_node_point = list(hh.corners_set_tuples(pointy, state.current_node[0]) & hh.corners_set_tuples(pointy, state.current_node[1]) & hh.corners_set_tuples(pointy, state.current_node[2]))
-        if current_node_point != []:
-            draw_circle_v(current_node_point[0], 9, RED)
+        draw_circle_v(get_node_point(state.current_node), 9, RED)
 
     # # highlight selected edge
     if state.current_edge and not state.current_node:
-        current_edge_corners = list(hh.corners_set_tuples(pointy, state.current_hex) & hh.corners_set_tuples(pointy, state.current_hex_2))
-        draw_line_ex(current_edge_corners[0], current_edge_corners[1], 10, (BLUE))
+        edge_points = get_edge_points(state.current_edge)
+        draw_line_ex(edge_points[0], edge_points[1], 10, (BLUE))
 
     # draw robber
     radiusH = 12
@@ -425,7 +442,9 @@ def render(state):
     draw_ellipse(int(hex_center.x), int(hex_center.y), radiusH, radiusV, BLACK)
     draw_rectangle(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH, BLACK)
 
-
+    # for three_hexes, node_contents in state.nodes.items():
+        # pass
+        
 
     end_mode_2d()
 

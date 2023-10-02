@@ -5,7 +5,8 @@ from operator import itemgetter, attrgetter
 import hex_helper as hh
 
 
-
+# all possible classes
+# 
 
 # all things hexes are used for:
     # node:
