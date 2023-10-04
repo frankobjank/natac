@@ -27,10 +27,23 @@ def vector2_round(vector2):
 # edge (-1, 1, 0), (-2, 2, 0)
 # edge (0, 1, -1), (1, 1, -2)
 
+# White
+# node: Node(Hex(q=-1, r=-1, s=2), Hex(q=-1, r=0, s=1), Hex(q=0, r=-1, s=1))
+# node: Node(Hex(q=1, r=0, s=-1), Hex(q=1, r=1, s=-2), Hex(q=2, r=0, s=-2))
+# edge: Edge(Hex(q=1, r=0, s=-1), Hex(q=2, r=0, s=-2))
+# edge: Edge(Hex(q=-1, r=-1, s=2), Hex(q=-1, r=0, s=1))
+
+# Orange
+# node: Node(Hex(q=-1, r=1, s=0), Hex(q=-1, r=2, s=-1), Hex(q=0, r=1, s=-1))
+# node: Node(Hex(q=1, r=-1, s=0), Hex(q=2, r=-2, s=0), Hex(q=2, r=-1, s=-1))
+# edge: Edge(Hex(q=1, r=-1, s=0), Hex(q=2, r=-2, s=0))
+# edge: Edge(Hex(q=-1, r=2, s=-1), Hex(q=0, r=1, s=-1))
+
 # layout = type, size, origin
 size = 50 # (radius)
 pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
+# turned these into Enum classes
 all_game_pieces = ["road", "settlement", "city", "robber"]
 all_tiles = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
 all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
@@ -112,16 +125,29 @@ class Node:
         self.hex_b = sorted_hexes[1]
         self.hex_c = sorted_hexes[2]
         self.player = None
-        self.type = None # city or settlement
+        self.town = None # city or settlement
 
     def __repr__(self):
         return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
 
     def get_node_point(self):
-        node_point = list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b) & hh.corners_set_tuples(pointy, self.hex_c))
-        if len(node_point) != 0:
-            return node_point[0]
+        node_list = list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b) & hh.corners_set_tuples(pointy, self.hex_c))
+        if len(node_list) != 0:
+            return node_list[0]
+    
+    # this isn't working (TypeError: must be real number, not tuple)
+    def get_node_vector2(self):
+        node_list = list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b) & hh.corners_set_tuples(pointy, self.hex_c))
+        if len(node_list) != 0:
+            point = node_list[0]
+            return Vector2(point)
 
+# could store shapes too
+class Pieces(Enum):
+    SETTLEMENT = "settlement"
+    CITY = "city"
+    ROAD = "road"
+    ROBBER = "robber"
 
 class Player:
     def __init__(self, color):
@@ -145,10 +171,10 @@ class PlayerColor(Enum):
     ORANGE = get_color(0xd46a24ff)
     WHITE = get_color(0xd6d6d6ff)
 
-red_player = Player(PlayerColor.RED)
-blue_player = Player(PlayerColor.BLUE)
-orange_player = Player(PlayerColor.ORANGE)
-white_player = Player(PlayerColor.WHITE)
+red_player = Player(PlayerColor.RED.value)
+blue_player = Player(PlayerColor.BLUE.value)
+orange_player = Player(PlayerColor.ORANGE.value)
+white_player = Player(PlayerColor.WHITE.value)
 
 class Terrain(Enum):
     FOREST = {"name": "forest", "resource": "wood", "color": get_color(0x517d19ff)}
@@ -160,12 +186,12 @@ class Terrain(Enum):
     OCEAN = {"name": "ocean", "resource": None, "color": get_color(0x4fa6ebff)}
 
 class Port(Enum):
-    THREE = {"name": "three", "display": " ? \n3:1"}
-    WHEATPORT = {"name": "wheatport", "display": " 2:1 \nwheat"}
-    OREPORT = {"name": "oreport", "display": "2:1\nore"}
-    WOODPORT = {"name": "woodport", "display": " 2:1 \nwood"}
-    BRICKPORT = {"name": "brickport", "display": " 2:1 \nbrick"}
-    SHEEPPORT = {"name": "sheepport", "display": " 2:1 \nsheep"}
+    THREE = {"name": "three_to_one", "display": " ? \n3:1"}
+    WHEATPORT = {"name": "wheat_port", "display": " 2:1 \nwheat"}
+    OREPORT = {"name": "ore_port", "display": "2:1\nore"}
+    WOODPORT = {"name": "wood_port", "display": " 2:1 \nwood"}
+    BRICKPORT = {"name": "brick_port", "display": " 2:1 \nbrick"}
+    SHEEPPORT = {"name": "sheep_port", "display": " 2:1 \nsheep"}
 
 # Currently both land and ocean Tile class
 class Tile:
@@ -318,7 +344,6 @@ def get_user_input(state):
 
     if is_mouse_button_pressed(MouseButton.MOUSE_BUTTON_LEFT):
         state.stage_selection = True
-        print(state.current_hex)
 
     # camera controls
     state.camera.zoom += get_mouse_wheel_move() * 0.03
@@ -390,11 +415,17 @@ def update(state):
     if state.stage_selection == True:
         if state.current_node:
             state.selection = state.current_node
+            if state.current_node.town != None:
+                state.current_node.town = Pieces.SETTLEMENT
+            state.current_node.player = blue_player
+            blue_player.settlements = state.current_node
+            print(f"node: {state.current_node}")
         elif state.current_edge:
             state.selection = state.current_edge
+            print(f"edge: {state.current_edge}")
         elif state.current_hex:
             state.selection = state.current_hex
-            state.current_hex
+            print(f"hex: {state.current_hex}")
         else:
             state.selection = None
 
@@ -469,6 +500,9 @@ def render(state):
         # if state.debug == True:
         #     draw_circle(int(hh.hex_to_pixel(pointy, tile.hex).x), int(hh.hex_to_pixel(pointy, tile.hex).y), 4, BLACK)
 
+    for node in state.nodes:
+        if node.town != None:
+            draw_rectangle(node.get_node_point()[0], node.get_node_point()[1], 20, 20, node.player.color)
 
     for tile in state.ocean_tiles:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 2, BLACK)
@@ -536,6 +570,7 @@ def main():
     close_window()
 
 main()
+
 # initialize_board(state)
 # for tile in state.land_tiles:
 #     # print(tile.hex)
