@@ -118,10 +118,13 @@ class Tile:
         self.color = terrain.value["color"]
         self.hex = hex
         self.token = token
+        for k, v in self.token.items():
+            self.dice_num = k
+            self.dots = v
         self.port = port
     
     def __repr__(self):
-        return f"Tile(tile_enum: {self.tile_enum}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token})"
+        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, dice_num: {self.dice_num}, dots: {self.dots} port: {self.port})"
 
 class Terrain(Enum):
     # colors defined as R, G, B, A where A is alpha/opacity
@@ -141,12 +144,13 @@ default_terrains=[
     Terrain.HILL, Terrain.FIELD, Terrain.PASTURE]
 
 
-default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
+default_tile_tokens_dict = [{10: 3}, {2: 1}, {9: 4}, {12: 1}, {6: 5}, {4: 3}, {10: 3}, {9: 4}, {11: 2}, {None: None}, {3: 2}, {8: 5}, {8: 5}, {3: 2}, {4: 3}, {5: 4}, {5: 4}, {6: 5}, {11: 2}]
+
 
 board = []
 
 for i in range(len(hexes)):
-    board.append(Tile(default_terrains[i], hexes[i], default_tile_tokens[i]))
+    board.append(Tile(default_terrains[i], hexes[i], default_tile_tokens_dict[i]))
 
 for hex in board:
     print(hex)

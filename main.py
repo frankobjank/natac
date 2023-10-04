@@ -122,18 +122,20 @@ class Port(Enum):
 
 # Tile class - resource, hexes, players?
 class Tile:
-    def __init__(self, terrain: Terrain, hex: hh.hex_tuple, token, port: Port=None):
+    def __init__(self, terrain, hex, token, port=None, robber=False):
         self.terrain = terrain
         self.resource = terrain.value["resource"]
         self.color = terrain.value["color"]
         self.hex = hex
         self.token = token
+        for k, v in self.token.items():
+            self.num = k
+            self.dots = v
         self.port = port
-
+    
     def __repr__(self):
-        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token})"
-
-
+        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots} port: {self.port})"
+    
 default_terrains=[
     Terrain.MOUNTAIN, Terrain.PASTURE, Terrain.FOREST,
     Terrain.FIELD, Terrain.HILL, Terrain.PASTURE, Terrain.HILL,
@@ -146,19 +148,23 @@ default_terrains=[
 land_hexes = [hh.set_hex(0, -2, 2),
             hh.set_hex(1, -2, 1),
             hh.set_hex(2, -2, 0),
+
             hh.set_hex(-1, -1, 2),
             hh.set_hex(0, -1, 1),
             hh.set_hex(1, -1, 0),
             hh.set_hex(2, -1, -1),
+
             hh.set_hex(-2, 0, 2),
             hh.set_hex(-1, 0, 1),
             hh.set_hex(0, 0, 0),
             hh.set_hex(1, 0, -1),
             hh.set_hex(2, 0, -2),
+
             hh.set_hex(-2, 1, 1),
             hh.set_hex(-1, 1, 0),
             hh.set_hex(0, 1, -1),
             hh.set_hex(1, 1, -2),
+
             hh.set_hex(-2, 2, 0),
             hh.set_hex(-1, 2, -1),
             hh.set_hex(0, 2, -2)]
@@ -198,24 +204,25 @@ default_ports= [Port.THREE, None, Port.WHEAT, None,
                 Port.THREE, None, Port.THREE, None]
 
 # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
-def get_random_tiles():
-    tiles = []
+def get_random_terrain():
+    terrain_tiles = []
     tile_counts = {Terrain.MOUNTAIN: 4, Terrain.FOREST: 4, Terrain.FIELD: 4, Terrain.HILL: 3, Terrain.PASTURE: 3, Terrain.DESERT: 1}
     tiles_for_random = tile_counts.keys()
-    while len(tiles) < 19:
+    while len(terrain_tiles) < 19:
         for i in range(19):
             rand_tile = tiles_for_random[random.randrange(6)]
             if tile_counts[rand_tile] > 0:
-                tiles.append(rand_tile)
+                terrain_tiles.append(rand_tile)
                 tile_counts[rand_tile] -= 1
-    return tiles
+    return terrain_tiles
 
 
 class State:
     def __init__(self):
-        # hex dicts
-        self.resource_hexes = {}
-        self.ocean_hexes = {}
+        # tiles/hexes
+        self.land_tiles = []
+        self.ocean_tiles = []
+        # land and ocean hexes only
         self.all_hexes = []
 
         # selecting via mouse
@@ -233,11 +240,7 @@ class State:
 
         # game pieces
         # move robber with current_hex, maybe need to adjust selection to ignore edges and nodes
-        self.robber_hex = None
-        # turn edges, nodes, players into classes
-        # class Edge attr player where player is None if no roads present 
         self.edges = []
-        # class Node attr player, type (city or settlement)
         self.nodes = []
         self.players = []
 
@@ -260,10 +263,10 @@ state.initialize_camera()
 
 
 # STATE.BOARD:
-# state.resource_hexes[hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
 # will need to pass in tiles instead of using global variables at some point
 def initialize_board(state):
-    # tiles = get_random_tiles()
+    # terrain_tiles = get_random_terrain()
+    terrain_tiles = default_terrains
     land_hexes = land_hexes # a reminder to handle importing these lists
     ocean_hexes = ocean_hexes
     tokens = default_tile_tokens_dict
@@ -271,15 +274,16 @@ def initialize_board(state):
 
     # set up dict {hex: {"tile": tile, "token": token}}
     for i in range(len(land_hexes)):
-        state.resource_hexes[land_hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
+        state.land_tiles.append(Tile(terrain_tiles[i], land_hexes[i], tokens[i]))
 
     # ocean dict {hex: port}
-    for i in range(18):
-        state.ocean_hexes[ocean_hexes[i]] = ports[i]
+    for i in range(len(ocean_hexes)):
+        state.ocean_tiles.append(Tile(terrain_tiles[i], ocean_hexes[i], tokens[i], ports[i]))
 
     # sorts hexes by q, r, then s, so edges and nodes should be standardized
         # although using sets makes this unnecessary? since order wouldn't matter for sets
-    all_hexes = resource_hexes + ocean_hexes
+    all_hexes = land_hexes + ocean_hexes
+    state.all_hexes = all_hexes
 
     # triple 'for' loop to fill state.edges and state.nodes lists
     for i in range(len(all_hexes)):
@@ -289,10 +293,10 @@ def initialize_board(state):
                 for k in range(j+1, len(all_hexes)):
                     if check_collision_circles(hh.hex_to_pixel(pointy, all_hexes[i]), 60, hh.hex_to_pixel(pointy, all_hexes[k]), 60):
                         state.nodes.append(Node(all_hexes[i], all_hexes[j], all_hexes[k]))
-    state.all_hexes = all_hexes
+
     # start robber in desert
-    for hex, tile_dict in state.resource_hexes.items():
-        if tile_dict["tile"] == Tile.DESERT:
+    for tile in state.land_tiles:
+        if tile.terrain == Terrain.DESERT:
             state.robber_hex = hex
 
     # for demo, initiate default roads and settlements
