@@ -111,7 +111,45 @@ for i in range(len(hexes)):
                 if check_collision_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[k]), 60):
                     nodes.append(Node(hexes[i], hexes[j], hexes[k]))
 
+class Tile:
+    def __init__(self, terrain, hex, token, port=None):
+        self.terrain = terrain
+        self.resource = terrain.value["resource"]
+        self.color = terrain.value["color"]
+        self.hex = hex
+        self.token = token
+        self.port = port
+    
+    def __repr__(self):
+        return f"Tile(tile_enum: {self.tile_enum}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token})"
 
+class Terrain(Enum):
+    # colors defined as R, G, B, A where A is alpha/opacity
+    FOREST = {"resource": "wood", "color": get_color(0x517d19ff)}
+    HILL = {"resource": "brick", "color": get_color(0x9c4300ff)}
+    PASTURE = {"resource": "sheep", "color": get_color(0x17b97fff)}
+    FIELD = {"resource": "wheat", "color": get_color(0xf0ad00ff)}
+    MOUNTAIN = {"resource": "ore", "color": get_color(0x7b6f83ff)}
+    DESERT = {"resource": None, "color": get_color(0xffd966ff)}
+    OCEAN = {"resource": None, "color": get_color(0x4fa6ebff)}
+
+default_terrains=[
+    Terrain.MOUNTAIN, Terrain.PASTURE, Terrain.FOREST,
+    Terrain.FIELD, Terrain.HILL, Terrain.PASTURE, Terrain.HILL,
+    Terrain.FIELD, Terrain.FOREST, Terrain.DESERT, Terrain.FOREST, Terrain.MOUNTAIN,
+    Terrain.FOREST, Terrain.MOUNTAIN, Terrain.FIELD, Terrain.PASTURE,
+    Terrain.HILL, Terrain.FIELD, Terrain.PASTURE]
+
+
+default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
+
+board = []
+
+for i in range(len(hexes)):
+    board.append(Tile(default_terrains[i], hexes[i], default_tile_tokens[i]))
+
+for hex in board:
+    print(hex)
 
 def main():
     init_window(screen_width, screen_height, "natac")
@@ -210,7 +248,7 @@ def main():
     unload_font(gui_get_font())
     close_window()
 
-main()
+# main()
 
 
 

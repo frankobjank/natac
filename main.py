@@ -90,19 +90,18 @@ class Player:
 
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
-class PlayerColors(Enum):
+class PlayerColor(Enum):
     RED = get_color(0xe1282fff)
     BLUE = get_color(0x2974b8ff)
     ORANGE = get_color(0xd46a24ff)
     WHITE = get_color(0xd6d6d6ff)
 
-red_player = Player(PlayerColors.RED)
-blue_player = Player(PlayerColors.BLUE)
-orange_player = Player(PlayerColors.ORANGE)
-white_player = Player(PlayerColors.WHITE)
+red_player = Player(PlayerColor.RED)
+blue_player = Player(PlayerColor.BLUE)
+orange_player = Player(PlayerColor.ORANGE)
+white_player = Player(PlayerColor.WHITE)
 
-# break this out to TileColors(Enum) and Tile class - resource, hexes, players?
-class Tile(Enum):
+class Terrain(Enum):
     # colors defined as R, G, B, A where A is alpha/opacity
     FOREST = {"resource": "wood", "color": get_color(0x517d19ff)}
     HILL = {"resource": "brick", "color": get_color(0x9c4300ff)}
@@ -121,13 +120,30 @@ class Port(Enum):
     SHEEP = " 2:1 \nsheep"
 
 
-default_tiles= [Tile.MOUNTAIN, Tile.PASTURE, Tile.FOREST,
-                Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.HILL,
-                Tile.FIELD, Tile.FOREST, Tile.DESERT, Tile.FOREST, Tile.MOUNTAIN,
-                Tile.FOREST, Tile.MOUNTAIN, Tile.FIELD, Tile.PASTURE,
-                Tile.HILL, Tile.FIELD, Tile.PASTURE]
+# Tile class - resource, hexes, players?
+class Tile:
+    def __init__(self, terrain: Terrain, hex: hh.hex_tuple, token, port: Port=None):
+        self.terrain = terrain
+        self.resource = terrain.value["resource"]
+        self.color = terrain.value["color"]
+        self.hex = hex
+        self.token = token
+        self.port = port
+
+    def __repr__(self):
+        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token})"
+
+
+default_terrains=[
+    Terrain.MOUNTAIN, Terrain.PASTURE, Terrain.FOREST,
+    Terrain.FIELD, Terrain.HILL, Terrain.PASTURE, Terrain.HILL,
+    Terrain.FIELD, Terrain.FOREST, Terrain.DESERT, Terrain.FOREST, Terrain.MOUNTAIN,
+    Terrain.FOREST, Terrain.MOUNTAIN, Terrain.FIELD, Terrain.PASTURE,
+    Terrain.HILL, Terrain.FIELD, Terrain.PASTURE]
+
 # default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
-resource_hexes = [hh.set_hex(0, -2, 2),
+
+land_hexes = [hh.set_hex(0, -2, 2),
             hh.set_hex(1, -2, 1),
             hh.set_hex(2, -2, 0),
             hh.set_hex(-1, -1, 2),
@@ -147,37 +163,30 @@ resource_hexes = [hh.set_hex(0, -2, 2),
             hh.set_hex(-1, 2, -1),
             hh.set_hex(0, 2, -2)]
 
-ocean_hexes = [hh.set_hex(0, -3, 3),
+ocean_hexes = [hh.set_hex(0, -3, 3), # port
             hh.set_hex(1, -3, 2),
-            hh.set_hex(2, -3, 1),
+            hh.set_hex(2, -3, 1), # port
             hh.set_hex(3, -3, 0),
 
             hh.set_hex(-1, -2, 3),
-            hh.set_hex(3, -2, -1),
+            hh.set_hex(3, -2, -1), # port
 
-            hh.set_hex(-2, -1, 3),
+            hh.set_hex(-2, -1, 3), # port
             hh.set_hex(3, -1, -2),
 
             hh.set_hex(-3, 0, 3),
-            hh.set_hex(3, 0, -3),
+            hh.set_hex(3, 0, -3), # port
 
-            hh.set_hex(-3, 1, 2),
+            hh.set_hex(-3, 1, 2), # port
             hh.set_hex(2, 1, -3),
 
             hh.set_hex(-3, 2, 1),
-            hh.set_hex(1, 2, -3),
-            hh.set_hex(-3, 3, 0),
+            hh.set_hex(1, 2, -3), # port
+
+            hh.set_hex(-3, 3, 0), # port
             hh.set_hex(-2, 3, -1),
-            hh.set_hex(-1, 3, -2),
+            hh.set_hex(-1, 3, -2), # port
             hh.set_hex(0, 3, -3)]
-
-
-# dict combining the above lists:
-# default_tiles= {Tile.MOUNTAIN:10, Tile.PASTURE:2, Tile.FOREST:9,
-#                 Tile.FIELD:12, Tile.HILL:6, Tile.PASTURE:4, Tile.HILL:10,
-#                 Tile.FIELD:9, Tile.FOREST:11, Tile.DESERT:None, Tile.FOREST:3, Tile.MOUNTAIN:8,
-#                 Tile.FOREST:8, Tile.MOUNTAIN:3, Tile.FIELD:4, Tile.PASTURE:5,
-#                 Tile.HILL:5, Tile.FIELD:6, Tile.PASTURE:11}
 
 
 default_ports= [Port.THREE, None, Port.WHEAT, None, 
@@ -191,8 +200,8 @@ default_ports= [Port.THREE, None, Port.WHEAT, None,
 # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
 def get_random_tiles():
     tiles = []
-    tile_counts = {Tile.MOUNTAIN: 4, Tile.FOREST: 4, Tile.FIELD: 4, Tile.HILL: 3, Tile.PASTURE: 3, Tile.DESERT: 1}
-    tiles_for_random=[Tile.MOUNTAIN, Tile.FOREST, Tile.FIELD, Tile.HILL, Tile.PASTURE, Tile.DESERT]
+    tile_counts = {Terrain.MOUNTAIN: 4, Terrain.FOREST: 4, Terrain.FIELD: 4, Terrain.HILL: 3, Terrain.PASTURE: 3, Terrain.DESERT: 1}
+    tiles_for_random = tile_counts.keys()
     while len(tiles) < 19:
         for i in range(19):
             rand_tile = tiles_for_random[random.randrange(6)]
@@ -207,9 +216,7 @@ class State:
         # hex dicts
         self.resource_hexes = {}
         self.ocean_hexes = {}
-        self.ocean_and_resources = {}
-        self.hex_triangles = {}
-        self.hexes_sorted = []
+        self.all_hexes = []
 
         # selecting via mouse
         self.world_position = None
@@ -228,13 +235,11 @@ class State:
         # move robber with current_hex, maybe need to adjust selection to ignore edges and nodes
         self.robber_hex = None
         # turn edges, nodes, players into classes
-        # {edges: "player": player} where player is None if no roads present 
+        # class Edge attr player where player is None if no roads present 
         self.edges = []
-        # {nodes: {"player": player, "type": "city" or "settlement"}}
+        # class Node attr player, type (city or settlement)
         self.nodes = []
         self.players = []
-        self.player = {"cities": None, "settlements": None, "roads": None, "ports": None, "resource_cards": None, "development_cards": None, "victory_points": 0}
-
 
         # GLOBAL general vars
         self.debug = False
@@ -259,20 +264,18 @@ state.initialize_camera()
 # will need to pass in tiles instead of using global variables at some point
 def initialize_board(state):
     # tiles = get_random_tiles()
-    tiles = default_tiles
+    land_hexes = land_hexes # a reminder to handle importing these lists
+    ocean_hexes = ocean_hexes
     tokens = default_tile_tokens_dict
     ports = default_ports
 
     # set up dict {hex: {"tile": tile, "token": token}}
-    for i in range(19):
-        state.resource_hexes[resource_hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
+    for i in range(len(land_hexes)):
+        state.resource_hexes[land_hexes[i]] = {"tile": tiles[i], "token": tokens[i]}
 
     # ocean dict {hex: port}
     for i in range(18):
         state.ocean_hexes[ocean_hexes[i]] = ports[i]
-
-    # state.ocean_and_resources = state.ocean_and_resources.update(state.resource_hexes)
-    # state.ocean_and_resources = state.ocean_and_resources.update(state.ocean_hexes)
 
     # sorts hexes by q, r, then s, so edges and nodes should be standardized
         # although using sets makes this unnecessary? since order wouldn't matter for sets
@@ -283,11 +286,10 @@ def initialize_board(state):
         for j in range(i+1, len(all_hexes)):
             if check_collision_circles(hh.hex_to_pixel(pointy, all_hexes[i]), 60, hh.hex_to_pixel(pointy, all_hexes[j]), 60):
                 state.edges.append(Edge(all_hexes[i], all_hexes[j]))
-                # edge_corners.append(list(hh.corners_set_tuples(pointy, hexes[i]).intersection(hh.corners_set_tuples(pointy, hexes[j]))))
                 for k in range(j+1, len(all_hexes)):
                     if check_collision_circles(hh.hex_to_pixel(pointy, all_hexes[i]), 60, hh.hex_to_pixel(pointy, all_hexes[k]), 60):
                         state.nodes.append(Node(all_hexes[i], all_hexes[j], all_hexes[k]))
-
+    state.all_hexes = all_hexes
     # start robber in desert
     for hex, tile_dict in state.resource_hexes.items():
         if tile_dict["tile"] == Tile.DESERT:
@@ -296,6 +298,8 @@ def initialize_board(state):
     # for demo, initiate default roads and settlements
 
 
+# should this be changed into just checking if a button is pressed and passing that on, or can 
+# basic things like state.camera.zoom be directly adjusted here
 def get_user_input(state):
     state.world_position = get_screen_to_world_2d(get_mouse_position(), state.camera)
     
@@ -318,7 +322,6 @@ def get_user_input(state):
         state.reset = True
 
 
-
     if is_key_pressed(KeyboardKey.KEY_E):
         state.debug = not state.debug # toggle
     
@@ -338,20 +341,21 @@ def update(state):
     state.current_node = None
 
     hexes = list(state.resource_hexes.keys())
+    state.all_hexes
     
     # check radius for current hex
-    for hex in hexes:
+    for hex in state.all_hexes:
         if check_collision_point_circle(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
             state.current_hex = hex
             break
     # 2nd loop for edges - current_hex_2
-    for hex in hexes:
+    for hex in state.all_hexes:
         if state.current_hex != hex:
             if check_collision_point_circle(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
                 state.current_hex_2 = hex
                 break
     # 3rd loop for nodes - current_hex_3
-    for hex in hexes:
+    for hex in state.all_hexes:
         if state.current_hex != hex and state.current_hex_2 != hex:
             if check_collision_point_circle(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
                 state.current_hex_3 = hex
@@ -452,7 +456,7 @@ def render(state):
                 draw_circle(dot_x+dot_x_offset*4, dot_y, dot_size, RED)
                 draw_circle_lines(dot_x+dot_x_offset*4, dot_y, dot_size, BLACK)
         # draw black outlines
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, 2, BLACK)
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, hexes[i]), 6, size, 0, 1, BLACK)
     
         # drawing circles in hex centers to center text
         # if state.debug == True:
@@ -460,6 +464,7 @@ def render(state):
 
 
     for hex, port in state.ocean_hexes.items():
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, size, 0, 2, BLACK)
         if port:
             text_location = Vector2(hh.hex_to_pixel(pointy, hex).x-(measure_text_ex(gui_get_font(), port.value, 16, 0)).x//2, hh.hex_to_pixel(pointy, hex).y-16)
             draw_text_ex(gui_get_font(), port.value, text_location, 16, 0, BLACK)
