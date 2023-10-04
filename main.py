@@ -142,7 +142,7 @@ class Node:
             point = node_list[0]
             return Vector2(point)
 
-# could store shapes too
+# could store shapes
 class Pieces(Enum):
     SETTLEMENT = "settlement"
     CITY = "city"
@@ -151,7 +151,7 @@ class Pieces(Enum):
 
 class Player:
     def __init__(self, color):
-        self.color = color
+        self.color = color.value
         self.cities = []
         self.settlements = []
         self.roads = []
@@ -171,10 +171,10 @@ class PlayerColor(Enum):
     ORANGE = get_color(0xd46a24ff)
     WHITE = get_color(0xd6d6d6ff)
 
-red_player = Player(PlayerColor.RED.value)
-blue_player = Player(PlayerColor.BLUE.value)
-orange_player = Player(PlayerColor.ORANGE.value)
-white_player = Player(PlayerColor.WHITE.value)
+red_player = Player(PlayerColor.RED)
+blue_player = Player(PlayerColor.BLUE)
+orange_player = Player(PlayerColor.ORANGE)
+white_player = Player(PlayerColor.WHITE)
 
 class Terrain(Enum):
     FOREST = {"name": "forest", "resource": "wood", "color": get_color(0x517d19ff)}
@@ -415,8 +415,15 @@ def update(state):
     if state.stage_selection == True:
         if state.current_node:
             state.selection = state.current_node
-            if state.current_node.town != None:
+
+            # toggle between settlement, city, None
+            if state.current_node.town == None:
                 state.current_node.town = Pieces.SETTLEMENT
+            elif state.current_node.town == Pieces.SETTLEMENT:
+                state.current_node.town = Pieces.CITY
+            elif state.current_node.town == Pieces.CITY:
+                state.current_node.town = None
+
             state.current_node.player = blue_player
             blue_player.settlements = state.current_node
             print(f"node: {state.current_node}")
