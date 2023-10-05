@@ -136,11 +136,11 @@ class Node:
             return node_list[0]
     
     # this isn't working (TypeError: must be real number, not tuple)
-    def get_node_vector2(self):
-        node_list = list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b) & hh.corners_set_tuples(pointy, self.hex_c))
-        if len(node_list) != 0:
-            point = node_list[0]
-            return Vector2(point)
+    # def get_node_vector2(self):
+    #     node_list = list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b) & hh.corners_set_tuples(pointy, self.hex_c))
+    #     if len(node_list) != 0:
+    #         # unpack from list and assign x, y values to Vector2
+    #         return Vector2(node_list[0][0], node_list[0][1])
 
 # could store shapes
 class Pieces(Enum):

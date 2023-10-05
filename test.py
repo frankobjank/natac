@@ -101,6 +101,13 @@ class Node:
         if len(node_point) != 0:
             return node_point[0]
 
+    # this isn't working (TypeError: initializer for ctype 'struct Vector2' must be a list or tuple or dict or struct-cdata, not int)
+    # def get_node_vector2(self):
+    #     node_list = list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b) & hh.corners_set_tuples(pointy, self.hex_c))
+    #     if len(node_list) != 0:
+    #         # unpack from list and assign x, y values to Vector2
+    #         return Vector2(node_list[0][0], node_list[0][1])
+
 nodes = []
 edges = []
 for i in range(len(hexes)):
@@ -152,10 +159,11 @@ board = []
 for i in range(len(hexes)):
     board.append(Tile(default_terrains[i], hexes[i], default_tile_tokens_dict[i]))
 
-for hex in board:
-    print(hex)
 
-def main():
+settlements = []
+cities = []
+
+def main_game():
     init_window(screen_width, screen_height, "natac")
     gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
     set_target_fps(60)
@@ -189,8 +197,6 @@ def main():
         
         # finding node with all current hexes
         if current_hex_3:
-            
-            current_node = (current_hex, current_hex_2, current_hex_3)
             sorted_hexes = sorted((current_hex, current_hex_2, current_hex_3), key=attrgetter("q", "r", "s"))
             for node in nodes:
                 if node.hex_a == sorted_hexes[0] and node.hex_b == sorted_hexes[1] and node.hex_c == sorted_hexes[2]:
@@ -214,9 +220,6 @@ def main():
             hex_center = hh.hex_to_pixel(pointy, hex)
             draw_poly(hex_center, 6, 50, 0, GRAY)
             draw_poly_lines(hex_center, 6, 50, 0, BLACK)
-        for hex in hexes:
-            hex_center = hh.hex_to_pixel(pointy, hex)
-            draw_circle_lines(int(hex_center.x), int(hex_center.y), 60, DARKGRAY)
         
         if current_hex:
             draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex), 6, 50, 0, 5, BLACK)
@@ -231,14 +234,35 @@ def main():
         if current_edge:
             corners = current_edge.get_edge_points()
             draw_line_ex(corners[0], corners[1], 6, BLUE)
-        
-        # for node in node_points:
-            # draw_circle_v(node, 7, RED)
 
-        # for corners in edge_corners:
-            # draw_line_ex(corners[0], corners[1], 6, BLUE)
+        if is_mouse_button_released(MouseButton.MOUSE_BUTTON_LEFT):
+            if current_node != None and current_node not in settlements:
+                settlements.append(current_node)
+            elif current_node in settlements:
+                settlements.remove(current_node)
+                cities.append(current_node)
+            elif current_node in cities:
+                cities.remove(current_node)
+            
 
-        # draw_axes()
+        for node in settlements:
+            width = 28
+            height = 17
+            node_x = node.get_node_point()[0]
+            node_y = node.get_node_point()[1]
+            tri_rt = (node_x+width//2, node_y-height//2)
+            tri_top = (node_x, node_y-7*height//6)
+            tri_lt = (node_x-width//2, node_y-height//2)
+            stmt_rec = Rectangle(node_x-width//2, node_y-height//2, width, height)
+            draw_rectangle_rec(stmt_rec, BLUE)
+            draw_triangle(tri_lt, tri_rt, tri_top, BLUE)
+            draw_line_v(tri_lt, tri_top, BLACK)
+            draw_line_v(tri_rt, tri_top, BLACK)
+            draw_line_v((stmt_rec.x, stmt_rec.y), (stmt_rec.x, stmt_rec.y+height), BLACK)
+            draw_line_v((stmt_rec.x, stmt_rec.y+height), (stmt_rec.x+width, stmt_rec.y+height), BLACK)
+            draw_line_v((stmt_rec.x+width, stmt_rec.y), (stmt_rec.x+width, stmt_rec.y+height), BLACK)
+
+
 
         draw_text_ex(gui_get_font(), f"Mouse at: ({int(mouse.x)}, {int(mouse.y)})", Vector2(5, 5), 15, 0, BLACK)
 
@@ -252,7 +276,37 @@ def main():
     unload_font(gui_get_font())
     close_window()
 
-# main()
+# main_game()
+
+def main():
+    init_window(screen_width, screen_height, "natac")
+    gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
+    set_target_fps(60)
+    while not window_should_close():
+        begin_drawing()
+        clear_background(WHITE)
+        width = 28
+        height = 17
+
+        # rt = (400+width//2, 300-height//2)
+        # top = (400, 300-7*height//6)
+        # lt = (400-width//2, 300-height//2)
+        # draw_rectangle(400-width//2, 300-height//2, width, height, BLUE)
+        # draw_triangle(lt, rt, top, BLUE)
+        # settlement 10 across, 12 height (incl triangle)
+        # cities 20 across, 20 height (incl triangle)
+
+        draw_rectangle(400-width//2, 300-height//2, width, height, BLUE)
+        
+        draw_circle(400, 300, 2, BLACK)
+
+        draw_text_ex(gui_get_font(), f"Mouse at: ({get_mouse_x()}, {get_mouse_y()})", Vector2(5, 5), 15, 0, BLACK)
+        end_drawing()
+
+    unload_font(gui_get_font())
+    close_window()
+
+main()
 
 
 
