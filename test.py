@@ -1,8 +1,10 @@
 from pyray import *
 from enum import Enum
 import random
+import math
 from operator import itemgetter, attrgetter
 import hex_helper as hh
+import rendering_functions as rf
 
 
 
@@ -82,7 +84,7 @@ class Edge:
         return f"Edge({self.hex_a}, {self.hex_b})"
         
     def get_edge_points(self) -> list:
-        return list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b))
+        return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
 
 class Node:
     def __init__(self, hex_a, hex_b, hex_c):
@@ -97,13 +99,13 @@ class Node:
         return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
 
     def get_node_point(self) -> tuple:
-        node_point = list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b) & hh.corners_set_tuples(pointy, self.hex_c))
+        node_point = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
         if len(node_point) != 0:
             return node_point[0]
 
     # this isn't working (TypeError: initializer for ctype 'struct Vector2' must be a list or tuple or dict or struct-cdata, not int)
     # def get_node_vector2(self):
-    #     node_list = list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b) & hh.corners_set_tuples(pointy, self.hex_c))
+    #     node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
     #     if len(node_list) != 0:
     #         # unpack from list and assign x, y values to Vector2
     #         return Vector2(node_list[0][0], node_list[0][1])
@@ -159,11 +161,11 @@ board = []
 for i in range(len(hexes)):
     board.append(Tile(default_terrains[i], hexes[i], default_tile_tokens_dict[i]))
 
-
+roads = []
 settlements = []
 cities = []
 
-def main_game():
+def main():
     init_window(screen_width, screen_height, "natac")
     gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
     set_target_fps(60)
@@ -236,6 +238,7 @@ def main_game():
             draw_line_ex(corners[0], corners[1], 6, BLUE)
 
         if is_mouse_button_released(MouseButton.MOUSE_BUTTON_LEFT):
+            # toggle: add node to settlements->cities->None
             if current_node != None:
                 if current_node not in settlements and current_node not in cities:
                     settlements.append(current_node)
@@ -245,59 +248,74 @@ def main_game():
                 elif current_node in cities:
                     cities.remove(current_node)
 
-            
+            if current_edge != None: 
+                if current_edge not in roads:
+                    roads.append(current_edge)
+                elif current_edge in roads:
+                    roads.remove(current_edge)
 
+  
+        for edge in roads:
+            rf.draw_road(edge, BLUE)
+            # edge_endpoints = edge.get_edge_points()
+            # # draw black outline
+            # draw_line_ex(edge_endpoints[0], edge_endpoints[1], 8, BLACK)
+            # # draw road in player color
+            # draw_line_ex(edge_endpoints[0], edge_endpoints[1], 6, BLUE)
+
+            
         for node in settlements:
-            width = 28
-            height = 17
-            node_x = node.get_node_point()[0]
-            node_y = node.get_node_point()[1]
-            tri_rt = (node_x+width//2, node_y-height//2)
-            tri_top = (node_x, node_y-7*height//6)
-            tri_lt = (node_x-width//2, node_y-height//2)
-            stmt_rec = Rectangle(node_x-width//2, node_y-height//2, width, height)
-            # draw settlement
-            draw_rectangle_rec(stmt_rec, BLUE)
-            draw_triangle(tri_lt, tri_rt, tri_top, BLUE)
-            # draw outline
-            draw_line_v(tri_lt, tri_top, BLACK)
-            draw_line_v(tri_rt, tri_top, BLACK)
-            draw_line_v((stmt_rec.x, stmt_rec.y), (stmt_rec.x, stmt_rec.y+height), BLACK)
-            draw_line_v((stmt_rec.x, stmt_rec.y+height), (stmt_rec.x+width, stmt_rec.y+height), BLACK)
-            draw_line_v((stmt_rec.x+width, stmt_rec.y), (stmt_rec.x+width, stmt_rec.y+height), BLACK)
+            rf.draw_settlement(node, BLUE)
+            # width = 25
+            # height = 18
+            # node_x = node.get_node_point()[0]
+            # node_y = node.get_node_point()[1]
+            # tri_rt = (node_x+width//2, node_y-height//2)
+            # tri_top = (node_x, node_y-7*height//6)
+            # tri_lt = (node_x-width//2, node_y-height//2)
+            # stmt_rec = Rectangle(node_x-width//2, node_y-height//2, width, height)
+            # # draw settlement
+            # draw_rectangle_rec(stmt_rec, BLUE)
+            # draw_triangle(tri_lt, tri_rt, tri_top, BLUE)
+            # # draw outline
+            # draw_line_v(tri_lt, tri_top, BLACK)
+            # draw_line_v(tri_rt, tri_top, BLACK)
+            # draw_line_v((stmt_rec.x, stmt_rec.y), (stmt_rec.x, stmt_rec.y+height), BLACK)
+            # draw_line_v((stmt_rec.x, stmt_rec.y+height), (stmt_rec.x+width, stmt_rec.y+height), BLACK)
+            # draw_line_v((stmt_rec.x+width, stmt_rec.y), (stmt_rec.x+width, stmt_rec.y+height), BLACK)
         
         for node in cities:
-            # settlement on top of city
-            city_st_width = 20
-            city_st_height = 14
-            city_offset = 5
-            node_x = node.get_node_point()[0]+city_offset
-            node_y = node.get_node_point()[1]-city_offset
-            city_st_x = node_x-city_st_width//2
-            city_st_y = node_y-city_st_height//2
-            city_tri_rt = (city_st_x+city_st_width//2, city_st_y-city_st_height//2)
-            city_tri_top = (city_st_x, city_st_y-7*city_st_height//6)
-            city_tri_lt = (city_st_x-city_st_width//2, city_st_y-city_st_height//2)
-            city_stmt_rec = Rectangle(city_st_x-city_st_width//2, city_st_y-city_st_height//2, city_st_width, city_st_height)
-            # draw city settlement
-            draw_rectangle_rec(city_stmt_rec, BLUE)
-            draw_triangle(city_tri_lt, city_tri_rt, city_tri_top, BLUE)
-            # draw city base
-            city_base_width = 40
-            city_base_height = 22
-            city_base_rec = Rectangle(node_x-city_base_width//2, node_y, city_base_width, city_base_height)
-            draw_rectangle_rec(city_base_rec, BLUE)
-            # draw city settlement outline
-            draw_line_v(city_tri_lt, city_tri_top, BLACK)
-            draw_line_v(city_tri_rt, city_tri_top, BLACK)
-            draw_line_v((city_stmt_rec.x, city_stmt_rec.y), (city_stmt_rec.x, city_stmt_rec.y+city_st_height+city_base_height), BLACK)
-            draw_line_v((city_stmt_rec.x+city_st_width, city_stmt_rec.y), (city_stmt_rec.x+city_st_width, city_stmt_rec.y+city_st_height), BLACK)
-            # draw city base outline
-            draw_line_v((city_base_rec.x+city_st_width, city_base_rec.y), (city_base_rec.x+city_base_width, city_base_rec.y), BLACK)
-            draw_line_v((city_base_rec.x+city_base_width, city_base_rec.y), (city_base_rec.x+city_base_width, city_base_rec.y+city_base_height), BLACK)
-            draw_line_v((city_base_rec.x, city_base_rec.y+city_base_height), (city_base_rec.x+city_base_width, city_base_rec.y+city_base_height), BLACK)
-
-
+            rf.draw_city(node, BLUE)
+            # # settlement on top of city
+            # city_st_width = 20
+            # city_st_height = 14
+            # city_offset = 5
+            # node_x = node.get_node_point()[0]+city_offset
+            # node_y = node.get_node_point()[1]-city_offset
+            # city_st_x = node_x-city_st_width//2
+            # city_st_y = node_y-city_st_height//2
+            # city_tri_rt = (city_st_x+city_st_width//2, city_st_y-city_st_height//2)
+            # city_tri_top = (city_st_x, city_st_y-7*city_st_height//6)
+            # city_tri_lt = (city_st_x-city_st_width//2, city_st_y-city_st_height//2)
+            # city_stmt_rec = Rectangle(city_st_x-city_st_width//2, city_st_y-city_st_height//2, city_st_width, city_st_height)
+            # # draw city settlement
+            # draw_rectangle_rec(city_stmt_rec, BLUE)
+            # draw_triangle(city_tri_lt, city_tri_rt, city_tri_top, BLUE)
+            # # draw city base
+            # city_base_width = 40
+            # city_base_height = 22
+            # city_base_rec = Rectangle(node_x-city_base_width//2, node_y, city_base_width, city_base_height)
+            # draw_rectangle_rec(city_base_rec, BLUE)
+            # # draw city settlement outline
+            # draw_line_v(city_tri_lt, city_tri_top, BLACK)
+            # draw_line_v(city_tri_rt, city_tri_top, BLACK)
+            # draw_line_v((city_stmt_rec.x, city_stmt_rec.y), (city_stmt_rec.x, city_stmt_rec.y+city_st_height+city_base_height), BLACK)
+            # draw_line_v((city_stmt_rec.x+city_st_width, city_stmt_rec.y), (city_stmt_rec.x+city_st_width, city_stmt_rec.y+city_st_height), BLACK)
+            # # draw city base outline
+            # draw_line_v((city_base_rec.x+city_st_width, city_base_rec.y), (city_base_rec.x+city_base_width, city_base_rec.y), BLACK)
+            # draw_line_v((city_base_rec.x+city_base_width, city_base_rec.y), (city_base_rec.x+city_base_width, city_base_rec.y+city_base_height), BLACK)
+            # draw_line_v((city_base_rec.x, city_base_rec.y+city_base_height), (city_base_rec.x+city_base_width, city_base_rec.y+city_base_height), BLACK)
+        
 
 
 
@@ -313,31 +331,15 @@ def main_game():
     unload_font(gui_get_font())
     close_window()
 
-main_game()
+main()
 
-def main():
+def main_test():
     init_window(screen_width, screen_height, "natac")
     gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
     set_target_fps(60)
     while not window_should_close():
         begin_drawing()
         clear_background(WHITE)
-        st_width = 21
-        st_height = 14
-        st_x = 400-st_width//2
-        st_y = 300-st_height//2
-        city_st_rt = (st_x+st_width//2, st_y-st_height//2)
-        city_st_top = (st_x, st_y-7*st_height//6)
-        city_st_lt = (st_x-st_width//2, st_y-st_height//2)
-        draw_rectangle(st_x-st_width//2, st_y-st_height//2, st_width, st_height, BLUE)
-        draw_triangle(city_st_lt, city_st_rt, city_st_top, BLUE)
-
-        city_base_width = 40
-        city_base_height = 21
-        draw_rectangle(400-city_base_width//2, 300, city_base_width, city_base_height, BLUE)
-
-
-        draw_circle(400, 300, 2, BLACK)
 
         draw_text_ex(gui_get_font(), f"Mouse at: ({get_mouse_x()}, {get_mouse_y()})", Vector2(5, 5), 15, 0, BLACK)
         end_drawing()
@@ -345,7 +347,7 @@ def main():
     unload_font(gui_get_font())
     close_window()
 
-# main()
+# main_test()
 
 
 

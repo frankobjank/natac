@@ -2,6 +2,7 @@ from __future__ import division
 from __future__ import print_function
 from operator import itemgetter, attrgetter
 import random
+import math
 from collections import namedtuple
 from enum import Enum
 from pyray import *
@@ -116,7 +117,7 @@ class Edge:
         return f"Edge({self.hex_a}, {self.hex_b})"
         
     def get_edge_points(self) -> list:
-        return list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b))
+        return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
     
 class Node:
     def __init__(self, hex_a, hex_b, hex_c):
@@ -131,13 +132,13 @@ class Node:
         return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
 
     def get_node_point(self):
-        node_list = list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b) & hh.corners_set_tuples(pointy, self.hex_c))
+        node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
         if len(node_list) != 0:
             return node_list[0]
     
     # this isn't working (TypeError: must be real number, not tuple)
     # def get_node_vector2(self):
-    #     node_list = list(hh.corners_set_tuples(pointy, self.hex_a) & hh.corners_set_tuples(pointy, self.hex_b) & hh.corners_set_tuples(pointy, self.hex_c))
+    #     node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
     #     if len(node_list) != 0:
     #         # unpack from list and assign x, y values to Vector2
     #         return Vector2(node_list[0][0], node_list[0][1])
