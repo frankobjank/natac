@@ -2,11 +2,10 @@ from __future__ import division
 from __future__ import print_function
 from operator import itemgetter, attrgetter
 import random
-import math
-from collections import namedtuple
 from enum import Enum
 from pyray import *
 import hex_helper as hh
+import rendering_functions as rf
 
 screen_width=800
 screen_height=600
@@ -196,7 +195,7 @@ class Port(Enum):
 
 # Currently both land and ocean Tile class
 class Tile:
-    def __init__(self, terrain: Terrain, hex: hh.hex_tuple, token, port=None):
+    def __init__(self, terrain, hex, token, port=None):
         self.robber = False
         self.terrain = terrain.value["name"]
         self.resource = terrain.value["resource"]
@@ -550,7 +549,7 @@ def render(state):
 
     end_mode_2d()
 
-    if state.debug == True:        
+    if state.debug == True:
         draw_text_ex(gui_get_font(), f"World mouse at: ({int(state.world_position.x)}, {int(state.world_position.y)})", Vector2(5, 5), 15, 0, BLACK)
         draw_text_ex(gui_get_font(), f"Current hex: {state.current_hex}", Vector2(5, 25), 15, 0, BLACK)
         # draw_text_ex(gui_get_font(), f"Current hex_2: {state.current_hex_2}", Vector2(5, 45), 15, 0, BLACK)
@@ -578,8 +577,3 @@ def main():
     close_window()
 
 main()
-
-# initialize_board(state)
-# for tile in state.land_tiles:
-#     # print(tile.hex)
-#     print(hh.hex_to_pixel(pointy, tile.hex))
