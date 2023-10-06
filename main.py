@@ -5,6 +5,7 @@ import random
 from enum import Enum
 from pyray import *
 import hex_helper as hh
+from hex_helper import *
 import rendering_functions as rf
 
 screen_width=800
@@ -14,30 +15,6 @@ default_zoom = .9
 
 def vector2_round(vector2):
     return Vector2(int(vector2.x), int(vector2.y))
-# add cities, settlements, roads, ports (not just ocean tiles)
-# Red 
-# node (0, -2, 2), (1, -2, 1), (0, -1, 1)
-# node (-2, 0, 2), (-1, 0, 1), (-2, 1, 1)
-# edge (1, -2, 1), (0, -1, 1)
-# edge (-1, 0, 1), (-2, 1, 1)
-
-# Blue
-# node (-2, 1, 1), (-1, 1, 0), (-2, 2, 0)
-# node (0, 1, -1), (1, 1, -2), (0, 2, -2)
-# edge (-1, 1, 0), (-2, 2, 0)
-# edge (0, 1, -1), (1, 1, -2)
-
-# White
-# node: Node(Hex(q=-1, r=-1, s=2), Hex(q=-1, r=0, s=1), Hex(q=0, r=-1, s=1))
-# node: Node(Hex(q=1, r=0, s=-1), Hex(q=1, r=1, s=-2), Hex(q=2, r=0, s=-2))
-# edge: Edge(Hex(q=1, r=0, s=-1), Hex(q=2, r=0, s=-2))
-# edge: Edge(Hex(q=-1, r=-1, s=2), Hex(q=-1, r=0, s=1))
-
-# Orange
-# node: Node(Hex(q=-1, r=1, s=0), Hex(q=-1, r=2, s=-1), Hex(q=0, r=1, s=-1))
-# node: Node(Hex(q=1, r=-1, s=0), Hex(q=2, r=-2, s=0), Hex(q=2, r=-1, s=-1))
-# edge: Edge(Hex(q=1, r=-1, s=0), Hex(q=2, r=-2, s=0))
-# edge: Edge(Hex(q=-1, r=2, s=-1), Hex(q=0, r=1, s=-1))
 
 # layout = type, size, origin
 size = 50 # (radius)
@@ -134,13 +111,7 @@ class Node:
         node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
         if len(node_list) != 0:
             return node_list[0]
-    
-    # this isn't working (TypeError: must be real number, not tuple)
-    # def get_node_vector2(self):
-    #     node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
-    #     if len(node_list) != 0:
-    #         # unpack from list and assign x, y values to Vector2
-    #         return Vector2(node_list[0][0], node_list[0][1])
+
 
 # could store shapes
 class Pieces(Enum):
@@ -333,6 +304,77 @@ def initialize_board(state):
     state.all_tiles = state.land_tiles + state.ocean_tiles
 
     # for demo, initiate default roads and settlements
+    # Red 
+    red_nodes = [Node(Hex(0, -2, 2), Hex(1, -2, 1), Hex(0, -1, 1)), Node(Hex(-2, 0, 2), Hex(-1, 0, 1), Hex(-2, 1, 1))]
+    red_edges = [Edge(Hex(1, -2, 1), Hex(0, -1, 1)), Edge(Hex(-1, 0, 1), Hex(-2, 1, 1))]
+
+    # Blue
+    blue_nodes = [Node(Hex(-2, 1, 1), Hex(-1, 1, 0), Hex(-2, 2, 0)), Node(Hex(0, 1, -1), Hex(1, 1, -2), Hex(0, 2, -2))]
+    blue_edges = [Edge(Hex(-1, 1, 0), Hex(-2, 2, 0)), Edge(Hex(0, 1, -1), Hex(1, 1, -2))]
+
+    # White
+    white_nodes = [Node(Hex(q=-1, r=-1, s=2), Hex(q=-1, r=0, s=1), Hex(q=0, r=-1, s=1)), Node(Hex(q=1, r=0, s=-1), Hex(q=1, r=1, s=-2), Hex(q=2, r=0, s=-2))]
+    white_edges = [Edge(Hex(q=1, r=0, s=-1), Hex(q=2, r=0, s=-2)), Edge(Hex(q=-1, r=-1, s=2), Hex(q=-1, r=0, s=1))]
+
+    # Orange
+    orange_nodes = [Node(Hex(q=-1, r=1, s=0), Hex(q=-1, r=2, s=-1), Hex(q=0, r=1, s=-1)), Node(Hex(q=1, r=-1, s=0), Hex(q=2, r=-2, s=0), Hex(q=2, r=-1, s=-1))]
+    orange_edges=[Edge(Hex(q=1, r=-1, s=0), Hex(q=2, r=-2, s=0)), Edge(Hex(q=-1, r=2, s=-1), Hex(q=0, r=1, s=-1))]
+
+    for node in state.nodes:
+        for orange_node in orange_nodes:
+            if node.hex_a == orange_node.hex_a and node.hex_b == orange_node.hex_b and node.hex_c == orange_node.hex_c:
+                # 4 ways to add the settlement..... too many?
+                orange_player.settlements.append(node)
+                # state.nodes.append(node)
+                node.player = orange_player
+                node.town = "settlement"
+
+        for blue_node in blue_nodes:
+            if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
+                blue_player.settlements.append(node)
+                # settlements.append(node)
+                node.player = blue_player
+                node.town = "settlement"
+
+        for red_node in red_nodes:
+            if node.hex_a == red_node.hex_a and node.hex_b == red_node.hex_b and node.hex_c == red_node.hex_c:
+                red_player.settlements.append(node)
+                # settlements.append(node)
+                node.player = red_player
+                node.town = "settlement"
+
+        for white_node in white_nodes:
+            if node.hex_a == white_node.hex_a and node.hex_b == white_node.hex_b and node.hex_c == white_node.hex_c:
+                white_player.settlements.append(node)
+                # settlements.append(node)
+                node.player = white_player
+                node.town = "settlement"
+
+    for edge in state.edges:
+        for orange_edge in orange_edges:
+            if edge.hex_a == orange_edge.hex_a and edge.hex_b == orange_edge.hex_b:
+                orange_player.roads.append(edge)
+                # roads.append(edge)
+                edge.player = orange_player
+
+        for blue_edge in blue_edges:
+            if edge.hex_a == blue_edge.hex_a and edge.hex_b == blue_edge.hex_b:
+                blue_player.roads.append(edge)
+                # roads.append(edge)
+                edge.player = blue_player
+
+        for red_edge in red_edges:
+            if edge.hex_a == red_edge.hex_a and edge.hex_b == red_edge.hex_b:
+                red_player.roads.append(edge)
+                # roads.append(edge)
+                edge.player = red_player
+
+        for white_edge in white_edges:
+            if edge.hex_a == white_edge.hex_a and edge.hex_b == white_edge.hex_b:
+                white_player.roads.append(edge)
+                # roads.append(edge)
+                edge.player = white_player
+
 
 
 # should this be changed into just checking if a button is pressed and passing that on, or can 
@@ -507,10 +549,6 @@ def render(state):
         # if state.debug == True:
         #     draw_circle(int(hh.hex_to_pixel(pointy, tile.hex).x), int(hh.hex_to_pixel(pointy, tile.hex).y), 4, BLACK)
 
-    for node in state.nodes:
-        if node.town != None:
-            draw_rectangle(node.get_node_point()[0], node.get_node_point()[1], 20, 20, node.player.color)
-
     for tile in state.ocean_tiles:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 2, BLACK)
         if tile.port:
@@ -534,6 +572,18 @@ def render(state):
     if state.current_edge and not state.current_node:
         corners = state.current_edge.get_edge_points()
         draw_line_ex(corners[0], corners[1], 15, BLACK)
+
+    for edge in state.edges:
+        if edge.player != None:
+            rf.draw_road(edge, edge.player.color)
+        
+    for node in state.nodes:
+        if node.player != None:
+            if node.town == "settlement":
+                rf.draw_settlement(node, node.player.color)
+            elif node.town == "city":
+                rf.draw_city(node, node.player.color)      
+
 
     # draw robber
     radiusH = 12

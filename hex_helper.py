@@ -5,10 +5,10 @@ from pyray import Vector2
 # changed Point to Vector2 to be more compatible with raylib
 Point = collections.namedtuple("Point", ["x", "y"])
 
-hex_tuple = collections.namedtuple("Hex", ["q", "r", "s"])
+Hex = collections.namedtuple("Hex", ["q", "r", "s"])
 def set_hex(q, r, s):
     assert not (round(q + r + s) != 0), "q + r + s must be 0"
-    return hex_tuple(q, r, s)
+    return Hex(q, r, s)
 
 def hex_add(a, b):
     return set_hex(a.q + b.q, a.r + b.r, a.s + b.s)
@@ -61,8 +61,8 @@ def hex_lerp(a, b, t):
 
 def hex_linedraw(a, b):
     N = hex_distance(a, b)
-    a_nudge = hex_tuple(a.q + 1e-06, a.r + 1e-06, a.s - 2e-06)
-    b_nudge = hex_tuple(b.q + 1e-06, b.r + 1e-06, b.s - 2e-06)
+    a_nudge = Hex(a.q + 1e-06, a.r + 1e-06, a.s - 2e-06)
+    b_nudge = Hex(b.q + 1e-06, b.r + 1e-06, b.s - 2e-06)
     results = []
     step = 1.0 / max(N, 1)
     for i in range(0, N + 1):

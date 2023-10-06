@@ -4,6 +4,7 @@ import random
 import math
 from operator import itemgetter, attrgetter
 import hex_helper as hh
+from hex_helper import *
 import rendering_functions as rf
 
 
@@ -47,6 +48,33 @@ def offset(lst, offset):
 
 pointy = hh.Layout(hh.layout_pointy, hh.Point(50, 50), hh.Point(400, 300))
 origin = hh.set_hex(0, 0, 0)
+
+class Player:
+    def __init__(self, color):
+        self.color = color.value
+        self.cities = []
+        self.settlements = []
+        self.roads = []
+        self.ports = []
+        self.hand = []
+        self.development_cards = []
+        self.victory_points = 0
+    
+    def __repr__(self):
+        return f"Player {self.color}: cities {self.cities}, settlements {self.settlements}, roads {self.roads}"
+
+
+# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
+class PlayerColor(Enum):
+    RED = get_color(0xe1282fff)
+    BLUE = get_color(0x2974b8ff)
+    ORANGE = get_color(0xd46a24ff)
+    WHITE = get_color(0xd6d6d6ff)
+
+red_player = Player(PlayerColor.RED)
+blue_player = Player(PlayerColor.BLUE)
+orange_player = Player(PlayerColor.ORANGE)
+white_player = Player(PlayerColor.WHITE)
 
 hexes = [hh.set_hex(0, -2, 2),
         hh.set_hex(1, -2, 1),
@@ -93,7 +121,7 @@ class Node:
         self.hex_b = sorted_hexes[1]
         self.hex_c = sorted_hexes[2]
         self.player = None
-        self.type = None # city or settlement
+        self.town = None # city or settlement
 
     def __repr__(self):
         return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
@@ -103,15 +131,9 @@ class Node:
         if len(node_point) != 0:
             return node_point[0]
 
-    # this isn't working (TypeError: initializer for ctype 'struct Vector2' must be a list or tuple or dict or struct-cdata, not int)
-    # def get_node_vector2(self):
-    #     node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
-    #     if len(node_list) != 0:
-    #         # unpack from list and assign x, y values to Vector2
-    #         return Vector2(node_list[0][0], node_list[0][1])
-
 nodes = []
 edges = []
+# build node and edge lists
 for i in range(len(hexes)):
     for j in range(i+1, len(hexes)):
         if check_collision_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[j]), 60):
@@ -164,6 +186,79 @@ for i in range(len(hexes)):
 roads = []
 settlements = []
 cities = []
+
+# Red 
+red_nodes = [Node(Hex(0, -2, 2), Hex(1, -2, 1), Hex(0, -1, 1)), Node(Hex(-2, 0, 2), Hex(-1, 0, 1), Hex(-2, 1, 1))]
+red_edges = [Edge(Hex(1, -2, 1), Hex(0, -1, 1)), Edge(Hex(-1, 0, 1), Hex(-2, 1, 1))]
+
+# Blue
+blue_nodes = [Node(Hex(-2, 1, 1), Hex(-1, 1, 0), Hex(-2, 2, 0)), Node(Hex(0, 1, -1), Hex(1, 1, -2), Hex(0, 2, -2))]
+blue_edges = [Edge(Hex(-1, 1, 0), Hex(-2, 2, 0)), Edge(Hex(0, 1, -1), Hex(1, 1, -2))]
+
+# White
+white_nodes = [Node(Hex(q=-1, r=-1, s=2), Hex(q=-1, r=0, s=1), Hex(q=0, r=-1, s=1)), Node(Hex(q=1, r=0, s=-1), Hex(q=1, r=1, s=-2), Hex(q=2, r=0, s=-2))]
+white_edges = [Edge(Hex(q=1, r=0, s=-1), Hex(q=2, r=0, s=-2)), Edge(Hex(q=-1, r=-1, s=2), Hex(q=-1, r=0, s=1))]
+
+# Orange
+orange_nodes = [Node(Hex(q=-1, r=1, s=0), Hex(q=-1, r=2, s=-1), Hex(q=0, r=1, s=-1)), Node(Hex(q=1, r=-1, s=0), Hex(q=2, r=-2, s=0), Hex(q=2, r=-1, s=-1))]
+orange_edges=[Edge(Hex(q=1, r=-1, s=0), Hex(q=2, r=-2, s=0)), Edge(Hex(q=-1, r=2, s=-1), Hex(q=0, r=1, s=-1))]
+
+for node in nodes:
+    for orange_node in orange_nodes:
+        if node.hex_a == orange_node.hex_a and node.hex_b == orange_node.hex_b and node.hex_c == orange_node.hex_c:
+            # 4 ways to add the settlement..... too many?
+            orange_player.settlements.append(node)
+            settlements.append(node)
+            node.player = orange_player
+            node.town = "settlement"
+
+    for blue_node in blue_nodes:
+        if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
+            blue_player.settlements.append(node)
+            settlements.append(node)
+            node.player = blue_player
+            node.town = "settlement"
+
+    for red_node in red_nodes:
+        if node.hex_a == red_node.hex_a and node.hex_b == red_node.hex_b and node.hex_c == red_node.hex_c:
+            red_player.settlements.append(node)
+            settlements.append(node)
+            node.player = red_player
+            node.town = "settlement"
+
+    for white_node in white_nodes:
+        if node.hex_a == white_node.hex_a and node.hex_b == white_node.hex_b and node.hex_c == white_node.hex_c:
+            white_player.settlements.append(node)
+            settlements.append(node)
+            node.player = white_player
+            node.town = "settlement"
+
+for edge in edges:
+    for orange_edge in orange_edges:
+        if edge.hex_a == orange_edge.hex_a and edge.hex_b == orange_edge.hex_b:
+            orange_player.roads.append(edge)
+            roads.append(edge)
+            edge.player = orange_player
+
+    for blue_edge in blue_edges:
+        if edge.hex_a == blue_edge.hex_a and edge.hex_b == blue_edge.hex_b:
+            blue_player.roads.append(edge)
+            roads.append(edge)
+            edge.player = blue_player
+
+    for red_edge in red_edges:
+        if edge.hex_a == red_edge.hex_a and edge.hex_b == red_edge.hex_b:
+            red_player.roads.append(edge)
+            roads.append(edge)
+            edge.player = red_player
+
+    for white_edge in white_edges:
+        if edge.hex_a == white_edge.hex_a and edge.hex_b == white_edge.hex_b:
+            white_player.roads.append(edge)
+            roads.append(edge)
+            edge.player = white_player
+
+
 
 def main():
     init_window(screen_width, screen_height, "natac")
@@ -256,13 +351,13 @@ def main():
 
   
         for edge in roads:
-            rf.draw_road(edge, BLUE)
+            rf.draw_road(edge, edge.player.color)
             
         for node in settlements:
-            rf.draw_settlement(node, BLUE)
+            rf.draw_settlement(node, node.player.color)
         
         for node in cities:
-            rf.draw_city(node, BLUE)        
+            rf.draw_city(node, node.player.color)        
 
 
 
