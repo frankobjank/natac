@@ -51,7 +51,7 @@ def offset(lst, offset):
 pointy = hh.Layout(hh.layout_pointy, hh.Point(50, 50), hh.Point(400, 300))
 origin = hh.set_hex(0, 0, 0)
 
-class PlayerClass:
+class Player:
     def __init__(self, PlayerColor):
         self.name = PlayerColor.name
         self.color = PlayerColor.value
@@ -64,7 +64,7 @@ class PlayerClass:
         self.victory_points = 0
     
     def __repr__(self):
-        return f"Player {self.name}: cities {self.cities}, settlements {self.settlements}, roads {self.roads}"
+        return f"Player {self.name}:  cities {self.cities}, settlements {self.settlements}, roads {self.roads}, ports {self.ports}, hand {self.hand}, victory points: {self.victory_points}"
 
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
@@ -77,14 +77,19 @@ class PlayerColor(Enum):
 
 # player_colors = {"NIL": GRAY, "RED": get_color(0xe1282fff), "BLUE": get_color(0x2974b8ff), "ORANGE": get_color(0xd46a24ff), "WHITE": get_color(0xd6d6d6ff)}
 
-class Player(Enum):
-    NIL = PlayerClass(PlayerColor.NIL)
-    RED = PlayerClass(PlayerColor.RED)
-    BLUE = PlayerClass(PlayerColor.BLUE)
-    ORANGE = PlayerClass(PlayerColor.ORANGE)
-    WHITE = PlayerClass(PlayerColor.WHITE)
+# class Player(Enum):
+#     NIL = PlayerClass(PlayerColor.NIL)
+#     RED = PlayerClass(PlayerColor.RED)
+#     BLUE = PlayerClass(PlayerColor.BLUE)
+#     ORANGE = PlayerClass(PlayerColor.ORANGE)
+#     WHITE = PlayerClass(PlayerColor.WHITE)
 
-print(Player.NIL.value)
+PlayerBLUE = Player(PlayerColor.BLUE)
+PlayerRED = Player(PlayerColor.RED)
+PlayerORANGE = Player(PlayerColor.ORANGE)
+PlayerWHITE = Player(PlayerColor.WHITE)
+PlayerNIL = Player(PlayerColor.NIL)
+
 
 hexes = [hh.set_hex(0, -2, 2),
         hh.set_hex(1, -2, 1),
@@ -228,58 +233,58 @@ for node in nodes:
     for orange_node in orange_nodes:
         if node.hex_a == orange_node.hex_a and node.hex_b == orange_node.hex_b and node.hex_c == orange_node.hex_c:
             # 4 ways to add the settlement..... too many?
-            Player.ORANGE.settlements.append(node)
+            PlayerORANGE.settlements.append(node)
             settlements.append(node)
-            node.player = Player.ORANGE
+            node.player = PlayerORANGE
             node.town = "settlement"
 
     for blue_node in blue_nodes:
         if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
-            Player.BLUE.settlements.append(node)
+            PlayerBLUE.settlements.append(node)
             settlements.append(node)
-            node.player = Player.BLUE
+            node.player = PlayerBLUE
             node.town = "settlement"
 
     for red_node in red_nodes:
         if node.hex_a == red_node.hex_a and node.hex_b == red_node.hex_b and node.hex_c == red_node.hex_c:
-            Player.RED.settlements.append(node)
+            PlayerRED.settlements.append(node)
             settlements.append(node)
-            node.player = Player.RED
+            node.player = PlayerRED
             node.town = "settlement"
 
     for white_node in white_nodes:
         if node.hex_a == white_node.hex_a and node.hex_b == white_node.hex_b and node.hex_c == white_node.hex_c:
-            Player.WHITE.settlements.append(node)
+            PlayerWHITE.settlements.append(node)
             settlements.append(node)
-            node.player = Player.WHITE
+            node.player = PlayerWHITE
             node.town = "settlement"
 # assign roads
 for edge in edges:
     for orange_edge in orange_edges:
         if edge.hex_a == orange_edge.hex_a and edge.hex_b == orange_edge.hex_b:
-            Player.ORANGE.roads.append(edge)
+            PlayerORANGE.roads.append(edge)
             roads.append(edge)
-            edge.player = Player.ORANGE
+            edge.player = PlayerORANGE
 
     for blue_edge in blue_edges:
         if edge.hex_a == blue_edge.hex_a and edge.hex_b == blue_edge.hex_b:
-            Player.BLUE.roads.append(edge)
+            PlayerBLUE.roads.append(edge)
             roads.append(edge)
-            edge.player = Player.BLUE
+            edge.player = PlayerBLUE
 
     for red_edge in red_edges:
         if edge.hex_a == red_edge.hex_a and edge.hex_b == red_edge.hex_b:
-            Player.RED.roads.append(edge)
+            PlayerRED.roads.append(edge)
             roads.append(edge)
-            edge.player = Player.RED
+            edge.player = PlayerRED
 
     for white_edge in white_edges:
         if edge.hex_a == white_edge.hex_a and edge.hex_b == white_edge.hex_b:
-            Player.WHITE.roads.append(edge)
+            PlayerWHITE.roads.append(edge)
             roads.append(edge)
-            edge.player = Player.WHITE
+            edge.player = PlayerWHITE
 
-current_player = Player.NIL
+current_player = PlayerNIL
 
 def main():
     init_window(screen_width, screen_height, "natac")
@@ -331,25 +336,25 @@ def main():
 
         blue_button = Rectangle(700, 20, 40, 40)
         if check_collision_point_rec(mouse, blue_button):
-            current_player = Player.BLUE
+            current_player = PlayerBLUE
 
         orange_button = Rectangle(650, 20, 40, 40)
         if check_collision_point_rec(mouse, orange_button):
-            current_player = Player.ORANGE
+            current_player = PlayerORANGE
 
         white_button = Rectangle(600, 20, 40, 40)
         if check_collision_point_rec(mouse, white_button):
-            current_player = Player.WHITE
+            current_player = PlayerWHITE
 
         red_button = Rectangle(550, 20, 40, 40)
         if check_collision_point_rec(mouse, red_button):
-            current_player = Player.RED
+            current_player = PlayerRED
         
         robber_button = Rectangle(750, 20, 40, 40)
         if check_collision_point_rec(mouse, robber_button):
-            current_player = Player.NIL
+            current_player = PlayerNIL
 
-        buttons = {blue_button: Player.BLUE.color, orange_button: Player.ORANGE.color, white_button: Player.WHITE.color, red_button: Player.RED.color, robber_button: BLACK}
+        buttons = {blue_button: PlayerBLUE.color, orange_button: PlayerORANGE.color, white_button: PlayerWHITE.color, red_button: PlayerRED.color, robber_button: BLACK}
 
 
                     
@@ -398,7 +403,7 @@ def main():
                         current_edge.player = current_player
                 elif current_edge in roads:
                     roads.remove(current_edge)
-                    current_edge.player = Player.NIL
+                    current_edge.player = PlayerNIL
 
   
         for edge in roads:
@@ -452,7 +457,7 @@ def main_test():
         draw_text_ex(gui_get_font(), f"Mouse at: ({get_mouse_x()}, {get_mouse_y()})", Vector2(5, 5), 15, 0, BLACK)
         
         if gui_button(Rectangle(700, 20, 40, 40), "R"):
-            current_player = Player.BLUE
+            current_player = PlayerBLUE
 
         end_drawing()
 

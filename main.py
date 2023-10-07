@@ -120,8 +120,9 @@ class Pieces(Enum):
     ROBBER = "robber"
 
 class Player:
-    def __init__(self, color):
-        self.color = color.value
+    def __init__(self, PlayerColor):
+        self.name = PlayerColor.name
+        self.color = PlayerColor.value
         self.cities = []
         self.settlements = []
         self.roads = []
@@ -131,18 +132,17 @@ class Player:
         self.victory_points = 0
     
     def __repr__(self):
-        return f"Player {self.color}: cities {self.cities}, settlements {self.settlements}, roads {self.roads}"
-
+        return f"Player {self.name}:  cities {self.cities}, settlements {self.settlements}, roads {self.roads}, ports {self.ports}, hand {self.hand}, victory points: {self.victory_points}"
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
 class PlayerColor(Enum):
-    NIL = get_color(GRAY)
+    NIL = GRAY
     RED = get_color(0xe1282fff)
     BLUE = get_color(0x2974b8ff)
     ORANGE = get_color(0xd46a24ff)
     WHITE = get_color(0xd6d6d6ff)
 
-nil_player = Player(GRAY)
+nil_player = Player(PlayerColor.NIL)
 red_player = Player(PlayerColor.RED)
 blue_player = Player(PlayerColor.BLUE)
 orange_player = Player(PlayerColor.ORANGE)
@@ -182,7 +182,7 @@ class Tile:
             self.port_display = port.value["display"]
     
     def __repr__(self):
-        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots} port: {self.port})"
+        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, port: {self.port}, robber: {self.robber})"
     
 
 
@@ -217,6 +217,31 @@ def get_random_terrain():
                 tile_counts[rand_tile] -= 1
     return terrain_tiles
 
+class Button:
+    def __init__(self, rec:Rectangle, color:Color, var_to_set, value=None) -> None:
+        if type(var_to_set) == bool:
+            assert value == None, "var_to_set is bool so value should be None"
+        self.rec = rec
+        self.color = color
+        self.var_to_set = var_to_set
+        self.value = value
+        # ex: self.var_to_set=current_player, self.value=blue_player
+    
+    def button_collision(self, mouse):
+        if check_collision_point_rec(mouse, self):
+            return True
+    
+    def toggle(self):
+        if type(self.value) == bool:
+            self.value = not self.value
+            return
+        
+        if self.var_to_set != self.value:
+            self.var_to_set = self.value
+        elif self.var_to_set == self.value:
+            self.var_to_set = None
+
+
 
 class State:
     def __init__(self):
@@ -236,11 +261,12 @@ class State:
         self.current_hex_3 = None
         self.current_edge = None
         self.current_node = None
+        self.current_player = None
 
-        # stage a selection
-        self.stage_selection = False
-        # actual selection 
         self.selection = None
+
+        # turn rules
+        self.move_robber = False
 
         # game pieces
         # move robber with current_hex, maybe need to adjust selection to ignore edges and nodes
@@ -249,10 +275,11 @@ class State:
         self.players = []
 
         # GLOBAL general vars
+        self.buttons = []
         self.debug = False
-        self.font = None
-        self.frame_counter = 0
-        self.reset = False
+
+        # user input, can be keyboard key or mouse
+        self.user_input = None
         
     
     def initialize_camera(self):
@@ -303,6 +330,17 @@ def initialize_board(state):
 
     # in case ocean+land tiles are needed:
     state.all_tiles = state.land_tiles + state.ocean_tiles
+
+    
+    # debug buttons
+    state.buttons.append(
+        Button(Rectangle(750, 20, 40, 40), PlayerColor.NIL, state.current_player, nil_player),
+        Button(Rectangle(700, 20, 40, 40), PlayerColor.BLUE, state.current_player, blue_player),
+        Button(Rectangle(650, 20, 40, 40), PlayerColor.ORANGE, state.current_player, orange_player), 
+        Button(Rectangle(600, 20, 40, 40), PlayerColor.WHITE, state.current_player, white_player), 
+        Button(Rectangle(550, 20, 40, 40), PlayerColor.RED, state.current_player, red_player),
+        Button(Rectangle(500, 20, 40, 40), BLACK, state.move_robber)
+    )
 
     # for demo, initiate default roads and settlements
     # Red 
@@ -378,34 +416,33 @@ def initialize_board(state):
 
 
 
-# should this be changed into just checking if a button is pressed and passing that on, or can 
-# basic things like state.camera.zoom be directly adjusted here
 def get_user_input(state):
     state.world_position = get_screen_to_world_2d(get_mouse_position(), state.camera)
-    
-    state.stage_selection = False
 
-    if is_mouse_button_pressed(MouseButton.MOUSE_BUTTON_LEFT):
-        state.stage_selection = True
+    state.user_input = None
+
+    if is_mouse_button_released(MouseButton.MOUSE_BUTTON_LEFT):
+        state.user_input = state.world_position
 
     # camera controls
-    state.camera.zoom += get_mouse_wheel_move() * 0.03
+    # not sure how to capture mouse wheel, also currently using RAYLIB for these inputs
+    # state.camera.zoom += get_mouse_wheel_move() * 0.03
 
-    if is_key_down(KeyboardKey.KEY_RIGHT_BRACKET):
-        state.camera.zoom += 0.03
+    elif is_key_down(KeyboardKey.KEY_RIGHT_BRACKET):
+        state.user_input = KeyboardKey.KEY_RIGHT_BRACKET
+
     elif is_key_down(KeyboardKey.KEY_LEFT_BRACKET):
-        state.camera.zoom -= 0.03
+        state.user_input = KeyboardKey.KEY_LEFT_BRACKET
 
     # camera and board reset (zoom and rotation)
-    if is_key_pressed(KeyboardKey.KEY_R):
-        state.reset = True
+    elif is_key_pressed(KeyboardKey.KEY_R):
+        state.user_input = KeyboardKey.KEY_R
 
-
-    if is_key_pressed(KeyboardKey.KEY_E):
-        state.debug = not state.debug # toggle
+    elif is_key_pressed(KeyboardKey.KEY_E):
+        state.user_input = KeyboardKey.KEY_E
     
-    if is_key_pressed(KeyboardKey.KEY_F):
-        toggle_fullscreen()
+    elif is_key_pressed(KeyboardKey.KEY_F):
+        state.user_input = KeyboardKey.KEY_F
 
 
 def update(state):
@@ -455,7 +492,7 @@ def update(state):
                 break
 
     # selecting based on mouse button input from get_user_input()
-    if state.stage_selection == True:
+    if state.user_input == MouseButton.MOUSE_BUTTON_LEFT or state.user_input == MouseButton.MOUSE_BUTTON_RIGHT:
         if state.current_node:
             state.selection = state.current_node
 
@@ -478,18 +515,63 @@ def update(state):
             print(f"hex: {state.current_hex}")
         else:
             state.selection = None
+        
+        # DEBUG
+        if state.debug == True:
+            blue_button = Rectangle(700, 20, 40, 40)
+            if check_collision_point_rec(state.world_position, blue_button):
+                state.current_player = blue_player
 
-    # zoom boundary reset
+            orange_button = Rectangle(650, 20, 40, 40)
+            if check_collision_point_rec(state.world_position, orange_button):
+                state.current_player = orange_player
+
+            white_button = Rectangle(600, 20, 40, 40)
+            if check_collision_point_rec(state.world_position, white_button):
+                state.current_player = white_player
+
+            red_button = Rectangle(550, 20, 40, 40)
+            if check_collision_point_rec(state.world_position, red_button):
+                state.current_player = red_player
+            
+            robber_button = Rectangle(750, 20, 40, 40)
+            if check_collision_point_rec(state.world_position, robber_button):
+                state.current_player = nil_player
+
+            state.buttons = {blue_button: blue_player.color, orange_button: orange_player.color, white_button: white_player.color, red_button: red_player.color, robber_button: BLACK}
+
+    # camera controls
+
+    # not sure how to represent mouse wheel
+    # if state.user_input == mouse wheel
+    # state.camera.zoom += get_mouse_wheel_move() * 0.03
+
+    if state.user_input == KeyboardKey.KEY_RIGHT_BRACKET:
+        state.camera.zoom += 0.03
+    elif state.user_input == KeyboardKey.KEY_LEFT_BRACKET:
+        state.camera.zoom -= 0.03
+
+    # camera and board reset (zoom and rotation)
+    # state.reset = True
+    if state.user_input == KeyboardKey.KEY_R:
+        state.camera.zoom = default_zoom
+        state.camera.rotation = 0.0
+        initialize_board(state)
+
+    if state.user_input == KeyboardKey.KEY_E:
+        state.debug = not state.debug # toggle
+
+    if state.user_input == KeyboardKey.KEY_F:
+        toggle_fullscreen()
+
+
+    # zoom boundary automatic reset
     if state.camera.zoom > 3.0:
         state.camera.zoom = 3.0
     elif state.camera.zoom < 0.1:
         state.camera.zoom = 0.1
 
-    # reset camera and board
-    if state.reset == True:
-        state.camera.zoom = default_zoom
-        state.camera.rotation = 0.0
-        initialize_board(state)
+
 
 
 def render(state):
@@ -499,6 +581,7 @@ def render(state):
 
     begin_mode_2d(state.camera)
 
+    # draw land tiles, numbers, dots
     for tile in state.land_tiles:
         # draw resource hexes
         draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, tile.color)
@@ -550,7 +633,8 @@ def render(state):
         # drawing circles in hex centers to center text
         # if state.debug == True:
         #     draw_circle(int(hh.hex_to_pixel(pointy, tile.hex).x), int(hh.hex_to_pixel(pointy, tile.hex).y), 4, BLACK)
-
+    
+    # draw ocean tiles, ports
     for tile in state.ocean_tiles:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, BLACK)
         if tile.port:
@@ -562,7 +646,8 @@ def render(state):
     # draw roads, settlements, cities
     for edge in state.edges:
         if edge.player != None:
-            rf.draw_road(edge, edge.player.color)     
+            rf.draw_road(edge, edge.player.color)
+
     for node in state.nodes:
         if node.player != None:
             if node.town == "settlement":
@@ -603,7 +688,10 @@ def render(state):
         if state.current_edge and not state.current_node:
             corners = state.current_edge.get_edge_points()
             draw_line_ex(corners[0], corners[1], 15, BLACK)
-    
+
+
+        for button, color in state.debug_buttons.items():
+            draw_rectangle_rec(button, color)
 
         
     end_drawing()
