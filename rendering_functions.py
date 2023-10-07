@@ -1,5 +1,13 @@
 from pyray import *
 
+def draw_robber(hex_center):
+    radiusH = 12
+    radiusV = 24
+    draw_circle(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, BLACK)
+    draw_ellipse(int(hex_center.x), int(hex_center.y), radiusH, radiusV, BLACK)
+    draw_rectangle(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH, BLACK)
+
+
 def draw_road(edge, color):
     edge_endpoints = edge.get_edge_points()
     # draw black outline

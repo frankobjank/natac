@@ -502,7 +502,7 @@ def render(state):
         # draw resource hexes
         draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, tile.color)
 
-        # draw numbers, circles
+        # draw numbers, dots on hexes
         if tile.num != None:
             draw_circle(int(hh.hex_to_pixel(pointy, tile.hex).x), int(hh.hex_to_pixel(pointy, tile.hex).y), 18, RAYWHITE)
             text_size = measure_text_ex(gui_get_font(), f"{tile.num}", 20, 0)
@@ -542,7 +542,8 @@ def render(state):
                 draw_circle_lines(dot_x+dot_x_offset*2, dot_y, dot_size, BLACK)
                 draw_circle(dot_x+dot_x_offset*4, dot_y, dot_size, RED)
                 draw_circle_lines(dot_x+dot_x_offset*4, dot_y, dot_size, BLACK)
-        # draw black outlines
+        
+        # draw black outlines around hexes
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, BLACK)
     
         # drawing circles in hex centers to center text
@@ -550,33 +551,17 @@ def render(state):
         #     draw_circle(int(hh.hex_to_pixel(pointy, tile.hex).x), int(hh.hex_to_pixel(pointy, tile.hex).y), 4, BLACK)
 
     for tile in state.ocean_tiles:
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 2, BLACK)
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, BLACK)
         if tile.port:
             hex_center = hh.hex_to_pixel(pointy, tile.hex)
             text_offset = measure_text_ex(gui_get_font(), tile.port_display, 16, 0)
             text_location = Vector2(hex_center.x-text_offset.x//2, hex_center.y-16)
             draw_text_ex(gui_get_font(), tile.port_display, text_location, 16, 0, BLACK)
-    
-    # outline selected hex
-    if state.current_hex: # and not state.current_edge:
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, 50, 0, 6, BLACK)
-    if state.current_hex_2:
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_2), 6, 50, 0, 6, BLACK)
-    if state.current_hex_3:
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_3), 6, 50, 0, 6, BLACK)
-
-    if state.current_node:
-        draw_circle_v(state.current_node.get_node_point(), 12, BLACK)
-
-    # highlight selected edge
-    if state.current_edge and not state.current_node:
-        corners = state.current_edge.get_edge_points()
-        draw_line_ex(corners[0], corners[1], 15, BLACK)
-
+        
+    # draw roads, settlements, cities
     for edge in state.edges:
         if edge.player != None:
-            rf.draw_road(edge, edge.player.color)
-        
+            rf.draw_road(edge, edge.player.color)     
     for node in state.nodes:
         if node.player != None:
             if node.town == "settlement":
@@ -584,22 +569,18 @@ def render(state):
             elif node.town == "city":
                 rf.draw_city(node, node.player.color)      
 
-
     # draw robber
-    radiusH = 12
-    radiusV = 24
     for tile in state.land_tiles:
         if tile.robber == True:
             hex_center = vector2_round(hh.hex_to_pixel(pointy, tile.hex))
-            draw_circle(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, BLACK)
-            draw_ellipse(int(hex_center.x), int(hex_center.y), radiusH, radiusV, BLACK)
-            draw_rectangle(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH, BLACK)
+            rf.draw_robber(hex_center)
             break
         
 
     end_mode_2d()
 
     if state.debug == True:
+        # text info top left of screen
         draw_text_ex(gui_get_font(), f"World mouse at: ({int(state.world_position.x)}, {int(state.world_position.y)})", Vector2(5, 5), 15, 0, BLACK)
         draw_text_ex(gui_get_font(), f"Current hex: {state.current_hex}", Vector2(5, 25), 15, 0, BLACK)
         # draw_text_ex(gui_get_font(), f"Current hex_2: {state.current_hex_2}", Vector2(5, 45), 15, 0, BLACK)
@@ -607,7 +588,21 @@ def render(state):
         draw_text_ex(gui_get_font(), f"Current edge: {state.current_edge}", Vector2(5, 45), 15, 0, BLACK)
         draw_text_ex(gui_get_font(), f"Current node = {state.current_node}", Vector2(5, 65), 15, 0, BLACK)
         draw_text_ex(gui_get_font(), f"Current selection = {state.selection}", Vector2(5, 85), 10, 0, BLACK)
-        
+
+        # outline up to 3 current hexes
+        if state.current_hex: # and not state.current_edge:
+            draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, 50, 0, 6, BLACK)
+        if state.current_hex_2:
+            draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_2), 6, 50, 0, 6, BLACK)
+        if state.current_hex_3:
+            draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_3), 6, 50, 0, 6, BLACK)
+        # highlight selected edge and node
+        if state.current_node:
+            draw_circle_v(state.current_node.get_node_point(), 12, BLACK)
+        if state.current_edge and not state.current_node:
+            corners = state.current_edge.get_edge_points()
+            draw_line_ex(corners[0], corners[1], 15, BLACK)
+    
 
         
     end_drawing()

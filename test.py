@@ -373,15 +373,31 @@ def main():
     unload_font(gui_get_font())
     close_window()
 
-main()
+# main()
 
 def main_test():
     init_window(screen_width, screen_height, "natac")
     gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
     set_target_fps(60)
     while not window_should_close():
+        # user input/ update
+        mouse = get_mouse_position()
+        current_hex = None
+
+        # check radius for current hex
+        for hex in hexes:
+            # check if distance between mouse and hex_center shorter than radius
+            hex_center = hh.hex_to_pixel(pointy, hex)
+            dist = 
+            # distance btween hex 
+            if check_collision_point_circle(mouse, hh.hex_to_pixel(pointy, hex), 60):
+                current_hex = hex
+                break
+        
         begin_drawing()
         clear_background(WHITE)
+        if current_hex:
+            draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex), 6, 50, 0, 5, BLACK)
 
         draw_text_ex(gui_get_font(), f"Mouse at: ({get_mouse_x()}, {get_mouse_y()})", Vector2(5, 5), 15, 0, BLACK)
         end_drawing()
@@ -389,7 +405,7 @@ def main_test():
     unload_font(gui_get_font())
     close_window()
 
-# main_test()
+main_test()
 
 
 
