@@ -5,7 +5,6 @@ import random
 from enum import Enum
 from pyray import *
 import hex_helper as hh
-from hex_helper import *
 import rendering_functions as rf
 
 screen_width=800
@@ -137,11 +136,13 @@ class Player:
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
 class PlayerColor(Enum):
+    NIL = get_color(GRAY)
     RED = get_color(0xe1282fff)
     BLUE = get_color(0x2974b8ff)
     ORANGE = get_color(0xd46a24ff)
     WHITE = get_color(0xd6d6d6ff)
 
+nil_player = Player(GRAY)
 red_player = Player(PlayerColor.RED)
 blue_player = Player(PlayerColor.BLUE)
 orange_player = Player(PlayerColor.ORANGE)
@@ -305,20 +306,20 @@ def initialize_board(state):
 
     # for demo, initiate default roads and settlements
     # Red 
-    red_nodes = [Node(Hex(0, -2, 2), Hex(1, -2, 1), Hex(0, -1, 1)), Node(Hex(-2, 0, 2), Hex(-1, 0, 1), Hex(-2, 1, 1))]
-    red_edges = [Edge(Hex(1, -2, 1), Hex(0, -1, 1)), Edge(Hex(-1, 0, 1), Hex(-2, 1, 1))]
+    red_nodes = [Node(hh.Hex(0, -2, 2), hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Node(hh.Hex(-2, 0, 2), hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
+    red_edges = [Edge(hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Edge(hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
 
     # Blue
-    blue_nodes = [Node(Hex(-2, 1, 1), Hex(-1, 1, 0), Hex(-2, 2, 0)), Node(Hex(0, 1, -1), Hex(1, 1, -2), Hex(0, 2, -2))]
-    blue_edges = [Edge(Hex(-1, 1, 0), Hex(-2, 2, 0)), Edge(Hex(0, 1, -1), Hex(1, 1, -2))]
+    blue_nodes = [Node(hh.Hex(-2, 1, 1), hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Node(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2), hh.Hex(0, 2, -2))]
+    blue_edges = [Edge(hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Edge(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2))]
 
     # White
-    white_nodes = [Node(Hex(q=-1, r=-1, s=2), Hex(q=-1, r=0, s=1), Hex(q=0, r=-1, s=1)), Node(Hex(q=1, r=0, s=-1), Hex(q=1, r=1, s=-2), Hex(q=2, r=0, s=-2))]
-    white_edges = [Edge(Hex(q=1, r=0, s=-1), Hex(q=2, r=0, s=-2)), Edge(Hex(q=-1, r=-1, s=2), Hex(q=-1, r=0, s=1))]
+    white_nodes = [Node(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1), hh.Hex(q=0, r=-1, s=1)), Node(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=1, r=1, s=-2), hh.Hex(q=2, r=0, s=-2))]
+    white_edges = [Edge(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=2, r=0, s=-2)), Edge(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1))]
 
     # Orange
-    orange_nodes = [Node(Hex(q=-1, r=1, s=0), Hex(q=-1, r=2, s=-1), Hex(q=0, r=1, s=-1)), Node(Hex(q=1, r=-1, s=0), Hex(q=2, r=-2, s=0), Hex(q=2, r=-1, s=-1))]
-    orange_edges=[Edge(Hex(q=1, r=-1, s=0), Hex(q=2, r=-2, s=0)), Edge(Hex(q=-1, r=2, s=-1), Hex(q=0, r=1, s=-1))]
+    orange_nodes = [Node(hh.Hex(q=-1, r=1, s=0), hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1)), Node(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0), hh.Hex(q=2, r=-1, s=-1))]
+    orange_edges=[Edge(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0)), Edge(hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1))]
 
     for node in state.nodes:
         for orange_node in orange_nodes:
