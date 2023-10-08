@@ -125,7 +125,7 @@ class GameColor(Enum):
     # put terrain colors here
 
 # could store shapes
-class Pieces(Enum):
+class Piece(Enum):
     SETTLEMENT = "settlement"
     CITY = "city"
     ROAD = "road"
@@ -512,21 +512,46 @@ def update(state):
     if state.user_input == MouseButton.MOUSE_BUTTON_LEFT:
         if state.current_node:
             state.selection = state.current_node
+            print(f"node: {state.current_node}")
 
             # toggle between settlement, city, None
             if state.current_node.town == None:
-                state.current_node.town = Pieces.SETTLEMENT
-            elif state.current_node.town == Pieces.SETTLEMENT:
-                state.current_node.town = Pieces.CITY
-            elif state.current_node.town == Pieces.CITY:
-                state.current_node.town = None
+                state.current_node.town = "settlement"
+                if state.current_player:
+                    state.current_node.player = state.current_player
+                    state.current_player.settlements.append(state.current_node)
 
-            state.current_node.player = blue_player
-            blue_player.settlements = state.current_node
-            print(f"node: {state.current_node}")
+            elif state.current_node.town == "settlement":
+                state.current_node.town = "city"
+                if state.current_player:
+                    state.current_node.player = state.current_player
+                    state.current_player.settlements.remove(state.current_node)
+                    state.current_player.cities.append(state.current_node)
+
+            elif state.current_node.town == "city":
+                state.current_node.town = None
+                # state.current_node.player = None
+                if state.current_player:
+                    state.current_player.cities.remove(state.current_node)
+
+        
         elif state.current_edge:
             state.selection = state.current_edge
             print(f"edge: {state.current_edge}")
+
+            # place roads
+            if state.current_edge.player == None:
+                state.current_edge.player = state.current_player
+                if state.current_player:
+                    state.current_player.roads.append(state.current_edge)
+
+            elif state.current_edge.player:
+                state.current_edge.player = None
+                if state.current_player:
+                    state.current_player.roads.remove(state.current_edge)
+
+        # use to place robber, might have to adjust hex selection 
+            # circle overlap affects selection range
         elif state.current_hex:
             state.selection = state.current_hex
             print(f"hex: {state.current_hex}")
@@ -539,6 +564,10 @@ def update(state):
                 if check_collision_point_rec(get_mouse_position(), button.rec):
                     print("hello")
                     button.toggle()
+
+    # update player stats
+    for player in state.players:
+        player.victory_points = len(player.settlements)+(len(player.cities)*2)
 
     # camera controls
 
@@ -609,7 +638,7 @@ def render(state):
         
     # highlight selected edge and node
     if state.current_node:
-        draw_circle_v(state.current_node.get_node_point(), 12, BLACK)
+        draw_circle_v(state.current_node.get_node_point(), 10, BLACK)
     if state.current_edge and not state.current_node:
         corners = state.current_edge.get_edge_points()
         draw_line_ex(corners[0], corners[1], 12, BLACK)
