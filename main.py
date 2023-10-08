@@ -413,7 +413,7 @@ def initialize_board(state):
 
     # start robber in desert
     for tile in state.land_tiles:
-        if tile.terrain == "desert":
+        if tile.terrain == "DESERT":
             tile.robber = True
             break
 
@@ -554,7 +554,18 @@ def update(state):
             # circle overlap affects selection range
         elif state.current_hex:
             state.selection = state.current_hex
+            if state.move_robber == True:
+                for tile in state.land_tiles:
+                    if tile.hex == state.current_hex:
+                        tile.robber = True
+                        state.move_robber = False
+
+
+            # DEBUG PRINT STATEMENTS
             print(f"hex: {state.current_hex}")
+            for tile in state.land_tiles:
+                if tile.hex == state.current_hex:
+                    print(f"tile terrain: {tile.terrain}")
         else:
             state.selection = None
         
@@ -562,7 +573,6 @@ def update(state):
         if state.debug == True:
             for button in state.buttons:
                 if check_collision_point_rec(get_mouse_position(), button.rec):
-                    print("hello")
                     button.toggle()
 
     # update player stats
@@ -686,10 +696,11 @@ def render(state):
         # draw_text_ex(gui_get_font(), f"Current selection = {state.selection}", Vector2(5, 85), 10, 0, BLACK)
         draw_text_ex(gui_get_font(), f"Current player = {state.current_player}", Vector2(5, 85), 15, 0, BLACK)
 
-        i = 0
-        for player in state.players:
-            draw_text_ex(gui_get_font(), f"Player {player.name} VP: {player.victory_points}", Vector2(5, 105+i*20), 15, 0, BLACK)
-            i += 1
+        # display victory points
+        # i = 0
+        # for player in state.players:
+        #     draw_text_ex(gui_get_font(), f"Player {player.name} VP: {player.victory_points}", Vector2(5, 105+i*20), 15, 0, BLACK)
+        #     i += 1
 
 
         for button in state.buttons:
