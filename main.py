@@ -19,7 +19,7 @@ def vector2_round(vector2):
 size = 50 # (radius)
 pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
-# turned these into Enum classes
+# turned these into Enum classes, might be useful for random functions later
 all_game_pieces = ["road", "settlement", "city", "robber"]
 all_tiles = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
 all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
@@ -111,6 +111,18 @@ class Node:
         if len(node_list) != 0:
             return node_list[0]
 
+# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
+class GameColor(Enum):
+    # players
+    PLAYER_NIL = GRAY
+    PLAYER_RED = get_color(0xe1282fff)
+    PLAYER_BLUE = get_color(0x2974b8ff)
+    PLAYER_ORANGE = get_color(0xd46a24ff)
+    PLAYER_WHITE = get_color(0xd6d6d6ff)
+
+    # other pieces
+    ROBBER = BLACK
+    # put terrain colors here
 
 # could store shapes
 class Pieces(Enum):
@@ -118,44 +130,33 @@ class Pieces(Enum):
     CITY = "city"
     ROAD = "road"
     ROBBER = "robber"
+    LONGEST_ROAD = "longest_road"
+    LARGEST_ARMY = "largest_army"
 
-class Player:
-    def __init__(self, PlayerColor):
-        self.name = PlayerColor.name
-        self.color = PlayerColor.value
-        self.cities = []
-        self.settlements = []
-        self.roads = []
-        self.ports = []
-        self.hand = []
-        self.development_cards = []
-        self.victory_points = 0
-    
-    def __repr__(self):
-        return f"Player {self.name}:  cities {self.cities}, settlements {self.settlements}, roads {self.roads}, ports {self.ports}, hand {self.hand}, victory points: {self.victory_points}"
+class ResourceCard(Enum):
+    WOOD = "wood"
+    BRICK = "brick"
+    SHEEP = "sheep"
+    WHEAT = "wheat"
+    ORE = "ore"
 
-# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
-class PlayerColor(Enum):
-    NIL = GRAY
-    RED = get_color(0xe1282fff)
-    BLUE = get_color(0x2974b8ff)
-    ORANGE = get_color(0xd46a24ff)
-    WHITE = get_color(0xd6d6d6ff)
+class DevelopmentCards(Enum):
+    VICTORY_POINT = "victory_point"
+    KNIGHT = "knight"
+    MONOPOLY = "monopoly"
+    YEAR_OF_PLENTY = "year_of_plenty"
+    ROAD_BUILDING = "road_building"
 
-nil_player = Player(PlayerColor.NIL)
-red_player = Player(PlayerColor.RED)
-blue_player = Player(PlayerColor.BLUE)
-orange_player = Player(PlayerColor.ORANGE)
-white_player = Player(PlayerColor.WHITE)
+
 
 class Terrain(Enum):
-    FOREST = {"name": "forest", "resource": "wood", "color": get_color(0x517d19ff)}
-    HILL = {"name": "hill", "resource": "brick", "color": get_color(0x9c4300ff)}
-    PASTURE = {"name": "pasture", "resource": "sheep", "color": get_color(0x17b97fff)}
-    FIELD = {"name": "field", "resource": "wheat", "color": get_color(0xf0ad00ff)}
-    MOUNTAIN = {"name": "mountain", "resource": "ore", "color": get_color(0x7b6f83ff)}
-    DESERT = {"name": "desert", "resource": None, "color": get_color(0xffd966ff)}
-    OCEAN = {"name": "ocean", "resource": None, "color": get_color(0x4fa6ebff)}
+    FOREST = {"resource": "wood", "color": get_color(0x517d19ff)}
+    HILL = {"resource": "brick", "color": get_color(0x9c4300ff)}
+    PASTURE = {"resource": "sheep", "color": get_color(0x17b97fff)}
+    FIELD = {"resource": "wheat", "color": get_color(0xf0ad00ff)}
+    MOUNTAIN = {"resource": "ore", "color": get_color(0x7b6f83ff)}
+    DESERT = {"resource": None, "color": get_color(0xffd966ff)}
+    OCEAN = {"resource": None, "color": get_color(0x4fa6ebff)}
 
 class Port(Enum):
     THREE = {"name": "three_to_one", "display": " ? \n3:1"}
@@ -169,7 +170,7 @@ class Port(Enum):
 class Tile:
     def __init__(self, terrain, hex, token, port=None):
         self.robber = False
-        self.terrain = terrain.value["name"]
+        self.terrain = terrain.name
         self.resource = terrain.value["resource"]
         self.color = terrain.value["color"]
         self.hex = hex
@@ -217,28 +218,43 @@ def get_random_terrain():
                 tile_counts[rand_tile] -= 1
     return terrain_tiles
 
-class Button:
-    def __init__(self, rec:Rectangle, color:Color, var_to_set, value=None) -> None:
-        if type(var_to_set) == bool:
-            assert value == None, "var_to_set is bool so value should be None"
-        self.rec = rec
-        self.color = color
-        self.var_to_set = var_to_set
-        self.value = value
-        # ex: self.var_to_set=current_player, self.value=blue_player
+class Player:
+    def __init__(self, GameColor):
+        self.name = GameColor.name
+        self.color = GameColor.value
+        self.cities = []
+        self.settlements = []
+        self.roads = []
+        self.ports = []
+        self.hand = []
+        self.development_cards = []
+        self.victory_points = 0
     
-    def button_collision(self, mouse):
-        if check_collision_point_rec(mouse, self):
-            return True
+    def __repr__(self):
+        return f"Player {self.name}:  cities {self.cities}, settlements {self.settlements}, roads {self.roads}, ports {self.ports}, hand {self.hand}, victory points: {self.victory_points}"
+    
+    def __str__(self):
+        return f"Player {self.name}"
+
+class Button:
+    def __init__(self, rec:Rectangle, color:GameColor, var_to_set, set_var=None) -> None:
+        if type(var_to_set) == bool:
+            assert set_var == None, "var_to_set is bool so value should be None"
+        self.rec = rec
+        self.color = color.value
+        self.var_to_set = var_to_set
+        self.set_var = set_var
+        # ex: self.var_to_set=current_player, self.set_var=blue_player
+    
     
     def toggle(self):
-        if type(self.value) == bool:
-            self.value = not self.value
+        if type(self.var_to_set) == bool:
+            self.var_to_set = not self.var_to_set
             return
         
-        if self.var_to_set != self.value:
-            self.var_to_set = self.value
-        elif self.var_to_set == self.value:
+        if self.var_to_set != self.set_var:
+            self.var_to_set = self.set_var
+        elif self.var_to_set == self.set_var:
             self.var_to_set = None
 
 
@@ -293,6 +309,80 @@ state = State()
 state.initialize_camera()
 
 
+
+nil_player = Player(GameColor.PLAYER_NIL)
+red_player = Player(GameColor.PLAYER_RED)
+blue_player = Player(GameColor.PLAYER_BLUE)
+orange_player = Player(GameColor.PLAYER_ORANGE)
+white_player = Player(GameColor.PLAYER_WHITE)
+
+state.players = [nil_player, red_player, blue_player, orange_player, white_player]
+
+def set_demo_settlements():
+    # for demo, initiate default roads and settlements
+    # Red
+    red_nodes = [Node(hh.Hex(0, -2, 2), hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Node(hh.Hex(-2, 0, 2), hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
+    red_edges = [Edge(hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Edge(hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
+
+    # Blue
+    blue_nodes = [Node(hh.Hex(-2, 1, 1), hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Node(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2), hh.Hex(0, 2, -2))]
+    blue_edges = [Edge(hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Edge(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2))]
+
+    # White
+    white_nodes = [Node(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1), hh.Hex(q=0, r=-1, s=1)), Node(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=1, r=1, s=-2), hh.Hex(q=2, r=0, s=-2))]
+    white_edges = [Edge(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=2, r=0, s=-2)), Edge(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1))]
+
+    # Orange
+    orange_nodes = [Node(hh.Hex(q=-1, r=1, s=0), hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1)), Node(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0), hh.Hex(q=2, r=-1, s=-1))]
+    orange_edges=[Edge(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0)), Edge(hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1))]
+
+    for node in state.nodes:
+        for orange_node in orange_nodes:
+            if node.hex_a == orange_node.hex_a and node.hex_b == orange_node.hex_b and node.hex_c == orange_node.hex_c:
+                # 4 ways to add the settlement..... too many?
+                orange_player.settlements.append(node)
+                node.player = orange_player
+                node.town = "settlement"
+
+        for blue_node in blue_nodes:
+            if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
+                blue_player.settlements.append(node)
+                node.player = blue_player
+                node.town = "settlement"
+
+        for red_node in red_nodes:
+            if node.hex_a == red_node.hex_a and node.hex_b == red_node.hex_b and node.hex_c == red_node.hex_c:
+                red_player.settlements.append(node)
+                node.player = red_player
+                node.town = "settlement"
+
+        for white_node in white_nodes:
+            if node.hex_a == white_node.hex_a and node.hex_b == white_node.hex_b and node.hex_c == white_node.hex_c:
+                white_player.settlements.append(node)
+                node.player = white_player
+                node.town = "settlement"
+
+    for edge in state.edges:
+        for orange_edge in orange_edges:
+            if edge.hex_a == orange_edge.hex_a and edge.hex_b == orange_edge.hex_b:
+                orange_player.roads.append(edge)
+                edge.player = orange_player
+
+        for blue_edge in blue_edges:
+            if edge.hex_a == blue_edge.hex_a and edge.hex_b == blue_edge.hex_b:
+                blue_player.roads.append(edge)
+                edge.player = blue_player
+
+        for red_edge in red_edges:
+            if edge.hex_a == red_edge.hex_a and edge.hex_b == red_edge.hex_b:
+                red_player.roads.append(edge)
+                edge.player = red_player
+
+        for white_edge in white_edges:
+            if edge.hex_a == white_edge.hex_a and edge.hex_b == white_edge.hex_b:
+                white_player.roads.append(edge)
+                edge.player = white_player
+
 # STATE.BOARD:
 # will need to pass in tiles instead of using global variables at some point
 def initialize_board(state):
@@ -309,9 +399,8 @@ def initialize_board(state):
     for i in range(len(ocean_hexes)):
         state.ocean_tiles.append(Tile(terrain_tiles[i], state.ocean_hexes[i], tokens[i], ports[i]))
 
-    # sorts hexes by q, r, then s, so edges and nodes should be standardized
-        # although using sets makes this unnecessary? since order wouldn't matter for sets
-    state.all_hexes = land_hexes + ocean_hexes # duplicate in State, should resolve
+
+    state.all_hexes = land_hexes + ocean_hexes
 
     # triple 'for' loop to fill state.edges and state.nodes lists
     for i in range(len(state.all_hexes)):
@@ -333,87 +422,16 @@ def initialize_board(state):
 
     
     # debug buttons
-    state.buttons.append(
-        Button(Rectangle(750, 20, 40, 40), PlayerColor.NIL, state.current_player, nil_player),
-        Button(Rectangle(700, 20, 40, 40), PlayerColor.BLUE, state.current_player, blue_player),
-        Button(Rectangle(650, 20, 40, 40), PlayerColor.ORANGE, state.current_player, orange_player), 
-        Button(Rectangle(600, 20, 40, 40), PlayerColor.WHITE, state.current_player, white_player), 
-        Button(Rectangle(550, 20, 40, 40), PlayerColor.RED, state.current_player, red_player),
-        Button(Rectangle(500, 20, 40, 40), BLACK, state.move_robber)
-    )
+    state.buttons=[
+        Button(Rectangle(750, 20, 40, 40), GameColor.PLAYER_NIL, state.current_player, nil_player),
+        Button(Rectangle(700, 20, 40, 40), GameColor.PLAYER_BLUE, state.current_player, blue_player),
+        Button(Rectangle(650, 20, 40, 40), GameColor.PLAYER_ORANGE, state.current_player, orange_player), 
+        Button(Rectangle(600, 20, 40, 40), GameColor.PLAYER_WHITE, state.current_player, white_player), 
+        Button(Rectangle(550, 20, 40, 40), GameColor.PLAYER_RED, state.current_player, red_player),
+        Button(Rectangle(500, 20, 40, 40), GameColor.ROBBER, state.move_robber)
+    ]
 
-    # for demo, initiate default roads and settlements
-    # Red 
-    red_nodes = [Node(hh.Hex(0, -2, 2), hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Node(hh.Hex(-2, 0, 2), hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
-    red_edges = [Edge(hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Edge(hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
-
-    # Blue
-    blue_nodes = [Node(hh.Hex(-2, 1, 1), hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Node(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2), hh.Hex(0, 2, -2))]
-    blue_edges = [Edge(hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Edge(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2))]
-
-    # White
-    white_nodes = [Node(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1), hh.Hex(q=0, r=-1, s=1)), Node(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=1, r=1, s=-2), hh.Hex(q=2, r=0, s=-2))]
-    white_edges = [Edge(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=2, r=0, s=-2)), Edge(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1))]
-
-    # Orange
-    orange_nodes = [Node(hh.Hex(q=-1, r=1, s=0), hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1)), Node(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0), hh.Hex(q=2, r=-1, s=-1))]
-    orange_edges=[Edge(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0)), Edge(hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1))]
-
-    for node in state.nodes:
-        for orange_node in orange_nodes:
-            if node.hex_a == orange_node.hex_a and node.hex_b == orange_node.hex_b and node.hex_c == orange_node.hex_c:
-                # 4 ways to add the settlement..... too many?
-                orange_player.settlements.append(node)
-                # state.nodes.append(node)
-                node.player = orange_player
-                node.town = "settlement"
-
-        for blue_node in blue_nodes:
-            if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
-                blue_player.settlements.append(node)
-                # settlements.append(node)
-                node.player = blue_player
-                node.town = "settlement"
-
-        for red_node in red_nodes:
-            if node.hex_a == red_node.hex_a and node.hex_b == red_node.hex_b and node.hex_c == red_node.hex_c:
-                red_player.settlements.append(node)
-                # settlements.append(node)
-                node.player = red_player
-                node.town = "settlement"
-
-        for white_node in white_nodes:
-            if node.hex_a == white_node.hex_a and node.hex_b == white_node.hex_b and node.hex_c == white_node.hex_c:
-                white_player.settlements.append(node)
-                # settlements.append(node)
-                node.player = white_player
-                node.town = "settlement"
-
-    for edge in state.edges:
-        for orange_edge in orange_edges:
-            if edge.hex_a == orange_edge.hex_a and edge.hex_b == orange_edge.hex_b:
-                orange_player.roads.append(edge)
-                # roads.append(edge)
-                edge.player = orange_player
-
-        for blue_edge in blue_edges:
-            if edge.hex_a == blue_edge.hex_a and edge.hex_b == blue_edge.hex_b:
-                blue_player.roads.append(edge)
-                # roads.append(edge)
-                edge.player = blue_player
-
-        for red_edge in red_edges:
-            if edge.hex_a == red_edge.hex_a and edge.hex_b == red_edge.hex_b:
-                red_player.roads.append(edge)
-                # roads.append(edge)
-                edge.player = red_player
-
-        for white_edge in white_edges:
-            if edge.hex_a == white_edge.hex_a and edge.hex_b == white_edge.hex_b:
-                white_player.roads.append(edge)
-                # roads.append(edge)
-                edge.player = white_player
-
+    set_demo_settlements()
 
 
 def get_user_input(state):
@@ -422,7 +440,7 @@ def get_user_input(state):
     state.user_input = None
 
     if is_mouse_button_released(MouseButton.MOUSE_BUTTON_LEFT):
-        state.user_input = state.world_position
+        state.user_input = MouseButton.MOUSE_BUTTON_LEFT
 
     # camera controls
     # not sure how to capture mouse wheel, also currently using RAYLIB for these inputs
@@ -446,9 +464,8 @@ def get_user_input(state):
 
 
 def update(state):
-    state.frame_counter += 1
     
-    # reset current hex, edge, node every frame
+    # reset current hex, edge, node
     state.current_hex = None
     state.current_hex_2 = None
     state.current_hex_3 = None
@@ -492,7 +509,7 @@ def update(state):
                 break
 
     # selecting based on mouse button input from get_user_input()
-    if state.user_input == MouseButton.MOUSE_BUTTON_LEFT or state.user_input == MouseButton.MOUSE_BUTTON_RIGHT:
+    if state.user_input == MouseButton.MOUSE_BUTTON_LEFT:
         if state.current_node:
             state.selection = state.current_node
 
@@ -518,27 +535,10 @@ def update(state):
         
         # DEBUG
         if state.debug == True:
-            blue_button = Rectangle(700, 20, 40, 40)
-            if check_collision_point_rec(state.world_position, blue_button):
-                state.current_player = blue_player
-
-            orange_button = Rectangle(650, 20, 40, 40)
-            if check_collision_point_rec(state.world_position, orange_button):
-                state.current_player = orange_player
-
-            white_button = Rectangle(600, 20, 40, 40)
-            if check_collision_point_rec(state.world_position, white_button):
-                state.current_player = white_player
-
-            red_button = Rectangle(550, 20, 40, 40)
-            if check_collision_point_rec(state.world_position, red_button):
-                state.current_player = red_player
-            
-            robber_button = Rectangle(750, 20, 40, 40)
-            if check_collision_point_rec(state.world_position, robber_button):
-                state.current_player = nil_player
-
-            state.buttons = {blue_button: blue_player.color, orange_button: orange_player.color, white_button: white_player.color, red_button: red_player.color, robber_button: BLACK}
+            for button in state.buttons:
+                if check_collision_point_rec(get_mouse_position(), button.rec):
+                    print("hello")
+                    button.toggle()
 
     # camera controls
 
@@ -586,54 +586,35 @@ def render(state):
         # draw resource hexes
         draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, tile.color)
 
-        # draw numbers, dots on hexes
-        if tile.num != None:
-            draw_circle(int(hh.hex_to_pixel(pointy, tile.hex).x), int(hh.hex_to_pixel(pointy, tile.hex).y), 18, RAYWHITE)
-            text_size = measure_text_ex(gui_get_font(), f"{tile.num}", 20, 0)
-            center_numbers_offset = Vector2(int(hh.hex_to_pixel(pointy, tile.hex).x-text_size.x/2+2), int(hh.hex_to_pixel(pointy, tile.hex).y-text_size.y/2-1))
-            if tile.num == 8 or tile.num == 6:
-                draw_text_ex(gui_get_font(), str(tile.num), center_numbers_offset, 22, 0, BLACK)
-                draw_text_ex(gui_get_font(), str(tile.num), center_numbers_offset, 20, 0, RED)
-            else:
-                draw_text_ex(gui_get_font(), str(tile.num), center_numbers_offset, 20, 0, BLACK)
-            # draw dots, wrote out all possibilities
-            dot_x_offset = 4
-            dot_size = 2.8
-            dot_x = int(hh.hex_to_pixel(pointy, tile.hex).x)
-            dot_y = int(hh.hex_to_pixel(pointy, tile.hex).y)+25
-            if tile.dots == 1:
-                draw_circle(dot_x, dot_y, dot_size, BLACK)
-            elif tile.dots == 2:
-                draw_circle(dot_x-dot_x_offset, dot_y, dot_size, BLACK)
-                draw_circle(dot_x+dot_x_offset, dot_y, dot_size, BLACK)
-            elif tile.dots == 3:
-                draw_circle(dot_x-dot_x_offset*2, dot_y, dot_size, BLACK)
-                draw_circle(dot_x, dot_y, dot_size, BLACK)
-                draw_circle(dot_x+dot_x_offset*2, dot_y, dot_size, BLACK)
-            elif tile.dots == 4:
-                draw_circle(dot_x-dot_x_offset*3, dot_y, dot_size, BLACK)
-                draw_circle(dot_x-dot_x_offset, dot_y, dot_size, BLACK)
-                draw_circle(dot_x+dot_x_offset, dot_y, dot_size, BLACK)
-                draw_circle(dot_x+dot_x_offset*3, dot_y, dot_size, BLACK)
-            elif tile.dots == 5:
-                draw_circle(dot_x-dot_x_offset*4, dot_y, dot_size, RED)
-                draw_circle_lines(dot_x-dot_x_offset*4, dot_y, dot_size, BLACK)
-                draw_circle(dot_x-dot_x_offset*2, dot_y, dot_size, RED)
-                draw_circle_lines(dot_x-dot_x_offset*2, dot_y, dot_size, BLACK)
-                draw_circle(dot_x, dot_y, dot_size, RED)
-                draw_circle_lines(dot_x, dot_y, dot_size, BLACK)
-                draw_circle(dot_x+dot_x_offset*2, dot_y, dot_size, RED)
-                draw_circle_lines(dot_x+dot_x_offset*2, dot_y, dot_size, BLACK)
-                draw_circle(dot_x+dot_x_offset*4, dot_y, dot_size, RED)
-                draw_circle_lines(dot_x+dot_x_offset*4, dot_y, dot_size, BLACK)
-        
         # draw black outlines around hexes
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, BLACK)
     
+        # draw numbers, dots on hexes
+        if tile.num != None:
+            # have to specify layout for hex calculations
+            rf.draw_num(tile, layout=pointy)
+            rf.draw_dots(tile, layout=pointy)
+        
         # drawing circles in hex centers to center text
         # if state.debug == True:
         #     draw_circle(int(hh.hex_to_pixel(pointy, tile.hex).x), int(hh.hex_to_pixel(pointy, tile.hex).y), 4, BLACK)
     
+    # outline up to 3 current hexes
+    if state.current_hex: # and not state.current_edge:
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, 50, 0, 6, BLACK)
+    if state.current_hex_2:
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_2), 6, 50, 0, 6, BLACK)
+    if state.current_hex_3:
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_3), 6, 50, 0, 6, BLACK)
+        
+    # highlight selected edge and node
+    if state.current_node:
+        draw_circle_v(state.current_node.get_node_point(), 12, BLACK)
+    if state.current_edge and not state.current_node:
+        corners = state.current_edge.get_edge_points()
+        draw_line_ex(corners[0], corners[1], 12, BLACK)
+
+
     # draw ocean tiles, ports
     for tile in state.ocean_tiles:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, BLACK)
@@ -673,25 +654,17 @@ def render(state):
         # draw_text_ex(gui_get_font(), f"Current hex_3 = {state.current_hex_3}", Vector2(5, 65), 15, 0, BLACK)
         draw_text_ex(gui_get_font(), f"Current edge: {state.current_edge}", Vector2(5, 45), 15, 0, BLACK)
         draw_text_ex(gui_get_font(), f"Current node = {state.current_node}", Vector2(5, 65), 15, 0, BLACK)
-        draw_text_ex(gui_get_font(), f"Current selection = {state.selection}", Vector2(5, 85), 10, 0, BLACK)
+        # draw_text_ex(gui_get_font(), f"Current selection = {state.selection}", Vector2(5, 85), 10, 0, BLACK)
+        draw_text_ex(gui_get_font(), f"Current player = {state.current_player}", Vector2(5, 85), 15, 0, BLACK)
 
-        # outline up to 3 current hexes
-        if state.current_hex: # and not state.current_edge:
-            draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, 50, 0, 6, BLACK)
-        if state.current_hex_2:
-            draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_2), 6, 50, 0, 6, BLACK)
-        if state.current_hex_3:
-            draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_3), 6, 50, 0, 6, BLACK)
-        # highlight selected edge and node
-        if state.current_node:
-            draw_circle_v(state.current_node.get_node_point(), 12, BLACK)
-        if state.current_edge and not state.current_node:
-            corners = state.current_edge.get_edge_points()
-            draw_line_ex(corners[0], corners[1], 15, BLACK)
+        i = 0
+        for player in state.players:
+            draw_text_ex(gui_get_font(), f"Player {player.name} VP: {player.victory_points}", Vector2(5, 105+i*20), 15, 0, BLACK)
+            i += 1
 
 
-        for button, color in state.debug_buttons.items():
-            draw_rectangle_rec(button, color)
+        for button in state.buttons:
+            draw_rectangle_rec(button.rec, button.color)
 
         
     end_drawing()

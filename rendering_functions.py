@@ -1,4 +1,50 @@
 from pyray import *
+import hex_helper as hh
+
+# have to specify layout for hex calculations
+def draw_num(tile, layout):
+    draw_circle(int(hh.hex_to_pixel(layout, tile.hex).x), int(hh.hex_to_pixel(layout, tile.hex).y), 18, RAYWHITE)
+    text_size = measure_text_ex(gui_get_font(), f"{tile.num}", 20, 0)
+    center_numbers_offset = Vector2(int(hh.hex_to_pixel(layout, tile.hex).x-text_size.x/2+2), int(hh.hex_to_pixel(layout, tile.hex).y-text_size.y/2-1))
+    if tile.num == 8 or tile.num == 6:
+        draw_text_ex(gui_get_font(), str(tile.num), center_numbers_offset, 22, 0, BLACK)
+        draw_text_ex(gui_get_font(), str(tile.num), center_numbers_offset, 20, 0, RED)
+    else:
+        draw_text_ex(gui_get_font(), str(tile.num), center_numbers_offset, 20, 0, BLACK)
+
+
+def draw_dots(tile, layout):
+    # draw dots, wrote out all possibilities
+    dot_x_offset = 4
+    dot_size = 2.8
+    dot_x = int(hh.hex_to_pixel(layout, tile.hex).x)
+    dot_y = int(hh.hex_to_pixel(layout, tile.hex).y)+25
+    if tile.dots == 1:
+        draw_circle(dot_x, dot_y, dot_size, BLACK)
+    elif tile.dots == 2:
+        draw_circle(dot_x-dot_x_offset, dot_y, dot_size, BLACK)
+        draw_circle(dot_x+dot_x_offset, dot_y, dot_size, BLACK)
+    elif tile.dots == 3:
+        draw_circle(dot_x-dot_x_offset*2, dot_y, dot_size, BLACK)
+        draw_circle(dot_x, dot_y, dot_size, BLACK)
+        draw_circle(dot_x+dot_x_offset*2, dot_y, dot_size, BLACK)
+    elif tile.dots == 4:
+        draw_circle(dot_x-dot_x_offset*3, dot_y, dot_size, BLACK)
+        draw_circle(dot_x-dot_x_offset, dot_y, dot_size, BLACK)
+        draw_circle(dot_x+dot_x_offset, dot_y, dot_size, BLACK)
+        draw_circle(dot_x+dot_x_offset*3, dot_y, dot_size, BLACK)
+    elif tile.dots == 5:
+        draw_circle(dot_x-dot_x_offset*4, dot_y, dot_size, RED)
+        draw_circle_lines(dot_x-dot_x_offset*4, dot_y, dot_size, BLACK)
+        draw_circle(dot_x-dot_x_offset*2, dot_y, dot_size, RED)
+        draw_circle_lines(dot_x-dot_x_offset*2, dot_y, dot_size, BLACK)
+        draw_circle(dot_x, dot_y, dot_size, RED)
+        draw_circle_lines(dot_x, dot_y, dot_size, BLACK)
+        draw_circle(dot_x+dot_x_offset*2, dot_y, dot_size, RED)
+        draw_circle_lines(dot_x+dot_x_offset*2, dot_y, dot_size, BLACK)
+        draw_circle(dot_x+dot_x_offset*4, dot_y, dot_size, RED)
+        draw_circle_lines(dot_x+dot_x_offset*4, dot_y, dot_size, BLACK)
+
 
 def draw_robber(hex_center):
     radiusH = 12
@@ -66,3 +112,4 @@ def draw_city(node, color):
     draw_line_v((city_base_rec.x+city_st_width, city_base_rec.y), (city_base_rec.x+city_base_width, city_base_rec.y), BLACK)
     draw_line_v((city_base_rec.x+city_base_width, city_base_rec.y), (city_base_rec.x+city_base_width, city_base_rec.y+city_base_height), BLACK)
     draw_line_v((city_base_rec.x, city_base_rec.y+city_base_height), (city_base_rec.x+city_base_width, city_base_rec.y+city_base_height), BLACK)
+

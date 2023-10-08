@@ -6,6 +6,8 @@ from pyray import Vector2
 Point = collections.namedtuple("Point", ["x", "y"])
 
 Hex = collections.namedtuple("Hex", ["q", "r", "s"])
+
+
 def set_hex(q, r, s):
     assert not (round(q + r + s) != 0), "q + r + s must be 0"
     return Hex(q, r, s)
