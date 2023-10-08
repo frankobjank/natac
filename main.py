@@ -110,6 +110,15 @@ class Node:
         node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
         if len(node_list) != 0:
             return node_list[0]
+        
+    def build_check(self):
+        # make sure at least one hex is land 
+            # irrelevant at the moment since all nodes are adjacent to land
+        # get 3 adjacent nodes and make sure no town is built there
+        # also cannot build in the middle of someone else's road
+        # maybe should make a separate build settlement, build city, build road functions
+            # checks would be part of these functions
+        pass
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
 class GameColor(Enum):
@@ -235,27 +244,31 @@ class Player:
     
     def __str__(self):
         return f"Player {self.name}"
+    
+
 
 class Button:
-    def __init__(self, rec:Rectangle, color:GameColor, var_to_set, set_var=None) -> None:
-        if type(var_to_set) == bool:
-            assert set_var == None, "var_to_set is bool so value should be None"
+    def __init__(self, rec:Rectangle, color:GameColor, set_var=None) -> None:
         self.rec = rec
         self.color = color.value
-        self.var_to_set = var_to_set
+        self.name = color.name
         self.set_var = set_var
+        self.is_bool = False
+        if set_var == None:
+            self.is_bool = True
         # ex: self.var_to_set=current_player, self.set_var=blue_player
     
+    def __repr__(self):
+        return f"Button({self.name} for {self.set_var}, is_bool = {self.is_bool})"
     
-    def toggle(self):
-        if type(self.var_to_set) == bool:
-            self.var_to_set = not self.var_to_set
-            return
+    def toggle(self, var_to_set):
+        if self.is_bool:
+            return not var_to_set
         
-        if self.var_to_set != self.set_var:
-            self.var_to_set = self.set_var
-        elif self.var_to_set == self.set_var:
-            self.var_to_set = None
+        if var_to_set != self.set_var:
+            return self.set_var
+        elif var_to_set == self.set_var:
+            return None
 
 
 
@@ -317,6 +330,16 @@ orange_player = Player(GameColor.PLAYER_ORANGE)
 white_player = Player(GameColor.PLAYER_WHITE)
 
 state.players = [nil_player, red_player, blue_player, orange_player, white_player]
+
+# debug buttons
+state.buttons=[
+    Button(Rectangle(750, 20, 40, 40), GameColor.PLAYER_NIL, nil_player),
+    Button(Rectangle(700, 20, 40, 40), GameColor.PLAYER_BLUE, blue_player),
+    Button(Rectangle(650, 20, 40, 40), GameColor.PLAYER_ORANGE, orange_player), 
+    Button(Rectangle(600, 20, 40, 40), GameColor.PLAYER_WHITE, white_player), 
+    Button(Rectangle(550, 20, 40, 40), GameColor.PLAYER_RED, red_player),
+    Button(Rectangle(500, 20, 40, 40), GameColor.ROBBER)
+]
 
 def set_demo_settlements():
     # for demo, initiate default roads and settlements
@@ -420,17 +443,7 @@ def initialize_board(state):
     # in case ocean+land tiles are needed:
     state.all_tiles = state.land_tiles + state.ocean_tiles
 
-    
-    # debug buttons
-    state.buttons=[
-        Button(Rectangle(750, 20, 40, 40), GameColor.PLAYER_NIL, state.current_player, nil_player),
-        Button(Rectangle(700, 20, 40, 40), GameColor.PLAYER_BLUE, state.current_player, blue_player),
-        Button(Rectangle(650, 20, 40, 40), GameColor.PLAYER_ORANGE, state.current_player, orange_player), 
-        Button(Rectangle(600, 20, 40, 40), GameColor.PLAYER_WHITE, state.current_player, white_player), 
-        Button(Rectangle(550, 20, 40, 40), GameColor.PLAYER_RED, state.current_player, red_player),
-        Button(Rectangle(500, 20, 40, 40), GameColor.ROBBER, state.move_robber)
-    ]
-
+    # settlement and road placement based on last page in manual
     set_demo_settlements()
 
 
@@ -539,16 +552,21 @@ def update(state):
             state.selection = state.current_edge
             print(f"edge: {state.current_edge}")
 
-            # place roads
+            # place roads unowned edge
             if state.current_edge.player == None:
                 state.current_edge.player = state.current_player
                 if state.current_player:
                     state.current_player.roads.append(state.current_edge)
 
+            # remove roads/ change owner
             elif state.current_edge.player:
-                state.current_edge.player = None
+                current_owner = state.current_edge.player
+                current_owner.roads.remove(state.current_edge)
+                state.current_edge.player = state.current_player
                 if state.current_player:
-                    state.current_player.roads.remove(state.current_edge)
+                    state.current_player.roads.append(state.current_edge)
+
+
 
         # use to place robber, might have to adjust hex selection 
             # circle overlap affects selection range
@@ -556,7 +574,15 @@ def update(state):
             state.selection = state.current_hex
             if state.move_robber == True:
                 for tile in state.land_tiles:
+                    if tile.robber == True:
+                        # find robber in tiles
+                        current_robber_tile = tile
+                        break
+                # used 2 identical loops here since calculating robber_tile on the fly
+                for tile in state.land_tiles:
                     if tile.hex == state.current_hex:
+                        # remove robber from old tile, add to new tile
+                        current_robber_tile.robber = False
                         tile.robber = True
                         state.move_robber = False
 
@@ -573,7 +599,12 @@ def update(state):
         if state.debug == True:
             for button in state.buttons:
                 if check_collision_point_rec(get_mouse_position(), button.rec):
-                    button.toggle()
+                    if button.name == "ROBBER":
+                        state.move_robber = button.toggle(state.move_robber)
+                    else:
+                        state.current_player = button.toggle(state.current_player)
+                    
+                    
 
     # update player stats
     for player in state.players:
@@ -705,6 +736,7 @@ def render(state):
 
         for button in state.buttons:
             draw_rectangle_rec(button.rec, button.color)
+            draw_rectangle_lines_ex(button.rec, 1, BLACK)
 
         
     end_drawing()

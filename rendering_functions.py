@@ -47,11 +47,17 @@ def draw_dots(tile, layout):
 
 
 def draw_robber(hex_center):
-    radiusH = 12
-    radiusV = 24
-    draw_circle(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, BLACK)
+    radiusH = 15
+    radiusV = 25
+    # draw body
     draw_ellipse(int(hex_center.x), int(hex_center.y), radiusH, radiusV, BLACK)
-    draw_rectangle(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH, BLACK)
+    # draw_ellipse_lines(int(hex_center.x), int(hex_center.y), radiusH+1, radiusV, WHITE)
+    # draw base
+    draw_rectangle(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH+2, BLACK)
+    # draw_rectangle_lines(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH+2, WHITE)
+    # draw head
+    draw_circle(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, BLACK)
+    # draw_circle_lines(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, WHITE)
 
 
 def draw_road(edge, color):
