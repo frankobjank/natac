@@ -93,7 +93,20 @@ class Edge:
         
     def get_edge_points(self) -> list:
         return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
+        # 
     
+    def build_check(self):
+        if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes:
+            return False
+        
+
+
+        else:
+            return True
+        
+        # contiguous - connected to either settlement or road
+        # can't cross another player's road or settlement
+
 class Node:
     def __init__(self, hex_a, hex_b, hex_c):
         sorted_hexes = sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s"))
@@ -132,6 +145,14 @@ class GameColor(Enum):
     # other pieces
     ROBBER = BLACK
     # put terrain colors here
+    FOREST = get_color(0x517d19ff)
+    HILL = get_color(0x9c4300ff)
+    PASTURE = get_color(0x17b97fff)
+    FIELD = get_color(0xf0ad00ff)
+    MOUNTAIN = get_color(0x7b6f83ff)
+    DESERT = get_color(0xffd966ff)
+    OCEAN = get_color(0x4fa6ebff)
+
 
 # could store shapes
 class Piece(Enum):
@@ -156,6 +177,13 @@ class DevelopmentCards(Enum):
     YEAR_OF_PLENTY = "year_of_plenty"
     ROAD_BUILDING = "road_building"
 
+# add these to Terrain class?
+class Resource(Enum):
+    WOOD = "wood"
+    BRICK = "brick"
+    SHEEP = "sheep"
+    WHEAT = "wheat"
+    ORE = "ore"
 
 
 class Terrain(Enum):
@@ -166,6 +194,16 @@ class Terrain(Enum):
     MOUNTAIN = {"resource": "ore", "color": get_color(0x7b6f83ff)}
     DESERT = {"resource": None, "color": get_color(0xffd966ff)}
     OCEAN = {"resource": None, "color": get_color(0x4fa6ebff)}
+
+    # FOREST = "forest"
+    # HILL = "hill"
+    # PASTURE = "pasture"
+    # FIELD = "field"
+    # MOUNTAIN = "mountain"
+    # DESERT = "desert"
+    # OCEAN = "ocean"
+
+
 
 class Port(Enum):
     THREE = {"name": "three_to_one", "display": " ? \n3:1"}
@@ -333,12 +371,12 @@ state.players = [nil_player, red_player, blue_player, orange_player, white_playe
 
 # debug buttons
 state.buttons=[
-    Button(Rectangle(750, 20, 40, 40), GameColor.PLAYER_NIL, nil_player),
-    Button(Rectangle(700, 20, 40, 40), GameColor.PLAYER_BLUE, blue_player),
-    Button(Rectangle(650, 20, 40, 40), GameColor.PLAYER_ORANGE, orange_player), 
-    Button(Rectangle(600, 20, 40, 40), GameColor.PLAYER_WHITE, white_player), 
-    Button(Rectangle(550, 20, 40, 40), GameColor.PLAYER_RED, red_player),
-    Button(Rectangle(500, 20, 40, 40), GameColor.ROBBER)
+    Button(Rectangle(750, 20, 40, 40), GameColor.PLAYER_BLUE, blue_player),
+    Button(Rectangle(700, 20, 40, 40), GameColor.PLAYER_ORANGE, orange_player), 
+    Button(Rectangle(650, 20, 40, 40), GameColor.PLAYER_WHITE, white_player), 
+    Button(Rectangle(600, 20, 40, 40), GameColor.PLAYER_RED, red_player),
+    Button(Rectangle(550, 20, 40, 40), GameColor.ROBBER)
+    # Button(Rectangle(500, 20, 40, 40), GameColor.PLAYER_NIL, nil_player),
 ]
 
 def set_demo_settlements():
@@ -444,7 +482,7 @@ def initialize_board(state):
     state.all_tiles = state.land_tiles + state.ocean_tiles
 
     # settlement and road placement based on last page in manual
-    set_demo_settlements()
+    # set_demo_settlements()
 
 
 def get_user_input(state):
@@ -528,23 +566,30 @@ def update(state):
             print(f"node: {state.current_node}")
 
             # toggle between settlement, city, None
-            if state.current_node.town == None:
-                state.current_node.town = "settlement"
-                if state.current_player:
+            if state.current_player:
+                
+                if state.current_node.town == None:
+                    state.current_node.town = "settlement"
                     state.current_node.player = state.current_player
                     state.current_player.settlements.append(state.current_node)
 
-            elif state.current_node.town == "settlement":
-                state.current_node.town = "city"
-                if state.current_player:
-                    state.current_node.player = state.current_player
-                    state.current_player.settlements.remove(state.current_node)
-                    state.current_player.cities.append(state.current_node)
+                elif state.current_node.town == "settlement":
+                    current_owner = state.current_node.player
+                    # owner is same as current_player, upgrade to city
+                    if current_owner == state.current_player:
+                        state.current_node.town = "city"
+                        state.current_player.settlements.remove(state.current_node)
+                        state.current_player.cities.append(state.current_node)
+                    # owner is different as current_player, remove
+                    elif current_owner != state.current_player:
+                        current_owner.settlements.remove(state.current_node)
+                        state.current_node.player = None
+                        state.current_node.town = None
 
-            elif state.current_node.town == "city":
-                state.current_node.town = None
-                # state.current_node.player = None
-                if state.current_player:
+                # town is city and should be removed
+                elif state.current_node.town == "city":
+                    state.current_node.player = None
+                    state.current_node.town = None
                     state.current_player.cities.remove(state.current_node)
 
         
@@ -554,17 +599,16 @@ def update(state):
 
             # place roads unowned edge
             if state.current_edge.player == None:
-                state.current_edge.player = state.current_player
-                if state.current_player:
-                    state.current_player.roads.append(state.current_edge)
+                if state.current_edge.build_check():
+                    state.current_edge.player = state.current_player
+                    if state.current_player:
+                        state.current_player.roads.append(state.current_edge)
 
-            # remove roads/ change owner
+            # remove roads
             elif state.current_edge.player:
                 current_owner = state.current_edge.player
                 current_owner.roads.remove(state.current_edge)
-                state.current_edge.player = state.current_player
-                if state.current_player:
-                    state.current_player.roads.append(state.current_edge)
+                state.current_edge.player = None
 
 
 
@@ -595,12 +639,13 @@ def update(state):
         else:
             state.selection = None
         
-        # DEBUG
+        # DEBUG - buttons
         if state.debug == True:
             for button in state.buttons:
                 if check_collision_point_rec(get_mouse_position(), button.rec):
                     if button.name == "ROBBER":
                         state.move_robber = button.toggle(state.move_robber)
+                        state.current_player = None
                     else:
                         state.current_player = button.toggle(state.current_player)
                     
@@ -717,15 +762,30 @@ def render(state):
     end_mode_2d()
 
     if state.debug == True:
-        # text info top left of screen
-        draw_text_ex(gui_get_font(), f"World mouse at: ({int(state.world_position.x)}, {int(state.world_position.y)})", Vector2(5, 5), 15, 0, BLACK)
-        draw_text_ex(gui_get_font(), f"Current hex: {state.current_hex}", Vector2(5, 25), 15, 0, BLACK)
-        # draw_text_ex(gui_get_font(), f"Current hex_2: {state.current_hex_2}", Vector2(5, 45), 15, 0, BLACK)
-        # draw_text_ex(gui_get_font(), f"Current hex_3 = {state.current_hex_3}", Vector2(5, 65), 15, 0, BLACK)
-        draw_text_ex(gui_get_font(), f"Current edge: {state.current_edge}", Vector2(5, 45), 15, 0, BLACK)
-        draw_text_ex(gui_get_font(), f"Current node = {state.current_node}", Vector2(5, 65), 15, 0, BLACK)
-        # draw_text_ex(gui_get_font(), f"Current selection = {state.selection}", Vector2(5, 85), 10, 0, BLACK)
-        draw_text_ex(gui_get_font(), f"Current player = {state.current_player}", Vector2(5, 85), 15, 0, BLACK)
+        # debug info top left of screen
+        # debug_1 = f"Current hex: {state.current_hex}"
+        # debug_2 = f"Current hex_2: {state.current_hex_2}"
+        # debug_3 = f"Current hex_3 = {state.current_hex_3}"
+
+        # debug_3 = f"Current edge: {state.current_edge}"
+        # debug_4 = f"Current node = {state.current_node}"
+        # debug_5 = f"Current selection = {state.selection}"
+
+        debug_1 = f"World mouse at: ({int(state.world_position.x)}, {int(state.world_position.y)})"
+        debug_2 = f"Current node = {state.current_node}"
+        if state.current_node:
+            debug_3 = f"Current_node.town: {state.current_node.town}"
+            debug_4 = f"Current_node.player: {state.current_node.player}"
+        else:
+            debug_3 = None
+            debug_4 = None
+        debug_5 = f"Current player = {state.current_player}"
+        
+        debug_msgs = [debug_1, debug_2, debug_3, debug_4, debug_5]
+        
+        for i in range(len(debug_msgs)):
+            draw_text_ex(gui_get_font(), debug_msgs[i], Vector2(5, 5+(i*20)), 15, 0, BLACK)
+
 
         # display victory points
         # i = 0
