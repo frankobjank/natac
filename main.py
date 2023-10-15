@@ -2,6 +2,7 @@ from __future__ import division
 from __future__ import print_function
 from operator import itemgetter, attrgetter
 import random
+import math
 from enum import Enum
 from pyray import *
 import hex_helper as hh
@@ -12,8 +13,26 @@ screen_height=600
 
 default_zoom = .9
 
+# should I be separating my update code from Raylib? 
+# wrote my own:
+    # check_collision_circles -> radius_check_two_circles()
+    # check_collision_point_circle -> radius_check_v()
+
 def vector2_round(vector2):
     return Vector2(int(vector2.x), int(vector2.y))
+
+# check if distance between mouse and hex_center shorter than radius
+def radius_check_v(pt1:Vector2, pt2:Vector2, radius:int)->bool:
+    if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
+        return True
+    else:
+        return False
+    
+def radius_check_two_circles(center1: Vector2, radius1: int, center2: Vector2, radius2: int)->bool:
+    if math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2):
+        return True
+    else:
+        return False
 
 # layout = type, size, origin
 size = 50 # (radius)
@@ -93,13 +112,24 @@ class Edge:
         
     def get_edge_points(self) -> list:
         return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
-        # 
     
-    def build_check(self):
+    def get_adj_nodes(self, state) -> list:
+        edge_points = self.get_edge_points()
+        adj_nodes = []
+        for point in edge_points:
+            for node in state.nodes:
+                if point == node.get_node_point():
+                    adj_nodes.append(node)
+        return adj_nodes
+
+    
+    def build_check(self, state):
         if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes:
             return False
-        
-
+                
+        # adj_nodes = self.get_adj_nodes
+        # for node in adj_nodes:
+        #     if node.player != None:
 
         else:
             return True
@@ -123,6 +153,9 @@ class Node:
         node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
         if len(node_list) != 0:
             return node_list[0]
+    
+    def get_adj_edges(self):
+        pass
         
     def build_check(self):
         # make sure at least one hex is land 
@@ -144,6 +177,8 @@ class GameColor(Enum):
 
     # other pieces
     ROBBER = BLACK
+    # buttons
+    GAME_RULES = GREEN
     # put terrain colors here
     FOREST = get_color(0x517d19ff)
     HILL = get_color(0x9c4300ff)
@@ -152,6 +187,7 @@ class GameColor(Enum):
     MOUNTAIN = get_color(0x7b6f83ff)
     DESERT = get_color(0xffd966ff)
     OCEAN = get_color(0x4fa6ebff)
+
 
 
 # could store shapes
@@ -328,6 +364,8 @@ class State:
         self.current_hex_3 = None
         self.current_edge = None
         self.current_node = None
+        self.current_edge_node = None
+        self.current_edge_node_2 = None
         self.current_player = None
 
         self.selection = None
@@ -371,6 +409,7 @@ state.players = [nil_player, red_player, blue_player, orange_player, white_playe
 
 # debug buttons
 state.buttons=[
+    Button(Rectangle(750, 80, 40, 40), GameColor.GAME_RULES), # game_rules vs free_placement
     Button(Rectangle(750, 20, 40, 40), GameColor.PLAYER_BLUE, blue_player),
     Button(Rectangle(700, 20, 40, 40), GameColor.PLAYER_ORANGE, orange_player), 
     Button(Rectangle(650, 20, 40, 40), GameColor.PLAYER_WHITE, white_player), 
@@ -523,6 +562,10 @@ def update(state):
 
     state.current_edge = None
     state.current_node = None
+
+    # extra for placing roads/ settlements
+    state.current_edge_node = None
+    state.current_edge_node_2 = None
     
     # check radius for current hex
     for hex in state.all_hexes:
@@ -558,6 +601,13 @@ def update(state):
             if edge.hex_a == sorted_hexes[0] and edge.hex_b == sorted_hexes[1]:
                 state.current_edge = edge
                 break
+
+        adj_nodes = state.current_edge.get_adj_nodes(state)
+        if len(adj_nodes) > 0:
+            state.current_edge_node = adj_nodes[0]
+        if len(adj_nodes) > 1:
+            state.current_edge_node_2 = adj_nodes[1]
+
 
     # selecting based on mouse button input from get_user_input()
     if state.user_input == MouseButton.MOUSE_BUTTON_LEFT:
@@ -599,7 +649,8 @@ def update(state):
 
             # place roads unowned edge
             if state.current_edge.player == None:
-                if state.current_edge.build_check():
+                if state.current_edge.build_check(state):
+                    print("Hello")
                     state.current_edge.player = state.current_player
                     if state.current_player:
                         state.current_player.roads.append(state.current_edge)
@@ -728,6 +779,10 @@ def render(state):
     if state.current_edge and not state.current_node:
         corners = state.current_edge.get_edge_points()
         draw_line_ex(corners[0], corners[1], 12, BLACK)
+        if state.current_edge_node:
+            draw_circle_v(state.current_edge_node.get_node_point(), 10, YELLOW)
+        if state.current_edge_node_2:
+            draw_circle_v(state.current_edge_node_2.get_node_point(), 10, YELLOW)
 
 
     # draw ocean tiles, ports

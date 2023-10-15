@@ -151,8 +151,14 @@ edges = []
 
 # check if distance between mouse and hex_center shorter than radius
 def radius_check_v(pt1:Vector2, pt2:Vector2, radius:int)->bool:
-    # dist = math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2))
+    
     if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
+        return True
+    else:
+        return False
+    
+def radius_check_two_circles(center1: Vector2, radius1: int, center2: Vector2, radius2: int) -> bool:
+    if math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2):
         return True
     else:
         return False
@@ -161,10 +167,10 @@ def radius_check_v(pt1:Vector2, pt2:Vector2, radius:int)->bool:
 # build node and edge lists
 for i in range(len(hexes)):
     for j in range(i+1, len(hexes)):
-        if check_collision_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[j]), 60):
+        if radius_check_two_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[j]), 60):
             edges.append(Edge(hexes[i], hexes[j]))
             for k in range(j+1, len(hexes)):
-                if check_collision_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[k]), 60):
+                if radius_check_two_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[k]), 60):
                     nodes.append(Node(hexes[i], hexes[j], hexes[k]))
 
 class Tile:
@@ -284,12 +290,12 @@ for edge in edges:
             roads.append(edge)
             edge.player = PlayerWHITE
 
-current_player = PlayerNIL
 
 def main():
     init_window(screen_width, screen_height, "natac")
     gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
     set_target_fps(60)
+    current_player = PlayerNIL
     while not window_should_close():
         # user input/ update
         mouse = get_mouse_position()
@@ -424,7 +430,7 @@ def main():
 
         draw_text_ex(gui_get_font(), f"Current edge: {current_edge}", Vector2(5, 25), 15, 0, BLACK)
         draw_text_ex(gui_get_font(), f"Current node: {current_node}", Vector2(5, 45), 15, 0, BLACK)
-        draw_text_ex(gui_get_font(), f"Current player: {current_player}", Vector2(5, 65), 15, 0, BLACK)
+        # draw_text_ex(gui_get_font(), f"Current player: {current_player}", Vector2(5, 65), 15, 0, BLACK)
 
 
         end_drawing()
@@ -432,7 +438,7 @@ def main():
     unload_font(gui_get_font())
     close_window()
 
-# main()
+main()
 
 def main_test():
     init_window(screen_width, screen_height, "natac")
@@ -567,3 +573,6 @@ def main_test():
 # for six_tri in state.hex_triangles.values():
 #     for t in six_tri:
 #         draw_triangle_lines(t[0], t[1], t[2], RED)
+
+# dist between 2 points
+# dist = math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2))
