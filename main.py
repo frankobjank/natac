@@ -263,7 +263,7 @@ class Tile:
             self.dots = v
         self.port = port
         if port:
-            self.port_display = port.value["display"]
+            self.port_display = port.value
     
     def __repr__(self):
         return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, port: {self.port}, robber: {self.robber})"
@@ -503,13 +503,15 @@ def initialize_board(state):
     state.all_hexes = land_hexes + ocean_hexes
 
     # triple 'for' loop to fill state.edges and state.nodes lists
+    # replaced raylib func with my own
     for i in range(len(state.all_hexes)):
         for j in range(i+1, len(state.all_hexes)):
-            if check_collision_circles(hh.hex_to_pixel(pointy, state.all_hexes[i]), 60, hh.hex_to_pixel(pointy, state.all_hexes[j]), 60):
+            if radius_check_two_circles(hh.hex_to_pixel(pointy, state.all_hexes[i]), 60, hh.hex_to_pixel(pointy, state.all_hexes[j]), 60):
                 state.edges.append(Edge(state.all_hexes[i], state.all_hexes[j]))
                 for k in range(j+1, len(state.all_hexes)):
-                    if check_collision_circles(hh.hex_to_pixel(pointy, state.all_hexes[i]), 60, hh.hex_to_pixel(pointy, state.all_hexes[k]), 60):
+                    if radius_check_two_circles(hh.hex_to_pixel(pointy, state.all_hexes[i]), 60, hh.hex_to_pixel(pointy, state.all_hexes[k]), 60):
                         state.nodes.append(Node(state.all_hexes[i], state.all_hexes[j], state.all_hexes[k]))
+
 
     # start robber in desert
     for tile in state.land_tiles:
@@ -569,19 +571,19 @@ def update(state):
     
     # check radius for current hex
     for hex in state.all_hexes:
-        if check_collision_point_circle(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+        if radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
             state.current_hex = hex
             break
     # 2nd loop for edges - current_hex_2
     for hex in state.all_hexes:
         if state.current_hex != hex:
-            if check_collision_point_circle(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+            if radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
                 state.current_hex_2 = hex
                 break
     # 3rd loop for nodes - current_hex_3
     for hex in state.all_hexes:
         if state.current_hex != hex and state.current_hex_2 != hex:
-            if check_collision_point_circle(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+            if radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
                 state.current_hex_3 = hex
                 break
     

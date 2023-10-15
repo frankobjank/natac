@@ -576,3 +576,12 @@ def main_test():
 
 # dist between 2 points
 # dist = math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2))
+
+# old raylib loop
+# for i in range(len(state.all_hexes)):
+#     for j in range(i+1, len(state.all_hexes)):
+#         if check_collision_circles(hh.hex_to_pixel(pointy, state.all_hexes[i]), 60, hh.hex_to_pixel(pointy, state.all_hexes[j]), 60):
+#             state.edges.append(Edge(state.all_hexes[i], state.all_hexes[j]))
+#             for k in range(j+1, len(state.all_hexes)):
+#                 if check_collision_circles(hh.hex_to_pixel(pointy, state.all_hexes[i]), 60, hh.hex_to_pixel(pointy, state.all_hexes[k]), 60):
+#                     state.nodes.append(Node(state.all_hexes[i], state.all_hexes[j], state.all_hexes[k]))
