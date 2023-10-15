@@ -242,12 +242,12 @@ class Terrain(Enum):
 
 
 class Port(Enum):
-    THREE = {"name": "three_to_one", "display": " ? \n3:1"}
-    WHEATPORT = {"name": "wheat_port", "display": " 2:1 \nwheat"}
-    OREPORT = {"name": "ore_port", "display": "2:1\nore"}
-    WOODPORT = {"name": "wood_port", "display": " 2:1 \nwood"}
-    BRICKPORT = {"name": "brick_port", "display": " 2:1 \nbrick"}
-    SHEEPPORT = {"name": "sheep_port", "display": " 2:1 \nsheep"}
+    THREE = " ? \n3:1"
+    WHEATPORT = " 2:1 \nwheat"
+    OREPORT = "2:1\nore"
+    WOODPORT = " 2:1 \nwood"
+    BRICKPORT = " 2:1 \nbrick"
+    SHEEPPORT = " 2:1 \nsheep"
 
 # Currently both land and ocean Tile class
 class Tile:
