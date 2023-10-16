@@ -130,9 +130,7 @@ class Edge:
         if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes:
             return False
                 
-        # adj_nodes = self.get_adj_nodes
-        # for node in adj_nodes:
-        #     if node.player != None:
+
 
         else:
             return True
@@ -160,13 +158,14 @@ class Node:
         if len(node_list) != 0:
             return node_list[0]
     
-    def get_adj_edges(self, state):
-        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
+    def get_adj_edges(self, edges):
+        self_edges = [(self.hex_a, self.hex_b), (self.hex_a, self.hex_c), (self.hex_b, self.hex_c)]
         adj_edges = []
         for self_edge in self_edges:
-            for edge in state.edges:
-                if self_edge.get_hexes() == edge.get_hexes():
+            for edge in edges:
+                if self_edge == edge.get_hexes():
                     adj_edges.append(edge)
+        return adj_edges
             
 
         
@@ -379,6 +378,7 @@ class State:
         self.current_node = None
         self.current_edge_node = None
         self.current_edge_node_2 = None
+
         self.current_player = None
 
         self.selection = None
@@ -794,11 +794,31 @@ def render(state):
     if state.current_edge and not state.current_node:
         corners = state.current_edge.get_edge_points()
         draw_line_ex(corners[0], corners[1], 12, BLACK)
+
+        # draw extended edge/nodes
         if state.current_edge_node:
             draw_circle_v(state.current_edge_node.get_node_point(), 10, YELLOW)
-            for hex in state.current_edge_node
+            # for hex in state.current_edge_node.get_hexes():
+                # draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, 50, 0, 6, BLACK)
+
+            node_edges = state.current_edge_node.get_adj_edges(state.edges)
+            for edge in node_edges:
+                corners = edge.get_edge_points()
+                draw_line_ex(corners[0], corners[1], 12, GREEN)
+
+
+
         if state.current_edge_node_2:
             draw_circle_v(state.current_edge_node_2.get_node_point(), 10, YELLOW)
+            # for hex in state.current_edge_node_2.get_hexes():
+                # draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, 50, 0, 6, BLACK)
+
+            node_edges = state.current_edge_node_2.get_adj_edges(state.edges)
+            for edge in node_edges:
+                corners = edge.get_edge_points()
+                draw_line_ex(corners[0], corners[1], 12, BLUE)
+        
+        
 
 
     # draw ocean tiles, ports

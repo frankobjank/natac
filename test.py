@@ -125,9 +125,34 @@ class Edge:
     
     def __repr__(self):
         return f"Edge({self.hex_a}, {self.hex_b})"
+    
+    def get_hexes(self):
+        return (self.hex_a, self.hex_b)
         
     def get_edge_points(self) -> list:
         return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
+    
+    def get_adj_nodes(self, state) -> list:
+        edge_points = self.get_edge_points()
+        adj_nodes = []
+        for point in edge_points:
+            for node in state.nodes:
+                if point == node.get_node_point():
+                    adj_nodes.append(node)
+        return adj_nodes
+
+    
+    def build_check(self, state):
+        if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes:
+            return False
+                
+
+
+        else:
+            return True
+        
+        # contiguous - connected to either settlement or road
+        # can't cross another player's road or settlement
 
 class Node:
     def __init__(self, hex_a, hex_b, hex_c):
@@ -141,11 +166,23 @@ class Node:
     def __repr__(self):
         return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
 
-    def get_node_point(self) -> tuple:
-        node_point = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
-        if len(node_point) != 0:
-            return node_point[0]
+    def get_hexes(self):
+        return (self.hex_a, self.hex_b, self.hex_c)
 
+    def get_node_point(self):
+        node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
+        if len(node_list) != 0:
+            return node_list[0]
+    
+    def get_adj_edges(self, edges):
+        self_edges = [(self.hex_a, self.hex_b), (self.hex_a, self.hex_c), (self.hex_b, self.hex_c)]
+        adj_edges = []
+        for self_edge in self_edges:
+            for edge in edges:
+                if self_edge == edge.get_hexes():
+                    adj_edges.append(edge)
+        return adj_edges
+    
 nodes = []
 edges = []
 
@@ -172,6 +209,10 @@ for i in range(len(hexes)):
             for k in range(j+1, len(hexes)):
                 if radius_check_two_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[k]), 60):
                     nodes.append(Node(hexes[i], hexes[j], hexes[k]))
+
+node = nodes[0]
+print(node)
+print(node.get_adj_edges(edges))
 
 class Tile:
     def __init__(self, terrain, hex, token, port=None):
@@ -471,13 +512,7 @@ def main_test():
     close_window()
 
 # main_test()
-# a = [1, 2, 3]
-# b = [1, 1, 3]
-# for num in a:
-#     for num2 in b:
-#         print(num, num2)
-#         if num == num2:
-#             break
+
 
 
 # dimensions of a hex
