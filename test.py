@@ -438,7 +438,7 @@ def main():
     unload_font(gui_get_font())
     close_window()
 
-main()
+# main()
 
 def main_test():
     init_window(screen_width, screen_height, "natac")
@@ -471,8 +471,13 @@ def main_test():
     close_window()
 
 # main_test()
-
-
+# a = [1, 2, 3]
+# b = [1, 1, 3]
+# for num in a:
+#     for num2 in b:
+#         print(num, num2)
+#         if num == num2:
+#             break
 
 
 # dimensions of a hex

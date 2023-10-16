@@ -109,6 +109,9 @@ class Edge:
     
     def __repr__(self):
         return f"Edge({self.hex_a}, {self.hex_b})"
+    
+    def get_hexes(self):
+        return (self.hex_a, self.hex_b)
         
     def get_edge_points(self) -> list:
         return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
@@ -149,13 +152,23 @@ class Node:
     def __repr__(self):
         return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
 
+    def get_hexes(self):
+        return (self.hex_a, self.hex_b, self.hex_c)
+
     def get_node_point(self):
         node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
         if len(node_list) != 0:
             return node_list[0]
     
-    def get_adj_edges(self):
-        pass
+    def get_adj_edges(self, state):
+        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
+        adj_edges = []
+        for self_edge in self_edges:
+            for edge in state.edges:
+                if self_edge.get_hexes() == edge.get_hexes():
+                    adj_edges.append(edge)
+            
+
         
     def build_check(self):
         # make sure at least one hex is land 
@@ -783,6 +796,7 @@ def render(state):
         draw_line_ex(corners[0], corners[1], 12, BLACK)
         if state.current_edge_node:
             draw_circle_v(state.current_edge_node.get_node_point(), 10, YELLOW)
+            for hex in state.current_edge_node
         if state.current_edge_node_2:
             draw_circle_v(state.current_edge_node_2.get_node_point(), 10, YELLOW)
 
