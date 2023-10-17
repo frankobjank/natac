@@ -130,21 +130,23 @@ class Edge:
     def get_adj_nodes_using_hexes(self, hexes) -> list:
         adj_hexes = []
         for hex in hexes:
+            # use self.hex_a and self.hex_b as circle comparisons
             if radius_check_two_circles(hh.hex_to_pixel(pointy, self.hex_a), 60, hh.hex_to_pixel(pointy, hex), 60) and radius_check_two_circles(hh.hex_to_pixel(pointy, self.hex_b), 60, hh.hex_to_pixel(pointy, hex), 60):
                 adj_hexes.append(hex)
         if len(adj_hexes) < 2:
             return
         
         adj_nodes = []
-        self_nodes_hexes = [(self.hex_a, self.hex_b, h) for h in adj_hexes]
-        for self_node_hex in self_nodes_hexes:
+        self_nodes = [Node(self.hex_a, self.hex_b, h) for h in adj_hexes]
+        for self_node in self_nodes:
             for node in state.nodes:
-                if self_node_hex == node.get_hexes():
+                if self_node.get_hexes() == node.get_hexes():
                     adj_nodes.append(node)
         return adj_nodes
     
     def get_adj_node_edges(self, nodes, edges):
-        adj_nodes = self.get_adj_nodes(nodes)
+        # adj_nodes = self.get_adj_nodes(nodes)
+        adj_nodes = self.get_adj_nodes_using_hexes(state.all_hexes)
         if len(adj_nodes) < 2:
             return
         adj_edges_1 = adj_nodes[0].get_adj_edges_set(edges)
@@ -200,20 +202,20 @@ class Node:
             return node_list[0]
     
     def get_adj_edges(self, edges) -> list:
-        self_edges = [(self.hex_a, self.hex_b), (self.hex_a, self.hex_c), (self.hex_b, self.hex_c)]
+        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
         adj_edges = []
         for self_edge in self_edges:
             for edge in edges:
-                if self_edge == edge.get_hexes():
+                if self_edge.get_hexes() == edge.get_hexes():
                     adj_edges.append(edge)
         return adj_edges
 
     def get_adj_edges_set(self, edges) -> set:
-        self_edges = [(self.hex_a, self.hex_b), (self.hex_a, self.hex_c), (self.hex_b, self.hex_c)]
+        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
         adj_edges = set()
         for self_edge in self_edges:
             for edge in edges:
-                if self_edge == edge.get_hexes():
+                if self_edge.get_hexes() == edge.get_hexes():
                     adj_edges.add(edge)
         return adj_edges
             
@@ -665,7 +667,8 @@ def update(state):
                 state.current_edge = edge
                 break
 
-        adj_nodes = state.current_edge.get_adj_nodes(state.nodes)
+        # adj_nodes = state.current_edge.get_adj_nodes(state.nodes)
+        adj_nodes = state.current_edge.get_adj_nodes_using_hexes(state.all_hexes)
         if len(adj_nodes) > 0:
             state.current_edge_node = adj_nodes[0]
         if len(adj_nodes) > 1:
