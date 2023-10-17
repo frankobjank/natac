@@ -116,6 +116,7 @@ class Edge:
     def get_edge_points(self) -> list:
         return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
     
+    # using points
     def get_adj_nodes(self, nodes) -> list:
         edge_points = self.get_edge_points()
         adj_nodes = []
@@ -125,22 +126,55 @@ class Edge:
                     adj_nodes.append(node)
         return adj_nodes
     
-    def get_adj_node_edges(self, state):
-        adj_nodes = self.get_adj_nodes(state.nodes)
-        adj_edges_1 = adj_nodes[0].get_adj_edges_set(state.edges)
-        adj_edges_2 = adj_nodes[1].get_adj_edges_set(state.edges)
+    # using hexes/radii - doesn't work yet
+    def get_adj_nodes_using_hexes(self, hexes) -> list:
+        adj_hexes = []
+        for hex in hexes:
+            if radius_check_two_circles(hh.hex_to_pixel(pointy, self.hex_a), 60, hh.hex_to_pixel(pointy, hex), 60) and radius_check_two_circles(hh.hex_to_pixel(pointy, self.hex_b), 60, hh.hex_to_pixel(pointy, hex), 60):
+                adj_hexes.append(hex)
+        if len(adj_hexes) < 2:
+            return
+        
+        adj_nodes = []
+        self_nodes_hexes = [(self.hex_a, self.hex_b, h) for h in adj_hexes]
+        for self_node_hex in self_nodes_hexes:
+            for node in state.nodes:
+                if self_node_hex == node.get_hexes():
+                    adj_nodes.append(node)
+        return adj_nodes
+    
+    def get_adj_node_edges(self, nodes, edges):
+        adj_nodes = self.get_adj_nodes(nodes)
+        if len(adj_nodes) < 2:
+            return
+        adj_edges_1 = adj_nodes[0].get_adj_edges_set(edges)
+        adj_edges_2 = adj_nodes[1].get_adj_edges_set(edges)
 
         return list(adj_edges_1.symmetric_difference(adj_edges_2))
 
     
     def build_check(self, state):
+        # ocean check
         if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes:
             return False
-                
+        
+        # contiguous check. if all edges are not owned by player, break
+        adj_edges = self.get_adj_node_edges(state.nodes, state.edges)
+        # if all([edge.player != state.current_player for edge in adj_edges]):
+            # return False
+        origin = None
+        for edge in adj_edges:
+            if edge.player == state.current_player:
+                origin = edge
+                break
+        if origin == None: # branch off - non-contiguous
+            return False
+        origin_nodes = origin.get_edge_points
+        # origin stops at first match of current player. this shows what direction road is going.
+        # check if destination node has opposing settlement or not
 
 
-        else:
-            return True
+        return True
         
         # contiguous - connected to either settlement or road
         # can't cross another player's road or settlement
@@ -385,6 +419,9 @@ class State:
         self.all_hexes = land_hexes + ocean_hexes
         self.all_tiles = []
 
+        # user input, can be keyboard key or mouse
+        self.user_input = None
+
         # selecting via mouse
         self.world_position = None
         self.current_hex = None
@@ -406,46 +443,41 @@ class State:
         # move robber with current_hex, maybe need to adjust selection to ignore edges and nodes
         self.edges = []
         self.nodes = []
-        self.players = []
+
+        # hardcoded players, can set up later to take different combos based on user input
+        self.nil_player = Player(GameColor.PLAYER_NIL)
+        self.red_player = Player(GameColor.PLAYER_RED)
+        self.blue_player = Player(GameColor.PLAYER_BLUE)
+        self.orange_player = Player(GameColor.PLAYER_ORANGE)
+        self.white_player = Player(GameColor.PLAYER_WHITE)
+
+        self.players = [self.nil_player, self.red_player, self.blue_player, self.orange_player, self.white_player]
+
 
         # GLOBAL general vars
-        self.buttons = []
         self.debug = False
 
-        # user input, can be keyboard key or mouse
-        self.user_input = None
-        
-    
-    def initialize_camera(self):
+        # debug buttons
+        self.buttons=[
+            Button(Rectangle(750, 80, 40, 40), GameColor.GAME_RULES), # game_rules vs free_placement
+            Button(Rectangle(750, 20, 40, 40), GameColor.PLAYER_BLUE, self.blue_player),
+            Button(Rectangle(700, 20, 40, 40), GameColor.PLAYER_ORANGE, self.orange_player), 
+            Button(Rectangle(650, 20, 40, 40), GameColor.PLAYER_WHITE, self.white_player), 
+            Button(Rectangle(600, 20, 40, 40), GameColor.PLAYER_RED, self.red_player),
+            Button(Rectangle(550, 20, 40, 40), GameColor.ROBBER)
+            # Button(Rectangle(500, 20, 40, 40), GameColor.PLAYER_NIL, nil_player),
+        ]
+
+
+        # camera controls
         self.camera = Camera2D()
         self.camera.target = Vector2(0, 0)
         self.camera.offset = Vector2(screen_width/2, screen_height/2)
         self.camera.rotation = 0.0
         self.camera.zoom = default_zoom
-        
+
+
 state = State()
-state.initialize_camera()
-
-
-
-nil_player = Player(GameColor.PLAYER_NIL)
-red_player = Player(GameColor.PLAYER_RED)
-blue_player = Player(GameColor.PLAYER_BLUE)
-orange_player = Player(GameColor.PLAYER_ORANGE)
-white_player = Player(GameColor.PLAYER_WHITE)
-
-state.players = [nil_player, red_player, blue_player, orange_player, white_player]
-
-# debug buttons
-state.buttons=[
-    Button(Rectangle(750, 80, 40, 40), GameColor.GAME_RULES), # game_rules vs free_placement
-    Button(Rectangle(750, 20, 40, 40), GameColor.PLAYER_BLUE, blue_player),
-    Button(Rectangle(700, 20, 40, 40), GameColor.PLAYER_ORANGE, orange_player), 
-    Button(Rectangle(650, 20, 40, 40), GameColor.PLAYER_WHITE, white_player), 
-    Button(Rectangle(600, 20, 40, 40), GameColor.PLAYER_RED, red_player),
-    Button(Rectangle(550, 20, 40, 40), GameColor.ROBBER)
-    # Button(Rectangle(500, 20, 40, 40), GameColor.PLAYER_NIL, nil_player),
-]
 
 def set_demo_settlements():
     # for demo, initiate default roads and settlements
@@ -469,48 +501,48 @@ def set_demo_settlements():
         for orange_node in orange_nodes:
             if node.hex_a == orange_node.hex_a and node.hex_b == orange_node.hex_b and node.hex_c == orange_node.hex_c:
                 # 4 ways to add the settlement..... too many?
-                orange_player.settlements.append(node)
-                node.player = orange_player
+                state.orange_player.settlements.append(node)
+                node.player = state.orange_player
                 node.town = "settlement"
 
         for blue_node in blue_nodes:
             if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
-                blue_player.settlements.append(node)
-                node.player = blue_player
+                state.blue_player.settlements.append(node)
+                node.player = state.blue_player
                 node.town = "settlement"
 
         for red_node in red_nodes:
             if node.hex_a == red_node.hex_a and node.hex_b == red_node.hex_b and node.hex_c == red_node.hex_c:
-                red_player.settlements.append(node)
-                node.player = red_player
+                state.red_player.settlements.append(node)
+                node.player = state.red_player
                 node.town = "settlement"
 
         for white_node in white_nodes:
             if node.hex_a == white_node.hex_a and node.hex_b == white_node.hex_b and node.hex_c == white_node.hex_c:
-                white_player.settlements.append(node)
-                node.player = white_player
+                state.white_player.settlements.append(node)
+                node.player = state.white_player
                 node.town = "settlement"
 
     for edge in state.edges:
         for orange_edge in orange_edges:
             if edge.hex_a == orange_edge.hex_a and edge.hex_b == orange_edge.hex_b:
-                orange_player.roads.append(edge)
-                edge.player = orange_player
+                state.orange_player.roads.append(edge)
+                edge.player = state.orange_player
 
         for blue_edge in blue_edges:
             if edge.hex_a == blue_edge.hex_a and edge.hex_b == blue_edge.hex_b:
-                blue_player.roads.append(edge)
-                edge.player = blue_player
+                state.blue_player.roads.append(edge)
+                edge.player = state.blue_player
 
         for red_edge in red_edges:
             if edge.hex_a == red_edge.hex_a and edge.hex_b == red_edge.hex_b:
-                red_player.roads.append(edge)
-                edge.player = red_player
+                state.red_player.roads.append(edge)
+                edge.player = state.red_player
 
         for white_edge in white_edges:
             if edge.hex_a == white_edge.hex_a and edge.hex_b == white_edge.hex_b:
-                white_player.roads.append(edge)
-                edge.player = white_player
+                state.white_player.roads.append(edge)
+                edge.player = state.white_player
 
 # STATE.BOARD:
 # will need to pass in tiles instead of using global variables at some point
@@ -552,7 +584,7 @@ def initialize_board(state):
     state.all_tiles = state.land_tiles + state.ocean_tiles
 
     # settlement and road placement based on last page in manual
-    # set_demo_settlements()
+    set_demo_settlements()
 
 
 def get_user_input(state):
@@ -748,25 +780,29 @@ def update(state):
     elif state.user_input == KeyboardKey.KEY_LEFT_BRACKET:
         state.camera.zoom -= 0.03
 
-    # camera and board reset (zoom and rotation)
-    # state.reset = True
-    if state.user_input == KeyboardKey.KEY_R:
-        state.camera.zoom = default_zoom
-        state.camera.rotation = 0.0
-        initialize_board(state)
-
-    if state.user_input == KeyboardKey.KEY_E:
-        state.debug = not state.debug # toggle
-
-    if state.user_input == KeyboardKey.KEY_F:
-        toggle_fullscreen()
-
-
     # zoom boundary automatic reset
     if state.camera.zoom > 3.0:
         state.camera.zoom = 3.0
     elif state.camera.zoom < 0.1:
         state.camera.zoom = 0.1
+
+    if state.user_input == KeyboardKey.KEY_F:
+        toggle_fullscreen()
+
+    if state.user_input == KeyboardKey.KEY_E:
+        state.debug = not state.debug # toggle
+
+    # camera and board reset (zoom and rotation)
+    if state.user_input == KeyboardKey.KEY_R:
+        state.reset = True
+        state.camera.zoom = default_zoom
+        state.camera.rotation = 0.0
+        
+        # buggy - brings back roads/ settlements but doesn't clear new ones
+        # state = State()
+        # initialize_board(state)
+
+
 
 
 
@@ -796,6 +832,15 @@ def render(state):
         # if state.debug == True:
         #     draw_circle(int(hh.hex_to_pixel(pointy, tile.hex).x), int(hh.hex_to_pixel(pointy, tile.hex).y), 4, BLACK)
     
+    # draw ocean tiles, ports
+    for tile in state.ocean_tiles:
+        draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, BLACK)
+        if tile.port:
+            hex_center = hh.hex_to_pixel(pointy, tile.hex)
+            text_offset = measure_text_ex(gui_get_font(), tile.port_display, 16, 0)
+            text_location = Vector2(hex_center.x-text_offset.x//2, hex_center.y-16)
+            draw_text_ex(gui_get_font(), tile.port_display, text_location, 16, 0, BLACK)
+
     # outline up to 3 current hexes
     if state.current_hex: # and not state.current_edge:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, 50, 0, 6, BLACK)
@@ -810,41 +855,35 @@ def render(state):
     if state.current_edge and not state.current_node:
         corners = state.current_edge.get_edge_points()
         draw_line_ex(corners[0], corners[1], 12, BLACK)
+        
+        adj_edges = state.current_edge.get_adj_node_edges(state.nodes, state.edges)
+        if adj_edges != None:
+            for edge in adj_edges:
+                corners = edge.get_edge_points()
+                draw_line_ex(corners[0], corners[1], 12, YELLOW)
+
 
         # draw extended edge/nodes
         if state.current_edge_node:
             draw_circle_v(state.current_edge_node.get_node_point(), 10, YELLOW)
-            # for hex in state.current_edge_node.get_hexes():
-                # draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, 50, 0, 6, BLACK)
 
-            node_edges = state.current_edge_node.get_adj_edges(state.edges)
-            for edge in node_edges:
-                corners = edge.get_edge_points()
-                draw_line_ex(corners[0], corners[1], 12, GREEN)
+            # node_edges = state.current_edge_node.get_adj_edges(state.edges)
+            # for edge in node_edges:
+            #     corners = edge.get_edge_points()
+            #     draw_line_ex(corners[0], corners[1], 12, GREEN)
 
 
-        # WORKING
         if state.current_edge_node_2:
             draw_circle_v(state.current_edge_node_2.get_node_point(), 10, YELLOW)
-            # for hex in state.current_edge_node_2.get_hexes():
-                # draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, 50, 0, 6, BLACK)
 
-            node_edges = state.current_edge_node_2.get_adj_edges(state.edges)
-            for edge in node_edges:
-                corners = edge.get_edge_points()
-                draw_line_ex(corners[0], corners[1], 12, BLUE)
+            # node_edges = state.current_edge_node_2.get_adj_edges(state.edges)
+            # for edge in node_edges:
+            #     corners = edge.get_edge_points()
+            #     draw_line_ex(corners[0], corners[1], 12, BLUE)
         
         
 
 
-    # draw ocean tiles, ports
-    for tile in state.ocean_tiles:
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, BLACK)
-        if tile.port:
-            hex_center = hh.hex_to_pixel(pointy, tile.hex)
-            text_offset = measure_text_ex(gui_get_font(), tile.port_display, 16, 0)
-            text_location = Vector2(hex_center.x-text_offset.x//2, hex_center.y-16)
-            draw_text_ex(gui_get_font(), tile.port_display, text_location, 16, 0, BLACK)
         
     # draw roads, settlements, cities
     for edge in state.edges:
@@ -877,15 +916,16 @@ def render(state):
         # debug_3 = f"Current edge: {state.current_edge}"
         # debug_4 = f"Current node = {state.current_node}"
         # debug_5 = f"Current selection = {state.selection}"
-
+        
+        
         debug_1 = f"World mouse at: ({int(state.world_position.x)}, {int(state.world_position.y)})"
         debug_2 = f"Current node = {state.current_node}"
-        if state.current_node:
+        try:
             debug_3 = f"Current_node.town: {state.current_node.town}"
             debug_4 = f"Current_node.player: {state.current_node.player}"
-        else:
-            debug_3 = None
-            debug_4 = None
+        except AttributeError:
+            debug_3 = f"Current_node.town: None"
+            debug_4 = f"Current_node.player: None"
         debug_5 = f"Current player = {state.current_player}"
         
         debug_msgs = [debug_1, debug_2, debug_3, debug_4, debug_5]
