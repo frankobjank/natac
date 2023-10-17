@@ -116,14 +116,21 @@ class Edge:
     def get_edge_points(self) -> list:
         return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
     
-    def get_adj_nodes(self, state) -> list:
+    def get_adj_nodes(self, nodes) -> list:
         edge_points = self.get_edge_points()
         adj_nodes = []
         for point in edge_points:
-            for node in state.nodes:
+            for node in nodes:
                 if point == node.get_node_point():
                     adj_nodes.append(node)
         return adj_nodes
+    
+    def get_adj_node_edges(self, state):
+        adj_nodes = self.get_adj_nodes(state.nodes)
+        adj_edges_1 = adj_nodes[0].get_adj_edges_set(state.edges)
+        adj_edges_2 = adj_nodes[1].get_adj_edges_set(state.edges)
+
+        return list(adj_edges_1.symmetric_difference(adj_edges_2))
 
     
     def build_check(self, state):
@@ -158,13 +165,22 @@ class Node:
         if len(node_list) != 0:
             return node_list[0]
     
-    def get_adj_edges(self, edges):
+    def get_adj_edges(self, edges) -> list:
         self_edges = [(self.hex_a, self.hex_b), (self.hex_a, self.hex_c), (self.hex_b, self.hex_c)]
         adj_edges = []
         for self_edge in self_edges:
             for edge in edges:
                 if self_edge == edge.get_hexes():
                     adj_edges.append(edge)
+        return adj_edges
+
+    def get_adj_edges_set(self, edges) -> set:
+        self_edges = [(self.hex_a, self.hex_b), (self.hex_a, self.hex_c), (self.hex_b, self.hex_c)]
+        adj_edges = set()
+        for self_edge in self_edges:
+            for edge in edges:
+                if self_edge == edge.get_hexes():
+                    adj_edges.add(edge)
         return adj_edges
             
 
@@ -617,7 +633,7 @@ def update(state):
                 state.current_edge = edge
                 break
 
-        adj_nodes = state.current_edge.get_adj_nodes(state)
+        adj_nodes = state.current_edge.get_adj_nodes(state.nodes)
         if len(adj_nodes) > 0:
             state.current_edge_node = adj_nodes[0]
         if len(adj_nodes) > 1:
@@ -807,7 +823,7 @@ def render(state):
                 draw_line_ex(corners[0], corners[1], 12, GREEN)
 
 
-
+        # WORKING
         if state.current_edge_node_2:
             draw_circle_v(state.current_edge_node_2.get_node_point(), 10, YELLOW)
             # for hex in state.current_edge_node_2.get_hexes():
