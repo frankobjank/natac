@@ -112,6 +112,9 @@ class Edge:
     
     def get_hexes(self):
         return (self.hex_a, self.hex_b)
+    
+    def get_edge_points_set(self) -> set:
+        return hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b)
         
     def get_edge_points(self) -> list:
         return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
@@ -145,8 +148,8 @@ class Edge:
         return adj_nodes
     
     def get_adj_node_edges(self, nodes, edges):
-        # adj_nodes = self.get_adj_nodes(nodes)
-        adj_nodes = self.get_adj_nodes_using_hexes(state.all_hexes)
+        adj_nodes = self.get_adj_nodes(nodes)
+        # adj_nodes = self.get_adj_nodes_using_hexes(state.all_hexes) # same result as above
         if len(adj_nodes) < 2:
             return
         adj_edges_1 = adj_nodes[0].get_adj_edges_set(edges)
@@ -154,26 +157,40 @@ class Edge:
 
         return list(adj_edges_1.symmetric_difference(adj_edges_2))
 
-    
+
     def build_check(self, state):
+        print("build_check")
         # ocean check
         if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes:
             return False
         
-        # contiguous check. if all edges are not owned by player, break
+        # contiguous check. if no edges are not owned by player, break
         adj_edges = self.get_adj_node_edges(state.nodes, state.edges)
-        # if all([edge.player != state.current_player for edge in adj_edges]):
-            # return False
-        origin = None
+        origin_edge = None # Edge
         for edge in adj_edges:
             if edge.player == state.current_player:
-                origin = edge
+                origin_edge = edge
                 break
-        if origin == None: # branch off - non-contiguous
+        if origin_edge == None: # non-contiguous
+            print("non-contiguous")
             return False
-        origin_nodes = origin.get_edge_points
         # origin stops at first match of current player. this shows what direction road is going.
-        # check if destination node has opposing settlement or not
+        print(f"origin_edge {origin_edge}")
+        origin_nodes= origin_edge.get_adj_nodes(state.nodes)
+        self_nodes = self.get_adj_nodes(state.nodes)
+        if self_nodes[0] in origin_nodes:
+            origin_node = self_nodes[0]
+            destination_node = self_nodes[1]
+        else:
+            origin_node = self_nodes[1]
+            destination_node = self_nodes[0]
+
+        # check if origin node has opposing settlement or not
+        if origin_node.player != None and origin_node.player != state.current_player:
+            return False
+
+        print(f"destination_node = {origin_node}")
+        
 
 
         return True
@@ -716,7 +733,6 @@ def update(state):
             # place roads unowned edge
             if state.current_edge.player == None:
                 if state.current_edge.build_check(state):
-                    print("Hello")
                     state.current_edge.player = state.current_player
                     if state.current_player:
                         state.current_player.roads.append(state.current_edge)
