@@ -162,7 +162,15 @@ class Edge:
         print("build_check")
         # ocean check
         if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes:
+            print("can't build in ocean")
             return False
+        
+        # home check. if adj node is a same-player town, return True
+        self_nodes = self.get_adj_nodes(state.nodes)
+        for node in self_nodes:
+            if node.player == state.current_player:
+                print("building next to settlement")
+                return True
         
         # contiguous check. if no edges are not owned by player, break
         adj_edges = self.get_adj_node_edges(state.nodes, state.edges)
@@ -175,9 +183,10 @@ class Edge:
             print("non-contiguous")
             return False
         # origin stops at first match of current player. this shows what direction road is going.
-        print(f"origin_edge {origin_edge}")
-        origin_nodes= origin_edge.get_adj_nodes(state.nodes)
-        self_nodes = self.get_adj_nodes(state.nodes)
+        # check if origin node has opposing settlement blocking path
+        origin_nodes = origin_edge.get_adj_nodes(state.nodes)
+        # (commented out since already defined above)
+        # self_nodes = self.get_adj_nodes(state.nodes)
         if self_nodes[0] in origin_nodes:
             origin_node = self_nodes[0]
             destination_node = self_nodes[1]
@@ -185,14 +194,11 @@ class Edge:
             origin_node = self_nodes[1]
             destination_node = self_nodes[0]
 
-        # check if origin node has opposing settlement or not
+        # origin node blocked by another player
         if origin_node.player != None and origin_node.player != state.current_player:
+            print("blocked by settlement")
             return False
-
-        print(f"destination_node = {origin_node}")
-        
-
-
+        print("no conflicts")
         return True
         
         # contiguous - connected to either settlement or road
@@ -239,8 +245,12 @@ class Node:
 
         
     def build_check(self):
-        # make sure at least one hex is land 
-            # irrelevant at the moment since all nodes are adjacent to land
+        print("build_check")
+        # ocean check
+        if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes and self.hex_c in state.ocean_hexes:
+            print("can't build in ocean")
+            return False
+
         # get 3 adjacent nodes and make sure no town is built there
         # also cannot build in the middle of someone else's road
         # maybe should make a separate build settlement, build city, build road functions
@@ -731,7 +741,7 @@ def update(state):
             print(f"edge: {state.current_edge}")
 
             # place roads unowned edge
-            if state.current_edge.player == None:
+            if state.current_edge.player == None and state.current_player != None:
                 if state.current_edge.build_check(state):
                     state.current_edge.player = state.current_player
                     if state.current_player:
@@ -871,38 +881,45 @@ def render(state):
     # highlight selected edge and node
     if state.current_node:
         draw_circle_v(state.current_node.get_node_point(), 10, BLACK)
+
+        adj_edges = state.current_node.get_adj_edges(state.edges)
+        for edge in adj_edges:
+            corners = edge.get_edge_points()
+            draw_line_ex(corners[0], corners[1], 12, BLUE)
+
+
+
     if state.current_edge and not state.current_node:
         corners = state.current_edge.get_edge_points()
         draw_line_ex(corners[0], corners[1], 12, BLACK)
         
-        adj_edges = state.current_edge.get_adj_node_edges(state.nodes, state.edges)
-        if adj_edges != None:
-            for edge in adj_edges:
-                corners = edge.get_edge_points()
-                draw_line_ex(corners[0], corners[1], 12, YELLOW)
+        # DEBUG: draw adj edges to edge 
+        # adj_edges = state.current_edge.get_adj_node_edges(state.nodes, state.edges)
+        # if adj_edges != None:
+        #     for edge in adj_edges:
+        #         corners = edge.get_edge_points()
+        #         draw_line_ex(corners[0], corners[1], 12, YELLOW)
 
 
-        # draw extended edge/nodes
-        if state.current_edge_node:
-            draw_circle_v(state.current_edge_node.get_node_point(), 10, YELLOW)
+        # DEBUG: draw edge nodes
+        # EDGE NODE ONE
+        # if state.current_edge_node:
+        #     draw_circle_v(state.current_edge_node.get_node_point(), 10, YELLOW)
 
             # node_edges = state.current_edge_node.get_adj_edges(state.edges)
             # for edge in node_edges:
             #     corners = edge.get_edge_points()
             #     draw_line_ex(corners[0], corners[1], 12, GREEN)
 
+        # EDGE NODE TWO
+        # if state.current_edge_node_2:
+        #     draw_circle_v(state.current_edge_node_2.get_node_point(), 10, YELLOW)
 
-        if state.current_edge_node_2:
-            draw_circle_v(state.current_edge_node_2.get_node_point(), 10, YELLOW)
-
-            # node_edges = state.current_edge_node_2.get_adj_edges(state.edges)
-            # for edge in node_edges:
-            #     corners = edge.get_edge_points()
-            #     draw_line_ex(corners[0], corners[1], 12, BLUE)
+        #     node_edges = state.current_edge_node_2.get_adj_edges(state.edges)
+        #     for edge in node_edges:
+        #         corners = edge.get_edge_points()
+        #         draw_line_ex(corners[0], corners[1], 12, BLUE)
         
-        
-
-
         
     # draw roads, settlements, cities
     for edge in state.edges:
