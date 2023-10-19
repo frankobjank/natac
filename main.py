@@ -129,7 +129,7 @@ class Edge:
                     adj_nodes.append(node)
         return adj_nodes
     
-    # using hexes/radii - doesn't work yet
+    # using hexes/radii instead of points
     def get_adj_nodes_using_hexes(self, hexes) -> list:
         adj_hexes = []
         for hex in hexes:
@@ -149,7 +149,6 @@ class Edge:
     
     def get_adj_node_edges(self, nodes, edges):
         adj_nodes = self.get_adj_nodes(nodes)
-        # adj_nodes = self.get_adj_nodes_using_hexes(state.all_hexes) # same result as above
         if len(adj_nodes) < 2:
             return
         adj_edges_1 = adj_nodes[0].get_adj_edges_set(edges)
@@ -158,8 +157,8 @@ class Edge:
         return list(adj_edges_1.symmetric_difference(adj_edges_2))
 
 
-    def build_check(self, state):
-        print("build_check")
+    def build_check_edge(self, state):
+        print("build_check_edge")
         # ocean check
         if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes:
             print("can't build in ocean")
@@ -242,20 +241,51 @@ class Node:
                     adj_edges.add(edge)
         return adj_edges
             
+    def get_adj_nodes_from_node(self, nodes) -> list:
+        # ^ = symmetric_difference
+        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
+        node_points = self_edges[0].get_edge_points_set() ^ self_edges[1].get_edge_points_set() ^ self_edges[2].get_edge_points_set()
+        adj_nodes = []
+        for point in node_points:
+            for node in nodes:
+                if point == node.get_node_point():
+                    adj_nodes.append(node)
+                    
+        return adj_nodes
 
         
-    def build_check(self):
-        print("build_check")
+    def build_check_node(self, state):
+        print("build_check_node")
         # ocean check
         if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes and self.hex_c in state.ocean_hexes:
             print("can't build in ocean")
             return False
-
+        
         # get 3 adjacent nodes and make sure no town is built there
+        adj_nodes = self.get_adj_nodes_from_node(state.nodes)
+        for node in adj_nodes:
+            if node.town != None:
+                print("too close to settlement")
+                return False
+            
+        adj_edges = self.get_adj_edges(state.edges)
+        # is node adjacent to at least 1 same-colored road
+        if all(edge.player != state.current_player for edge in adj_edges):
+            print("no adjacent roads")
+            return False
+        
+        owner_1 = None
+        owner_2 = None
+        owner_3 = None
+        owners = [f"{edge.player}" for edge in adj_edges]
+        # if 2 owner are same non current player, return False
+        print(owners)
+            
+
         # also cannot build in the middle of someone else's road
         # maybe should make a separate build settlement, build city, build road functions
             # checks would be part of these functions
-        pass
+        return True
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
 class GameColor(Enum):
@@ -484,7 +514,8 @@ class State:
 
 
         # GLOBAL general vars
-        self.debug = False
+        # self.debug = False
+        self.debug = True
 
         # debug buttons
         self.buttons=[
@@ -655,9 +686,9 @@ def update(state):
     state.current_edge = None
     state.current_node = None
 
-    # extra for placing roads/ settlements
-    state.current_edge_node = None
-    state.current_edge_node_2 = None
+    # DEBUG - defining current edge nodes
+    # state.current_edge_node = None
+    # state.current_edge_node_2 = None
     
     # check radius for current hex
     for hex in state.all_hexes:
@@ -694,55 +725,57 @@ def update(state):
                 state.current_edge = edge
                 break
 
+
+        # DEBUG - defining edge nodes
         # adj_nodes = state.current_edge.get_adj_nodes(state.nodes)
-        adj_nodes = state.current_edge.get_adj_nodes_using_hexes(state.all_hexes)
-        if len(adj_nodes) > 0:
-            state.current_edge_node = adj_nodes[0]
-        if len(adj_nodes) > 1:
-            state.current_edge_node_2 = adj_nodes[1]
+        # adj_nodes = state.current_edge.get_adj_nodes_using_hexes(state.all_hexes)
+        # if len(adj_nodes) > 0:
+        #     print("hello")
+        #     state.current_edge_node = adj_nodes[0]
+        # if len(adj_nodes) > 1:
+        #     state.current_edge_node_2 = adj_nodes[1]
 
 
     # selecting based on mouse button input from get_user_input()
     if state.user_input == MouseButton.MOUSE_BUTTON_LEFT:
         if state.current_node:
             state.selection = state.current_node
-            print(f"node: {state.current_node}")
 
             # toggle between settlement, city, None
-            if state.current_player:
+            # if state.current_player:
                 
-                if state.current_node.town == None:
+            if state.current_node.town == None and state.current_player != None:
+                if state.current_node.build_check_node(state):
                     state.current_node.town = "settlement"
                     state.current_node.player = state.current_player
                     state.current_player.settlements.append(state.current_node)
 
-                elif state.current_node.town == "settlement":
-                    current_owner = state.current_node.player
-                    # owner is same as current_player, upgrade to city
-                    if current_owner == state.current_player:
-                        state.current_node.town = "city"
-                        state.current_player.settlements.remove(state.current_node)
-                        state.current_player.cities.append(state.current_node)
-                    # owner is different as current_player, remove
-                    elif current_owner != state.current_player:
-                        current_owner.settlements.remove(state.current_node)
-                        state.current_node.player = None
-                        state.current_node.town = None
-
-                # town is city and should be removed
-                elif state.current_node.town == "city":
+            elif state.current_node.town == "settlement":
+                current_owner = state.current_node.player
+                # owner is same as current_player, upgrade to city
+                if current_owner == state.current_player:
+                    state.current_node.town = "city"
+                    state.current_player.settlements.remove(state.current_node)
+                    state.current_player.cities.append(state.current_node)
+                # owner is different as current_player, remove
+                elif current_owner != state.current_player:
+                    current_owner.settlements.remove(state.current_node)
                     state.current_node.player = None
                     state.current_node.town = None
-                    state.current_player.cities.remove(state.current_node)
+
+            # town is city and should be removed
+            elif state.current_node.town == "city":
+                state.current_node.player = None
+                state.current_node.town = None
+                state.current_player.cities.remove(state.current_node)
 
         
         elif state.current_edge:
             state.selection = state.current_edge
-            print(f"edge: {state.current_edge}")
 
             # place roads unowned edge
             if state.current_edge.player == None and state.current_player != None:
-                if state.current_edge.build_check(state):
+                if state.current_edge.build_check_edge(state):
                     state.current_edge.player = state.current_player
                     if state.current_player:
                         state.current_player.roads.append(state.current_edge)
@@ -882,10 +915,15 @@ def render(state):
     if state.current_node:
         draw_circle_v(state.current_node.get_node_point(), 10, BLACK)
 
-        adj_edges = state.current_node.get_adj_edges(state.edges)
-        for edge in adj_edges:
-            corners = edge.get_edge_points()
-            draw_line_ex(corners[0], corners[1], 12, BLUE)
+        # DEBUG - show adj_edges
+        # adj_edges = state.current_node.get_adj_edges(state.edges)
+        # for edge in adj_edges:
+        #     corners = edge.get_edge_points()
+        #     draw_line_ex(corners[0], corners[1], 12, BLUE)
+        
+        adj_nodes = state.current_node.get_adj_nodes_from_node(state.nodes)
+        for node in adj_nodes:
+            draw_circle_v(node.get_node_point(), 10, YELLOW)
 
 
 
@@ -955,19 +993,16 @@ def render(state):
         
         
         debug_1 = f"World mouse at: ({int(state.world_position.x)}, {int(state.world_position.y)})"
-        debug_2 = f"Current node = {state.current_node}"
-        try:
-            debug_3 = f"Current_node.town: {state.current_node.town}"
-            debug_4 = f"Current_node.player: {state.current_node.player}"
-        except AttributeError:
-            debug_3 = f"Current_node.town: None"
-            debug_4 = f"Current_node.player: None"
-        debug_5 = f"Current player = {state.current_player}"
+        debug_2 = f"Current player = {state.current_player}"
+        debug_3 = None
+        debug_4 = None
+        debug_5 = None
         
         debug_msgs = [debug_1, debug_2, debug_3, debug_4, debug_5]
         
         for i in range(len(debug_msgs)):
-            draw_text_ex(gui_get_font(), debug_msgs[i], Vector2(5, 5+(i*20)), 15, 0, BLACK)
+            if debug_msgs[i] != None:
+                draw_text_ex(gui_get_font(), debug_msgs[i], Vector2(5, 5+(i*20)), 15, 0, BLACK)
 
 
         # display victory points
