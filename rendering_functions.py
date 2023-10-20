@@ -119,3 +119,13 @@ def draw_city(node, color):
     draw_line_v((city_base_rec.x+city_base_width, city_base_rec.y), (city_base_rec.x+city_base_width, city_base_rec.y+city_base_height), BLACK)
     draw_line_v((city_base_rec.x, city_base_rec.y+city_base_height), (city_base_rec.x+city_base_width, city_base_rec.y+city_base_height), BLACK)
 
+# DEBUG
+def draw_axes():
+    draw_line_ex((510, 110), (290, 490), 2, BLACK)
+    draw_text_ex(gui_get_font(), "+ S -", (480, 80), 20, 0, BLACK)
+    draw_line_ex((180, 300), (625, 300), 2, BLACK)
+    draw_text_ex(gui_get_font(), "-", (645, 270), 20, 0, BLACK)
+    draw_text_ex(gui_get_font(), "R", (645, 290), 20, 0, BLACK)
+    draw_text_ex(gui_get_font(), "+", (645, 310), 20, 0, BLACK)
+    draw_line_ex((290, 110), (510, 490), 2, BLACK)
+    draw_text_ex(gui_get_font(), "- Q +", (490, 500), 20, 0, BLACK)

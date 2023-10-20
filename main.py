@@ -1,8 +1,8 @@
 from __future__ import division
 from __future__ import print_function
-from operator import itemgetter, attrgetter
 import random
 import math
+from operator import itemgetter, attrgetter
 from enum import Enum
 from pyray import *
 import hex_helper as hh
@@ -211,6 +211,7 @@ class Node:
         self.hex_c = sorted_hexes[2]
         self.player = None
         self.town = None # city or settlement
+        self.port = None
 
     def __repr__(self):
         return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
@@ -370,6 +371,16 @@ class Port(Enum):
     BRICKPORT = " 2:1 \nbrick"
     SHEEPPORT = " 2:1 \nsheep"
 
+port_active_corners = [
+        (5, 0), None, (4, 5), None,
+        None, (4, 5),
+        (1, 0), None,
+        None, (3, 4),
+        (1, 0), None,
+        None, (2, 3),
+        (2, 1), None, (2, 3), None
+    ] 
+
 # Currently both land and ocean Tile class
 class Tile:
     def __init__(self, terrain, hex, token, port=None):
@@ -385,6 +396,7 @@ class Tile:
         self.port = port
         if port:
             self.port_display = port.value
+            self.active_corners = None
     
     def __repr__(self):
         return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, port: {self.port}, robber: {self.robber})"
@@ -643,6 +655,11 @@ def initialize_board(state):
     # in case ocean+land tiles are needed:
     state.all_tiles = state.land_tiles + state.ocean_tiles
 
+    for i in range(len(state.ocean_tiles)):
+        state.ocean_tiles[i].active_corners = port_active_corners[i]
+
+    # TODO iterate through nodes and activate ports for if tile is adjacent to port
+
     # settlement and road placement based on last page in manual
     set_demo_settlements()
 
@@ -883,6 +900,7 @@ def render(state):
 
         # draw black outlines around hexes
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, BLACK)
+
     
         # draw numbers, dots on hexes
         if tile.num != None:
@@ -902,14 +920,26 @@ def render(state):
             text_offset = measure_text_ex(gui_get_font(), tile.port_display, 16, 0)
             text_location = Vector2(hex_center.x-text_offset.x//2, hex_center.y-16)
             draw_text_ex(gui_get_font(), tile.port_display, text_location, 16, 0, BLACK)
+            
+            # draw active port corners 
+            corners = hh.polygon_corners(pointy, tile.hex)
+            for index in tile.active_corners:
+                draw_circle_v(corners[index], 10, RED)
+
+
+
 
     # outline up to 3 current hexes
     if state.current_hex: # and not state.current_edge:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, 50, 0, 6, BLACK)
+        corners = hh.polygon_corners(pointy, state.current_hex)
+        for i in range(len(corners)):
+            draw_text_ex(gui_get_font(), f"{i}", corners[i], 15, 0, WHITE)
     if state.current_hex_2:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_2), 6, 50, 0, 6, BLACK)
     if state.current_hex_3:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_3), 6, 50, 0, 6, BLACK)
+        
         
     # highlight selected edge and node
     if state.current_node:
@@ -977,6 +1007,7 @@ def render(state):
             hex_center = vector2_round(hh.hex_to_pixel(pointy, tile.hex))
             rf.draw_robber(hex_center)
             break
+
         
 
     end_mode_2d()
@@ -1003,6 +1034,8 @@ def render(state):
         for i in range(len(debug_msgs)):
             if debug_msgs[i] != None:
                 draw_text_ex(gui_get_font(), debug_msgs[i], Vector2(5, 5+(i*20)), 15, 0, BLACK)
+
+        # rf.draw_axes()
 
 
         # display victory points
