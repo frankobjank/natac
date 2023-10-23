@@ -215,6 +215,9 @@ class Node:
 
     def __repr__(self):
         return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
+    
+    def __str__(self):
+        return f"Player: {self.player}, Town: {self.town}, Port: {self.port}"
 
     def get_hexes(self):
         return (self.hex_a, self.hex_b, self.hex_c)
@@ -365,12 +368,14 @@ class Terrain(Enum):
 
 class Port(Enum):
     THREE = " ? \n3:1"
-    WHEATPORT = " 2:1 \nwheat"
-    OREPORT = "2:1\nore"
-    WOODPORT = " 2:1 \nwood"
-    BRICKPORT = " 2:1 \nbrick"
-    SHEEPPORT = " 2:1 \nsheep"
+    WHEAT = " 2:1 \nwheat"
+    ORE = "2:1\nore"
+    WOOD = " 2:1 \nwood"
+    BRICK = " 2:1 \nbrick"
+    SHEEP = " 2:1 \nsheep"
 
+# is there a better way to format this - a way to zip up info that will be associated
+# with other info without using a dictionary or class
 port_active_corners = [
         (5, 0), None, (4, 5), None,
         None, (4, 5),
@@ -381,9 +386,9 @@ port_active_corners = [
         (2, 1), None, (2, 3), None
     ] 
 
-# Currently both land and ocean Tile class
-class Tile:
-    def __init__(self, terrain, hex, token, port=None):
+# Currently both land and ocean (Tile class)
+class LandTile:
+    def __init__(self, terrain, hex, token):
         self.robber = False
         self.terrain = terrain.name
         self.resource = terrain.value["resource"]
@@ -393,14 +398,23 @@ class Tile:
         for k, v in self.token.items():
             self.num = k
             self.dots = v
-        self.port = port
-        if port:
-            self.port_display = port.value
-            self.active_corners = None
     
     def __repr__(self):
         return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, port: {self.port}, robber: {self.robber})"
     
+class OceanTile:
+    def __init__(self, terrain, hex, port=None):
+        self.terrain = terrain.name
+        self.resource = terrain.value["resource"]
+        self.color = terrain.value["color"]
+        self.hex = hex
+        self.port = port
+        if port:
+            self.port_display = port.value
+            self.active_corners = []
+    
+    def __repr__(self):
+        return f"OceanTile(hex: {self.hex}, port: {self.port})"
 
 
 default_terrains=[
@@ -412,12 +426,12 @@ default_terrains=[
 
 # default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
 
-default_ports= [Port.THREE, None, Port.WHEATPORT, None, 
-                None, Port.OREPORT,
-                Port.WOODPORT, None,
+default_ports= [Port.THREE, None, Port.WHEAT, None, 
+                None, Port.ORE,
+                Port.WOOD, None,
                 None, Port.THREE,
-                Port.BRICKPORT, None,
-                None, Port.SHEEPPORT, 
+                Port.BRICK, None,
+                None, Port.SHEEP, 
                 Port.THREE, None, Port.THREE, None]
 
 # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
@@ -447,7 +461,7 @@ class Player:
         self.victory_points = 0
     
     def __repr__(self):
-        return f"Player {self.name}:  cities {self.cities}, settlements {self.settlements}, roads {self.roads}, ports {self.ports}, hand {self.hand}, victory points: {self.victory_points}"
+        return f"Player {self.name}:  cities: {self.cities}, settlements: {self.settlements}, roads: {self.roads}, ports: {self.ports}, hand: {self.hand}, victory points: {self.victory_points}"
     
     def __str__(self):
         return f"Player {self.name}"
@@ -626,21 +640,23 @@ def initialize_board(state):
 
     # defining land tiles
     for i in range(len(land_hexes)):
-        state.land_tiles.append(Tile(terrain_tiles[i], state.land_hexes[i], tokens[i]))
+        state.land_tiles.append(LandTile(terrain_tiles[i], state.land_hexes[i], tokens[i]))
 
     # defining ocean tiles
     for i in range(len(ocean_hexes)):
-        state.ocean_tiles.append(Tile(terrain_tiles[i], state.ocean_hexes[i], tokens[i], ports[i]))
-
+        state.ocean_tiles.append(OceanTile(Terrain.OCEAN, state.ocean_hexes[i], ports[i]))
+    print(len(state.ocean_tiles))
 
     state.all_hexes = land_hexes + ocean_hexes
 
     # triple 'for' loop to fill state.edges and state.nodes lists
-    # replaced raylib func with my own
+    # replaced raylib func with my own for radius check
     for i in range(len(state.all_hexes)):
         for j in range(i+1, len(state.all_hexes)):
+            # first two loops create Edges
             if radius_check_two_circles(hh.hex_to_pixel(pointy, state.all_hexes[i]), 60, hh.hex_to_pixel(pointy, state.all_hexes[j]), 60):
                 state.edges.append(Edge(state.all_hexes[i], state.all_hexes[j]))
+                # third loop creates Nodes
                 for k in range(j+1, len(state.all_hexes)):
                     if radius_check_two_circles(hh.hex_to_pixel(pointy, state.all_hexes[i]), 60, hh.hex_to_pixel(pointy, state.all_hexes[k]), 60):
                         state.nodes.append(Node(state.all_hexes[i], state.all_hexes[j], state.all_hexes[k]))
@@ -655,13 +671,32 @@ def initialize_board(state):
     # in case ocean+land tiles are needed:
     state.all_tiles = state.land_tiles + state.ocean_tiles
 
-    for i in range(len(state.ocean_tiles)):
-        state.ocean_tiles[i].active_corners = port_active_corners[i]
+    # for i in range(len(state.ocean_tiles)):
+    #     corners = hh.polygon_corners(pointy, state.ocean_tiles[i].hex)
+    #     # port_active_corners is list of indices of active corners
+    #     if port_active_corners[i] != None:
+    #         for index in port_active_corners[i]:
+    #             state.ocean_tiles[i].active_corners.append(corners[index])
 
-    # TODO iterate through nodes and activate ports for if tile is adjacent to port
-
+    # TODO iterate through nodes and activate ports if tile is adjacent to port
+    # for tile in state.ocean_tiles:
+    #     if tile.active_corners:
+    #         corners = hh.polygon_corners(pointy, tile.hex)
+    #         for index in tile.active_corners:
+    #             for node in state.nodes:
+    #                 if node.hex_a == tile.hex or node.hex_b == tile.hex or node.hex_c == tile.hex:
+    #                     print(node)
+    #                 if corners[index] == node.get_node_point():
+    #                     print("hello")
+    #                     node.port = tile.port
+    
     # settlement and road placement based on last page in manual
     set_demo_settlements()
+
+
+initialize_board(state)
+# for node in state.nodes:
+    # print(node.port)
 
 
 def get_user_input(state):
@@ -923,8 +958,15 @@ def render(state):
             
             # draw active port corners 
             corners = hh.polygon_corners(pointy, tile.hex)
-            for index in tile.active_corners:
-                draw_circle_v(corners[index], 10, RED)
+            # for index in tile.active_corners:
+            #     center = hh.hex_to_pixel(pointy, tile.hex)
+            #     midpoint = ((center.x+corners[index].x)//2, (center.y+corners[index].y)//2)
+            #     draw_line_ex(midpoint, corners[index], 3, BLACK)
+            for corner in tile.active_corners:
+                center = hh.hex_to_pixel(pointy, tile.hex)
+                midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
+                draw_line_ex(midpoint, corner, 3, BLACK)
+
 
 
 
@@ -1021,21 +1063,23 @@ def render(state):
         # debug_3 = f"Current edge: {state.current_edge}"
         # debug_4 = f"Current node = {state.current_node}"
         # debug_5 = f"Current selection = {state.selection}"
-        
+        # debug_msgs = [debug_1, debug_2, debug_3, debug_4, debug_5]
         
         debug_1 = f"World mouse at: ({int(state.world_position.x)}, {int(state.world_position.y)})"
         debug_2 = f"Current player = {state.current_player}"
-        debug_3 = None
-        debug_4 = None
+        if state.current_player:
+            debug_3 = f"Current player ports = {state.current_player.ports}"
+        if state.current_node:
+            debug_4 = f"Current node port = {state.current_node.port}"
         debug_5 = None
         
-        debug_msgs = [debug_1, debug_2, debug_3, debug_4, debug_5]
-        
-        for i in range(len(debug_msgs)):
-            if debug_msgs[i] != None:
-                draw_text_ex(gui_get_font(), debug_msgs[i], Vector2(5, 5+(i*20)), 15, 0, BLACK)
+        draw_text_ex(gui_get_font(), debug_1, Vector2(5, 5), 15, 0, BLACK)
+        draw_text_ex(gui_get_font(), debug_2, Vector2(5, 25), 15, 0, BLACK)
+        if state.current_player:
+            draw_text_ex(gui_get_font(), debug_3, Vector2(5, 45), 15, 0, BLACK)
+        if state.current_node:
+            draw_text_ex(gui_get_font(), debug_4, Vector2(5, 65), 15, 0, BLACK)
 
-        # rf.draw_axes()
 
 
         # display victory points
