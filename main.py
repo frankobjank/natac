@@ -496,12 +496,59 @@ class Button:
 class State:
     def __init__(self):
         # tiles/hexes
-        self.land_tiles = []
-        self.ocean_tiles = []
-        self.land_hexes = land_hexes
-        self.ocean_hexes = ocean_hexes
+        self.land_hexes = [hh.set_hex(0, -2, 2),
+            hh.set_hex(1, -2, 1),
+            hh.set_hex(2, -2, 0),
+
+            hh.set_hex(-1, -1, 2),
+            hh.set_hex(0, -1, 1),
+            hh.set_hex(1, -1, 0),
+            hh.set_hex(2, -1, -1),
+
+            hh.set_hex(-2, 0, 2),
+            hh.set_hex(-1, 0, 1),
+            hh.set_hex(0, 0, 0),
+            hh.set_hex(1, 0, -1),
+            hh.set_hex(2, 0, -2),
+
+            hh.set_hex(-2, 1, 1),
+            hh.set_hex(-1, 1, 0),
+            hh.set_hex(0, 1, -1),
+            hh.set_hex(1, 1, -2),
+
+            hh.set_hex(-2, 2, 0),
+            hh.set_hex(-1, 2, -1),
+            hh.set_hex(0, 2, -2)]
+
+        self.ocean_hexes = [hh.set_hex(0, -3, 3), # port
+            hh.set_hex(1, -3, 2),
+            hh.set_hex(2, -3, 1), # port
+            hh.set_hex(3, -3, 0),
+
+            hh.set_hex(-1, -2, 3),
+            hh.set_hex(3, -2, -1), # port
+
+            hh.set_hex(-2, -1, 3), # port
+            hh.set_hex(3, -1, -2),
+
+            hh.set_hex(-3, 0, 3),
+            hh.set_hex(3, 0, -3), # port
+
+            hh.set_hex(-3, 1, 2), # port
+            hh.set_hex(2, 1, -3),
+
+            hh.set_hex(-3, 2, 1),
+            hh.set_hex(1, 2, -3), # port
+
+            hh.set_hex(-3, 3, 0), # port
+            hh.set_hex(-2, 3, -1),
+            hh.set_hex(-1, 3, -2), # port
+            hh.set_hex(0, 3, -3)]
         # land and ocean hexes only
         self.all_hexes = land_hexes + ocean_hexes
+
+        self.land_tiles = []
+        self.ocean_tiles = []
         self.all_tiles = []
 
         # user input, can be keyboard key or mouse
@@ -693,10 +740,6 @@ def initialize_board(state):
     # settlement and road placement based on last page in manual
     set_demo_settlements()
 
-
-initialize_board(state)
-# for node in state.nodes:
-    # print(node.port)
 
 
 def get_user_input(state):
@@ -1110,4 +1153,4 @@ def main():
     unload_font(gui_get_font())
     close_window()
 
-main()
+# main()
