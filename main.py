@@ -33,6 +33,10 @@ def radius_check_two_circles(center1: Vector2, radius1: int, center2: Vector2, r
         return True
     else:
         return False
+    
+
+def sort_hexes(hexes) -> list:
+    return sorted(hexes, key=attrgetter("q", "r", "s"))
 
 # layout = type, size, origin
 size = 50 # (radius)
@@ -95,9 +99,6 @@ ocean_hexes = [hh.set_hex(0, -3, 3), # port
 
 
 default_tile_tokens_dict = [{10: 3}, {2: 1}, {9: 4}, {12: 1}, {6: 5}, {4: 3}, {10: 3}, {9: 4}, {11: 2}, {None: None}, {3: 2}, {8: 5}, {8: 5}, {3: 2}, {4: 3}, {5: 4}, {5: 4}, {6: 5}, {11: 2}]
-
-def sort_hexes(hexes) -> list:
-    return sorted(hexes, key=attrgetter("q", "r", "s"))
 
 class Edge:
     def __init__(self, hex_a, hex_b):
@@ -214,10 +215,11 @@ class Node:
         self.port = None
 
     def __repr__(self):
-        return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
+        return f"hh.set_hex{self.hex_a.q, self.hex_a.r, self.hex_a.s}, hh.set_hex{self.hex_b.q, self.hex_b.r, self.hex_b.s}, hh.set_hex{self.hex_c.q, self.hex_c.r, self.hex_c.s},"
+        # return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
     
-    def __str__(self):
-        return f"Player: {self.player}, Town: {self.town}, Port: {self.port}"
+    # def __str__(self):
+    #     return f"Player: {self.player}, Town: {self.town}, Port: {self.port}"
 
     def get_hexes(self):
         return (self.hex_a, self.hex_b, self.hex_c)
@@ -386,6 +388,28 @@ port_active_corners = [
         (2, 1), None, (2, 3), None
     ] 
 
+port_node_hexes = [
+    sort_hexes(hh.set_hex(-1, -2, 3), hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2)),
+    sort_hexes(hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2), hh.set_hex(1, -3, 2)),
+    sort_hexes(hh.set_hex(1, -3, 2), hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1)),
+    sort_hexes(hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1), hh.set_hex(2, -2, 0)),
+    sort_hexes(hh.set_hex(2, -2, 0), hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1)),
+    sort_hexes(hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1), hh.set_hex(3, -1, -2)),
+    sort_hexes(hh.set_hex(-2, -1, 3), hh.set_hex(-1, -2, 3), hh.set_hex(-1, -1, 2)),
+    sort_hexes(hh.set_hex(-2, -1, 3), hh.set_hex(-2, 0, 2), hh.set_hex(-1, -1, 2)),
+    sort_hexes(hh.set_hex(2, 0, -2), hh.set_hex(3, -1, -2), hh.set_hex(3, 0, -3)),
+    sort_hexes(hh.set_hex(2, 0, -2), hh.set_hex(2, 1, -3), hh.set_hex(3, 0, -3)),
+    sort_hexes(hh.set_hex(-3, 1, 2), hh.set_hex(-2, 0, 2), hh.set_hex(-2, 1, 1)),
+    sort_hexes(hh.set_hex(-3, 1, 2), hh.set_hex(-3, 2, 1), hh.set_hex(-2, 1, 1)),
+    sort_hexes(hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3), hh.set_hex(2, 1, -3)),
+    sort_hexes(hh.set_hex(0, 2, -2), hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3)),
+    sort_hexes(hh.set_hex(-3, 2, 1), hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0)),
+    sort_hexes(hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0), hh.set_hex(-2, 3, -1)),
+    sort_hexes(hh.set_hex(-2, 3, -1), hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2)),
+    sort_hexes(hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2), hh.set_hex(0, 2, -2))
+    ]
+
+
 # Currently both land and ocean (Tile class)
 class LandTile:
     def __init__(self, terrain, hex, token):
@@ -400,7 +424,7 @@ class LandTile:
             self.dots = v
     
     def __repr__(self):
-        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, port: {self.port}, robber: {self.robber})"
+        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, robber: {self.robber})"
     
 class OceanTile:
     def __init__(self, terrain, hex, port=None):
@@ -411,7 +435,7 @@ class OceanTile:
         self.port = port
         if port:
             self.port_display = port.value
-            self.active_corners = []
+        self.active_corners = []
     
     def __repr__(self):
         return f"OceanTile(hex: {self.hex}, port: {self.port})"
@@ -433,6 +457,7 @@ default_ports= [Port.THREE, None, Port.WHEAT, None,
                 Port.BRICK, None,
                 None, Port.SHEEP, 
                 Port.THREE, None, Port.THREE, None]
+port_order_for_nodes = [Port.THREE, Port.WHEAT, Port.ORE, Port.WOOD, Port.THREE, Port.BRICK, Port.SHEEP, Port.THREE, Port.THREE]
 
 # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
 def get_random_terrain():
@@ -692,7 +717,7 @@ def initialize_board(state):
     # defining ocean tiles
     for i in range(len(ocean_hexes)):
         state.ocean_tiles.append(OceanTile(Terrain.OCEAN, state.ocean_hexes[i], ports[i]))
-    print(len(state.ocean_tiles))
+
 
     state.all_hexes = land_hexes + ocean_hexes
 
@@ -718,24 +743,18 @@ def initialize_board(state):
     # in case ocean+land tiles are needed:
     state.all_tiles = state.land_tiles + state.ocean_tiles
 
-    # for i in range(len(state.ocean_tiles)):
-    #     corners = hh.polygon_corners(pointy, state.ocean_tiles[i].hex)
-    #     # port_active_corners is list of indices of active corners
-    #     if port_active_corners[i] != None:
-    #         for index in port_active_corners[i]:
-    #             state.ocean_tiles[i].active_corners.append(corners[index])
+    for i in range(len(state.ocean_tiles)):
+        corners = hh.polygon_corners(pointy, state.ocean_tiles[i].hex)
+        # port_active_corners is list of indices of active corners
+        if port_active_corners[i] != None:
+            for index in port_active_corners[i]:
+                state.ocean_tiles[i].active_corners.append(corners[index])
 
     # TODO iterate through nodes and activate ports if tile is adjacent to port
-    # for tile in state.ocean_tiles:
-    #     if tile.active_corners:
-    #         corners = hh.polygon_corners(pointy, tile.hex)
-    #         for index in tile.active_corners:
-    #             for node in state.nodes:
-    #                 if node.hex_a == tile.hex or node.hex_b == tile.hex or node.hex_c == tile.hex:
-    #                     print(node)
-    #                 if corners[index] == node.get_node_point():
-    #                     print("hello")
-    #                     node.port = tile.port
+    for hexes in port_node_hexes:
+        for hex in hexes:
+            if hex in state.ocean_tiles:
+
     
     # settlement and road placement based on last page in manual
     set_demo_settlements()
@@ -835,7 +854,7 @@ def update(state):
     if state.user_input == MouseButton.MOUSE_BUTTON_LEFT:
         if state.current_node:
             state.selection = state.current_node
-
+            print(state.current_node)
             # toggle between settlement, city, None
             # if state.current_player:
                 
@@ -1000,11 +1019,6 @@ def render(state):
             draw_text_ex(gui_get_font(), tile.port_display, text_location, 16, 0, BLACK)
             
             # draw active port corners 
-            corners = hh.polygon_corners(pointy, tile.hex)
-            # for index in tile.active_corners:
-            #     center = hh.hex_to_pixel(pointy, tile.hex)
-            #     midpoint = ((center.x+corners[index].x)//2, (center.y+corners[index].y)//2)
-            #     draw_line_ex(midpoint, corners[index], 3, BLACK)
             for corner in tile.active_corners:
                 center = hh.hex_to_pixel(pointy, tile.hex)
                 midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
@@ -1153,4 +1167,8 @@ def main():
     unload_font(gui_get_font())
     close_window()
 
-# main()
+def test():
+    initialize_board(state)
+
+main()
+# test()
