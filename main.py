@@ -4,7 +4,7 @@ import random
 import math
 from operator import itemgetter, attrgetter
 from enum import Enum
-from pyray import *
+import pyray as pr
 import hex_helper as hh
 import rendering_functions as rf
 
@@ -19,16 +19,16 @@ default_zoom = .9
     # check_collision_point_circle -> radius_check_v()
 
 def vector2_round(vector2):
-    return Vector2(int(vector2.x), int(vector2.y))
+    return pr.Vector2(int(vector2.x), int(vector2.y))
 
 # check if distance between mouse and hex_center shorter than radius
-def radius_check_v(pt1:Vector2, pt2:Vector2, radius:int)->bool:
+def radius_check_v(pt1:pr.Vector2, pt2:pr.Vector2, radius:int)->bool:
     if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
         return True
     else:
         return False
     
-def radius_check_two_circles(center1: Vector2, radius1: int, center2: Vector2, radius2: int)->bool:
+def radius_check_two_circles(center1: pr.Vector2, radius1: int, center2: pr.Vector2, radius2: int)->bool:
     if math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2):
         return True
     else:
@@ -306,23 +306,23 @@ class Node:
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
 class GameColor(Enum):
     # players
-    PLAYER_NIL = GRAY
-    PLAYER_RED = get_color(0xe1282fff)
-    PLAYER_BLUE = get_color(0x2974b8ff)
-    PLAYER_ORANGE = get_color(0xd46a24ff)
-    PLAYER_WHITE = get_color(0xd6d6d6ff)
+    PLAYER_NIL = pr.GRAY
+    PLAYER_RED = pr.get_color(0xe1282fff)
+    PLAYER_BLUE = pr.get_color(0x2974b8ff)
+    PLAYER_ORANGE = pr.get_color(0xd46a24ff)
+    PLAYER_WHITE = pr.get_color(0xd6d6d6ff)
 
     # other pieces
-    ROBBER = BLACK
+    ROBBER = pr.BLACK
     # buttons
     # put terrain colors here
-    FOREST = get_color(0x517d19ff)
-    HILL = get_color(0x9c4300ff)
-    PASTURE = get_color(0x17b97fff)
-    FIELD = get_color(0xf0ad00ff)
-    MOUNTAIN = get_color(0x7b6f83ff)
-    DESERT = get_color(0xffd966ff)
-    OCEAN = get_color(0x4fa6ebff)
+    FOREST = pr.get_color(0x517d19ff)
+    HILL = pr.get_color(0x9c4300ff)
+    PASTURE = pr.get_color(0x17b97fff)
+    FIELD = pr.get_color(0xf0ad00ff)
+    MOUNTAIN = pr.get_color(0x7b6f83ff)
+    DESERT = pr.get_color(0xffd966ff)
+    OCEAN = pr.get_color(0x4fa6ebff)
 
 
 
@@ -359,13 +359,13 @@ class Resource(Enum):
 
 
 class Terrain(Enum):
-    FOREST = {"resource": "wood", "color": get_color(0x517d19ff)}
-    HILL = {"resource": "brick", "color": get_color(0x9c4300ff)}
-    PASTURE = {"resource": "sheep", "color": get_color(0x17b97fff)}
-    FIELD = {"resource": "wheat", "color": get_color(0xf0ad00ff)}
-    MOUNTAIN = {"resource": "ore", "color": get_color(0x7b6f83ff)}
-    DESERT = {"resource": None, "color": get_color(0xffd966ff)}
-    OCEAN = {"resource": None, "color": get_color(0x4fa6ebff)}
+    FOREST = {"resource": "wood", "color": pr.get_color(0x517d19ff)}
+    HILL = {"resource": "brick", "color": pr.get_color(0x9c4300ff)}
+    PASTURE = {"resource": "sheep", "color": pr.get_color(0x17b97fff)}
+    FIELD = {"resource": "wheat", "color": pr.get_color(0xf0ad00ff)}
+    MOUNTAIN = {"resource": "ore", "color": pr.get_color(0x7b6f83ff)}
+    DESERT = {"resource": None, "color": pr.get_color(0xffd966ff)}
+    OCEAN = {"resource": None, "color": pr.get_color(0x4fa6ebff)}
 
     # FOREST = "forest"
     # HILL = "hill"
@@ -504,7 +504,7 @@ class Player:
 
 
 class Button:
-    def __init__(self, rec:Rectangle, color:GameColor, set_var=None) -> None:
+    def __init__(self, rec:pr.Rectangle, color:GameColor, set_var=None) -> None:
         self.rec = rec
         self.color = color.value
         self.name = color.name
@@ -627,19 +627,19 @@ class State:
 
         # debug buttons
         self.buttons=[
-            Button(Rectangle(750, 20, 40, 40), GameColor.PLAYER_BLUE, self.blue_player),
-            Button(Rectangle(700, 20, 40, 40), GameColor.PLAYER_ORANGE, self.orange_player), 
-            Button(Rectangle(650, 20, 40, 40), GameColor.PLAYER_WHITE, self.white_player), 
-            Button(Rectangle(600, 20, 40, 40), GameColor.PLAYER_RED, self.red_player),
-            Button(Rectangle(550, 20, 40, 40), GameColor.ROBBER)
-            # Button(Rectangle(500, 20, 40, 40), GameColor.PLAYER_NIL, nil_player),
+            Button(pr.Rectangle(750, 20, 40, 40), GameColor.PLAYER_BLUE, self.blue_player),
+            Button(pr.Rectangle(700, 20, 40, 40), GameColor.PLAYER_ORANGE, self.orange_player), 
+            Button(pr.Rectangle(650, 20, 40, 40), GameColor.PLAYER_WHITE, self.white_player), 
+            Button(pr.Rectangle(600, 20, 40, 40), GameColor.PLAYER_RED, self.red_player),
+            Button(pr.Rectangle(550, 20, 40, 40), GameColor.ROBBER)
+            # Button(pr.Rectangle(500, 20, 40, 40), GameColor.PLAYER_NIL, nil_player),
         ]
 
 
         # camera controls
-        self.camera = Camera2D()
-        self.camera.target = Vector2(0, 0)
-        self.camera.offset = Vector2(screen_width/2, screen_height/2)
+        self.camera = pr.Camera2D()
+        self.camera.target = pr.Vector2(0, 0)
+        self.camera.offset = pr.Vector2(screen_width/2, screen_height/2)
         self.camera.rotation = 0.0
         self.camera.zoom = default_zoom
 
@@ -769,32 +769,32 @@ def initialize_board(state):
 
 
 def get_user_input(state):
-    state.world_position = get_screen_to_world_2d(get_mouse_position(), state.camera)
+    state.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), state.camera)
 
     state.user_input = None
 
-    if is_mouse_button_released(MouseButton.MOUSE_BUTTON_LEFT):
-        state.user_input = MouseButton.MOUSE_BUTTON_LEFT
+    if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
+        state.user_input = pr.MouseButton.MOUSE_BUTTON_LEFT
 
     # camera controls
     # not sure how to capture mouse wheel, also currently using RAYLIB for these inputs
     # state.camera.zoom += get_mouse_wheel_move() * 0.03
 
-    elif is_key_down(KeyboardKey.KEY_RIGHT_BRACKET):
-        state.user_input = KeyboardKey.KEY_RIGHT_BRACKET
+    elif pr.is_key_down(pr.KeyboardKey.KEY_RIGHT_BRACKET):
+        state.user_input = pr.KeyboardKey.KEY_RIGHT_BRACKET
 
-    elif is_key_down(KeyboardKey.KEY_LEFT_BRACKET):
-        state.user_input = KeyboardKey.KEY_LEFT_BRACKET
+    elif pr.is_key_down(pr.KeyboardKey.KEY_LEFT_BRACKET):
+        state.user_input = pr.KeyboardKey.KEY_LEFT_BRACKET
 
     # camera and board reset (zoom and rotation)
-    elif is_key_pressed(KeyboardKey.KEY_R):
-        state.user_input = KeyboardKey.KEY_R
+    elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
+        state.user_input = pr.KeyboardKey.KEY_R
 
-    elif is_key_pressed(KeyboardKey.KEY_E):
-        state.user_input = KeyboardKey.KEY_E
+    elif pr.is_key_pressed(pr.KeyboardKey.KEY_E):
+        state.user_input = pr.KeyboardKey.KEY_E
     
-    elif is_key_pressed(KeyboardKey.KEY_F):
-        state.user_input = KeyboardKey.KEY_F
+    elif pr.is_key_pressed(pr.KeyboardKey.KEY_F):
+        state.user_input = pr.KeyboardKey.KEY_F
 
 
 def update(state):
@@ -858,7 +858,7 @@ def update(state):
 
 
     # selecting based on mouse button input from get_user_input()
-    if state.user_input == MouseButton.MOUSE_BUTTON_LEFT:
+    if state.user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
         if state.current_node:
             state.selection = state.current_node
             print(state.current_node)
@@ -943,7 +943,7 @@ def update(state):
         # DEBUG - buttons
         if state.debug == True:
             for button in state.buttons:
-                if check_collision_point_rec(get_mouse_position(), button.rec):
+                if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
                     if button.name == "ROBBER":
                         state.move_robber = button.toggle(state.move_robber)
                         state.current_player = None
@@ -962,9 +962,9 @@ def update(state):
     # if state.user_input == mouse wheel
     # state.camera.zoom += get_mouse_wheel_move() * 0.03
 
-    if state.user_input == KeyboardKey.KEY_RIGHT_BRACKET:
+    if state.user_input == pr.KeyboardKey.KEY_RIGHT_BRACKET:
         state.camera.zoom += 0.03
-    elif state.user_input == KeyboardKey.KEY_LEFT_BRACKET:
+    elif state.user_input == pr.KeyboardKey.KEY_LEFT_BRACKET:
         state.camera.zoom -= 0.03
 
     # zoom boundary automatic reset
@@ -973,14 +973,14 @@ def update(state):
     elif state.camera.zoom < 0.1:
         state.camera.zoom = 0.1
 
-    if state.user_input == KeyboardKey.KEY_F:
-        toggle_fullscreen()
+    if state.user_input == pr.KeyboardKey.KEY_F:
+        pr.toggle_fullscreen()
 
-    if state.user_input == KeyboardKey.KEY_E:
+    if state.user_input == pr.KeyboardKey.KEY_E:
         state.debug = not state.debug # toggle
 
     # camera and board reset (zoom and rotation)
-    if state.user_input == KeyboardKey.KEY_R:
+    if state.user_input == pr.KeyboardKey.KEY_R:
         state.reset = True
         state.camera.zoom = default_zoom
         state.camera.rotation = 0.0
@@ -996,18 +996,18 @@ def update(state):
 
 def render(state):
     
-    begin_drawing()
-    clear_background(BLUE)
+    pr.begin_drawing()
+    pr.clear_background(pr.BLUE)
 
-    begin_mode_2d(state.camera)
+    pr.begin_mode_2d(state.camera)
 
     # draw land tiles, numbers, dots
     for tile in state.land_tiles:
         # draw resource hexes
-        draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, tile.color)
+        pr.draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, tile.color)
 
         # draw black outlines around hexes
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, BLACK)
+        pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, pr.BLACK)
 
     
         # draw numbers, dots on hexes
@@ -1022,18 +1022,18 @@ def render(state):
     
     # draw ocean tiles, ports
     for tile in state.ocean_tiles:
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, BLACK)
+        pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, pr.BLACK)
         if tile.port:
             hex_center = hh.hex_to_pixel(pointy, tile.hex)
-            text_offset = measure_text_ex(gui_get_font(), tile.port_display, 16, 0)
-            text_location = Vector2(hex_center.x-text_offset.x//2, hex_center.y-16)
-            draw_text_ex(gui_get_font(), tile.port_display, text_location, 16, 0, BLACK)
+            text_offset = pr.measure_text_ex(pr.gui_get_font(), tile.port_display, 16, 0)
+            text_location = pr.Vector2(hex_center.x-text_offset.x//2, hex_center.y-16)
+            pr.draw_text_ex(pr.gui_get_font(), tile.port_display, text_location, 16, 0, pr.BLACK)
             
             # draw active port corners 
             for corner in tile.active_corners:
                 center = hh.hex_to_pixel(pointy, tile.hex)
                 midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
-                draw_line_ex(midpoint, corner, 3, BLACK)
+                pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
 
 
@@ -1041,16 +1041,16 @@ def render(state):
 
     # outline up to 3 current hexes
     if state.current_hex: # and not state.current_edge:
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, 50, 0, 6, BLACK)
+        pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, 50, 0, 6, pr.BLACK)
     if state.current_hex_2:
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_2), 6, 50, 0, 6, BLACK)
+        pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_2), 6, 50, 0, 6, pr.BLACK)
     if state.current_hex_3:
-        draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_3), 6, 50, 0, 6, BLACK)
+        pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_3), 6, 50, 0, 6, pr.BLACK)
         
         
     # highlight selected edge and node
     if state.current_node:
-        draw_circle_v(state.current_node.get_node_point(), 10, BLACK)
+        pr.draw_circle_v(state.current_node.get_node_point(), 10, pr.BLACK)
 
         # DEBUG - show adj_edges
         # adj_edges = state.current_node.get_adj_edges(state.edges)
@@ -1060,13 +1060,13 @@ def render(state):
         
         adj_nodes = state.current_node.get_adj_nodes_from_node(state.nodes)
         for node in adj_nodes:
-            draw_circle_v(node.get_node_point(), 10, YELLOW)
+            pr.draw_circle_v(node.get_node_point(), 10, pr.YELLOW)
 
 
 
     if state.current_edge and not state.current_node:
         corners = state.current_edge.get_edge_points()
-        draw_line_ex(corners[0], corners[1], 12, BLACK)
+        pr.draw_line_ex(corners[0], corners[1], 12, pr.BLACK)
         
         # DEBUG: draw adj edges to edge 
         # adj_edges = state.current_edge.get_adj_node_edges(state.nodes, state.edges)
@@ -1117,7 +1117,7 @@ def render(state):
 
         
 
-    end_mode_2d()
+    pr.end_mode_2d()
 
     if state.debug == True:
         # debug info top left of screen
@@ -1138,12 +1138,12 @@ def render(state):
             debug_4 = f"Current node port = {state.current_node.port}"
         debug_5 = None
         
-        draw_text_ex(gui_get_font(), debug_1, Vector2(5, 5), 15, 0, BLACK)
-        draw_text_ex(gui_get_font(), debug_2, Vector2(5, 25), 15, 0, BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), debug_1, pr.Vector2(5, 5), 15, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), debug_2, pr.Vector2(5, 25), 15, 0, pr.BLACK)
         if state.current_player:
-            draw_text_ex(gui_get_font(), debug_3, Vector2(5, 45), 15, 0, BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), debug_3, pr.Vector2(5, 45), 15, 0, pr.BLACK)
         if state.current_node:
-            draw_text_ex(gui_get_font(), debug_4, Vector2(5, 65), 15, 0, BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), debug_4, pr.Vector2(5, 65), 15, 0, pr.BLACK)
 
 
 
@@ -1155,25 +1155,25 @@ def render(state):
 
 
         for button in state.buttons:
-            draw_rectangle_rec(button.rec, button.color)
-            draw_rectangle_lines_ex(button.rec, 1, BLACK)
+            pr.draw_rectangle_rec(button.rec, button.color)
+            pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
 
         
-    end_drawing()
+    pr.end_drawing()
 
 
 def main():
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
-    init_window(screen_width, screen_height, "Natac")
-    set_target_fps(60)
+    pr.init_window(screen_width, screen_height, "Natac")
+    pr.set_target_fps(60)
     initialize_board(state)
-    gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
-    while not window_should_close():
+    pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
+    while not pr.window_should_close():
         get_user_input(state)
         update(state)
         render(state)
-    unload_font(gui_get_font())
-    close_window()
+    pr.unload_font(pr.gui_get_font())
+    pr.close_window()
 
 def test():
     initialize_board(state)
