@@ -466,6 +466,7 @@ default_ports= [Port.THREE, None, Port.WHEAT, None,
                 Port.BRICK, None,
                 None, Port.SHEEP, 
                 Port.THREE, None, Port.THREE, None]
+
 port_order_for_nodes = [Port.THREE, Port.THREE, Port.WHEAT, Port.WHEAT, Port.ORE, Port.ORE, Port.WOOD, Port.WOOD, Port.THREE, Port.THREE, Port.BRICK, Port.BRICK, Port.SHEEP, Port.SHEEP, Port.THREE, Port.THREE, Port.THREE, Port.THREE]
 
 # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
@@ -862,13 +863,13 @@ def update(state):
             state.selection = state.current_node
             print(state.current_node)
             # toggle between settlement, city, None
-            # if state.current_player:
                 
             if state.current_node.town == None and state.current_player != None:
                 if state.current_node.build_check_settlement(state):
                     state.current_node.town = "settlement"
                     state.current_node.player = state.current_player
                     state.current_player.settlements.append(state.current_node)
+                    state.current_player.ports.append(state.current_node.port)
 
             elif state.current_node.town == "settlement":
                 current_owner = state.current_node.player
