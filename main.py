@@ -215,8 +215,9 @@ class Node:
         self.port = None
 
     def __repr__(self):
-        return f"hh.set_hex{self.hex_a.q, self.hex_a.r, self.hex_a.s}, hh.set_hex{self.hex_b.q, self.hex_b.r, self.hex_b.s}, hh.set_hex{self.hex_c.q, self.hex_c.r, self.hex_c.s},"
+        # return f"hh.set_hex{self.hex_a.q, self.hex_a.r, self.hex_a.s}, hh.set_hex{self.hex_b.q, self.hex_b.r, self.hex_b.s}, hh.set_hex{self.hex_c.q, self.hex_c.r, self.hex_c.s},"
         # return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
+        return f"{self.get_hexes()}"
     
     # def __str__(self):
     #     return f"Player: {self.player}, Town: {self.town}, Port: {self.port}"
@@ -389,24 +390,24 @@ port_active_corners = [
     ] 
 
 port_node_hexes = [
-    sort_hexes(hh.set_hex(-1, -2, 3), hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2)),
-    sort_hexes(hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2), hh.set_hex(1, -3, 2)),
-    sort_hexes(hh.set_hex(1, -3, 2), hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1)),
-    sort_hexes(hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1), hh.set_hex(2, -2, 0)),
-    sort_hexes(hh.set_hex(2, -2, 0), hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1)),
-    sort_hexes(hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1), hh.set_hex(3, -1, -2)),
-    sort_hexes(hh.set_hex(-2, -1, 3), hh.set_hex(-1, -2, 3), hh.set_hex(-1, -1, 2)),
-    sort_hexes(hh.set_hex(-2, -1, 3), hh.set_hex(-2, 0, 2), hh.set_hex(-1, -1, 2)),
-    sort_hexes(hh.set_hex(2, 0, -2), hh.set_hex(3, -1, -2), hh.set_hex(3, 0, -3)),
-    sort_hexes(hh.set_hex(2, 0, -2), hh.set_hex(2, 1, -3), hh.set_hex(3, 0, -3)),
-    sort_hexes(hh.set_hex(-3, 1, 2), hh.set_hex(-2, 0, 2), hh.set_hex(-2, 1, 1)),
-    sort_hexes(hh.set_hex(-3, 1, 2), hh.set_hex(-3, 2, 1), hh.set_hex(-2, 1, 1)),
-    sort_hexes(hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3), hh.set_hex(2, 1, -3)),
-    sort_hexes(hh.set_hex(0, 2, -2), hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3)),
-    sort_hexes(hh.set_hex(-3, 2, 1), hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0)),
-    sort_hexes(hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0), hh.set_hex(-2, 3, -1)),
-    sort_hexes(hh.set_hex(-2, 3, -1), hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2)),
-    sort_hexes(hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2), hh.set_hex(0, 2, -2))
+    sort_hexes((hh.set_hex(-1, -2, 3), hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2))),
+    sort_hexes((hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2), hh.set_hex(1, -3, 2))),
+    sort_hexes((hh.set_hex(1, -3, 2), hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1))),
+    sort_hexes((hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1), hh.set_hex(2, -2, 0))),
+    sort_hexes((hh.set_hex(2, -2, 0), hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1))),
+    sort_hexes((hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1), hh.set_hex(3, -1, -2))),
+    sort_hexes((hh.set_hex(-2, -1, 3), hh.set_hex(-1, -2, 3), hh.set_hex(-1, -1, 2))),
+    sort_hexes((hh.set_hex(-2, -1, 3), hh.set_hex(-2, 0, 2), hh.set_hex(-1, -1, 2))),
+    sort_hexes((hh.set_hex(2, 0, -2), hh.set_hex(3, -1, -2), hh.set_hex(3, 0, -3))),
+    sort_hexes((hh.set_hex(2, 0, -2), hh.set_hex(2, 1, -3), hh.set_hex(3, 0, -3))),
+    sort_hexes((hh.set_hex(-3, 1, 2), hh.set_hex(-2, 0, 2), hh.set_hex(-2, 1, 1))),
+    sort_hexes((hh.set_hex(-3, 1, 2), hh.set_hex(-3, 2, 1), hh.set_hex(-2, 1, 1))),
+    sort_hexes((hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3), hh.set_hex(2, 1, -3))),
+    sort_hexes((hh.set_hex(0, 2, -2), hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3))),
+    sort_hexes((hh.set_hex(-3, 2, 1), hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0))),
+    sort_hexes((hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0), hh.set_hex(-2, 3, -1))),
+    sort_hexes((hh.set_hex(-2, 3, -1), hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2))),
+    sort_hexes((hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2), hh.set_hex(0, 2, -2)))
     ]
 
 
@@ -457,7 +458,7 @@ default_ports= [Port.THREE, None, Port.WHEAT, None,
                 Port.BRICK, None,
                 None, Port.SHEEP, 
                 Port.THREE, None, Port.THREE, None]
-port_order_for_nodes = [Port.THREE, Port.WHEAT, Port.ORE, Port.WOOD, Port.THREE, Port.BRICK, Port.SHEEP, Port.THREE, Port.THREE]
+port_order_for_nodes = [Port.THREE, Port.THREE, Port.WHEAT, Port.WHEAT, Port.ORE, Port.ORE, Port.WOOD, Port.WOOD, Port.THREE, Port.THREE, Port.BRICK, Port.BRICK, Port.SHEEP, Port.SHEEP, Port.THREE, Port.THREE, Port.THREE, Port.THREE]
 
 # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
 def get_random_terrain():
@@ -617,7 +618,7 @@ class State:
 
         # debug buttons
         self.buttons=[
-            Button(Rectangle(750, 80, 40, 40), GameColor.GAME_RULES), # game_rules vs free_placement
+            # Button(Rectangle(750, 80, 40, 40), GameColor.GAME_RULES), # game_rules vs free_placement
             Button(Rectangle(750, 20, 40, 40), GameColor.PLAYER_BLUE, self.blue_player),
             Button(Rectangle(700, 20, 40, 40), GameColor.PLAYER_ORANGE, self.orange_player), 
             Button(Rectangle(650, 20, 40, 40), GameColor.PLAYER_WHITE, self.white_player), 
@@ -743,17 +744,15 @@ def initialize_board(state):
     # in case ocean+land tiles are needed:
     state.all_tiles = state.land_tiles + state.ocean_tiles
 
-    for i in range(len(state.ocean_tiles)):
-        corners = hh.polygon_corners(pointy, state.ocean_tiles[i].hex)
-        # port_active_corners is list of indices of active corners
-        if port_active_corners[i] != None:
-            for index in port_active_corners[i]:
-                state.ocean_tiles[i].active_corners.append(corners[index])
 
     # TODO iterate through nodes and activate ports if tile is adjacent to port
+    i = 0
     for hexes in port_node_hexes:
-        for hex in hexes:
-            if hex in state.ocean_tiles:
+        for node in state.nodes:
+            if hexes[0] == node.hex_a and hexes[1] == node.hex_b and hexes[2] == node.hex_c:
+                node.port = port_order_for_nodes[i]
+                i += 1
+
 
     
     # settlement and road placement based on last page in manual
@@ -1031,9 +1030,6 @@ def render(state):
     # outline up to 3 current hexes
     if state.current_hex: # and not state.current_edge:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex), 6, 50, 0, 6, BLACK)
-        corners = hh.polygon_corners(pointy, state.current_hex)
-        for i in range(len(corners)):
-            draw_text_ex(gui_get_font(), f"{i}", corners[i], 15, 0, WHITE)
     if state.current_hex_2:
         draw_poly_lines_ex(hh.hex_to_pixel(pointy, state.current_hex_2), 6, 50, 0, 6, BLACK)
     if state.current_hex_3:

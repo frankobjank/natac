@@ -32,15 +32,6 @@ import math
 def vector2_round(vector2):
     return Vector2(int(vector2.x), int(vector2.y))
 
-def draw_axes():
-    draw_line(510, 110, 290, 490, BLACK)
-    draw_text_ex(gui_get_font(), "+ S -", (480, 80), 20, 0, BLACK)
-    draw_line(180, 300, 625, 300, BLACK)
-    draw_text_ex(gui_get_font(), "-", (645, 270), 20, 0, BLACK)
-    draw_text_ex(gui_get_font(), "R", (645, 290), 20, 0, BLACK)
-    draw_text_ex(gui_get_font(), "+", (645, 310), 20, 0, BLACK)
-    draw_line(290, 110, 510, 490, BLACK)
-    draw_text_ex(gui_get_font(), "- Q +", (490, 500), 20, 0, BLACK)
 
 screen_width=800
 screen_height=600
@@ -625,3 +616,10 @@ def main_test():
 #             for k in range(j+1, len(state.all_hexes)):
 #                 if check_collision_circles(hh.hex_to_pixel(pointy, state.all_hexes[i]), 60, hh.hex_to_pixel(pointy, state.all_hexes[k]), 60):
 #                     state.nodes.append(Node(state.all_hexes[i], state.all_hexes[j], state.all_hexes[k]))
+
+# for i in range(len(state.ocean_tiles)):
+#     corners = hh.polygon_corners(pointy, state.ocean_tiles[i].hex)
+#     # port_active_corners is list of indices of active corners
+#     if port_active_corners[i] != None:
+#         for index in port_active_corners[i]:
+#             state.ocean_tiles[i].active_corners.append(corners[index])
