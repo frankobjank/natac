@@ -158,8 +158,14 @@ class Edge:
         return list(adj_edges_1.symmetric_difference(adj_edges_2))
 
 
-    def build_check_edge(self, state):
-        print("build_check_edge")
+    def build_check_road(self, state):
+        print("build_check_road")
+
+        # number roads left check
+        if len(state.current_player.roads) == 15:
+            print("no available roads")
+            return False
+
         # ocean check
         if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes:
             print("can't build in ocean")
@@ -261,8 +267,13 @@ class Node:
         return adj_nodes
 
         
-    def build_check_node(self, state):
-        print("build_check_node")
+    def build_check_settlement(self, state):
+        print("build_check_settlement")
+
+        if len(state.current_player.settlements) == 5:
+            print("no available settlements")
+            return False
+        
         # ocean check
         if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes and self.hex_c in state.ocean_hexes:
             print("can't build in ocean")
@@ -281,17 +292,15 @@ class Node:
             print("no adjacent roads")
             return False
         
-        owner_1 = None
-        owner_2 = None
-        owner_3 = None
-        owners = [f"{edge.player}" for edge in adj_edges]
-        # if 2 owner are same non current player, return False
-        print(owners)
-            
-
-        # also cannot build in the middle of someone else's road
-        # maybe should make a separate build settlement, build city, build road functions
-            # checks would be part of these functions
+        # if between opponent's road
+        adj_edge_players = [edge.player for edge in adj_edges]
+        if state.current_player in adj_edge_players:
+            adj_edge_players.remove(state.current_player)
+            if adj_edge_players[0] == adj_edge_players[1]:
+                if None not in adj_edge_players and state.current_player not in adj_edge_players:
+                    print("can't build in middle of road")
+                    return False
+                
         return True
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
@@ -306,7 +315,6 @@ class GameColor(Enum):
     # other pieces
     ROBBER = BLACK
     # buttons
-    GAME_RULES = GREEN
     # put terrain colors here
     FOREST = get_color(0x517d19ff)
     HILL = get_color(0x9c4300ff)
@@ -618,7 +626,6 @@ class State:
 
         # debug buttons
         self.buttons=[
-            # Button(Rectangle(750, 80, 40, 40), GameColor.GAME_RULES), # game_rules vs free_placement
             Button(Rectangle(750, 20, 40, 40), GameColor.PLAYER_BLUE, self.blue_player),
             Button(Rectangle(700, 20, 40, 40), GameColor.PLAYER_ORANGE, self.orange_player), 
             Button(Rectangle(650, 20, 40, 40), GameColor.PLAYER_WHITE, self.white_player), 
@@ -858,7 +865,7 @@ def update(state):
             # if state.current_player:
                 
             if state.current_node.town == None and state.current_player != None:
-                if state.current_node.build_check_node(state):
+                if state.current_node.build_check_settlement(state):
                     state.current_node.town = "settlement"
                     state.current_node.player = state.current_player
                     state.current_player.settlements.append(state.current_node)
@@ -867,9 +874,13 @@ def update(state):
                 current_owner = state.current_node.player
                 # owner is same as current_player, upgrade to city
                 if current_owner == state.current_player:
-                    state.current_node.town = "city"
-                    state.current_player.settlements.remove(state.current_node)
-                    state.current_player.cities.append(state.current_node)
+                    # city build check
+                    if len(state.current_player.cities) == 4:
+                        print("no available cities")
+                    else:
+                        state.current_node.town = "city"
+                        state.current_player.settlements.remove(state.current_node)
+                        state.current_player.cities.append(state.current_node)
                 # owner is different as current_player, remove
                 elif current_owner != state.current_player:
                     current_owner.settlements.remove(state.current_node)
@@ -888,7 +899,7 @@ def update(state):
 
             # place roads unowned edge
             if state.current_edge.player == None and state.current_player != None:
-                if state.current_edge.build_check_edge(state):
+                if state.current_edge.build_check_road(state):
                     state.current_edge.player = state.current_player
                     if state.current_player:
                         state.current_player.roads.append(state.current_edge)
