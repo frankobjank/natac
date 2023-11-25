@@ -2,6 +2,7 @@ from __future__ import division
 from __future__ import print_function
 import random
 import math
+from collections import namedtuple
 from operator import itemgetter, attrgetter
 from enum import Enum
 import pyray as pr
@@ -17,6 +18,8 @@ default_zoom = .9
 # wrote my own:
     # check_collision_circles -> radius_check_two_circles()
     # check_collision_point_circle -> radius_check_v()
+
+Point = collections.namedtuple("Point", ["x", "y"])
 
 def vector2_round(vector2):
     return pr.Vector2(int(vector2.x), int(vector2.y))
@@ -212,6 +215,7 @@ class Edge:
 
 class Node:
     def __init__(self, hex_a, hex_b, hex_c):
+        # could replace get_hexes() with sorted_hexes
         sorted_hexes = sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s"))
         self.hex_a = sorted_hexes[0]
         self.hex_b = sorted_hexes[1]
@@ -270,7 +274,7 @@ class Node:
     def build_check_settlement(self, state):
         print("build_check_settlement")
 
-        if len(state.current_player.settlements) == 5:
+        if len(state.current_player.settlements) > 4:
             print("no available settlements")
             return False
         
@@ -531,7 +535,8 @@ class Button:
 class State:
     def __init__(self):
         # tiles/hexes
-        self.land_hexes = [hh.set_hex(0, -2, 2),
+        self.land_hexes = [
+            hh.set_hex(0, -2, 2),
             hh.set_hex(1, -2, 1),
             hh.set_hex(2, -2, 0),
 
@@ -555,7 +560,8 @@ class State:
             hh.set_hex(-1, 2, -1),
             hh.set_hex(0, 2, -2)]
 
-        self.ocean_hexes = [hh.set_hex(0, -3, 3), # port
+        self.ocean_hexes = [
+            hh.set_hex(0, -3, 3), # port
             hh.set_hex(1, -3, 2),
             hh.set_hex(2, -3, 1), # port
             hh.set_hex(3, -3, 0),
