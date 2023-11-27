@@ -2,12 +2,21 @@ from __future__ import division
 from __future__ import print_function
 import random
 import math
+import socket
+import json
 from collections import namedtuple
 from operator import itemgetter, attrgetter
 from enum import Enum
 import pyray as pr
 import hex_helper as hh
 import rendering_functions as rf
+
+# client details
+local_IP = '127.0.0.1'
+local_port = 12345
+buffer_size = 1024
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
 
 screen_width=800
 screen_height=600
