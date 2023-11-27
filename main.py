@@ -19,24 +19,40 @@ default_zoom = .9
     # check_collision_circles -> radius_check_two_circles()
     # check_collision_point_circle -> radius_check_v()
 
-Point = collections.namedtuple("Point", ["x", "y"])
+Point = namedtuple("Point", ["x", "y"])
 
 def vector2_round(vector2):
     return pr.Vector2(int(vector2.x), int(vector2.y))
 
+def point_round(point):
+    return hh.Point(int(point.x), int(point.y))
+
 # check if distance between mouse and hex_center shorter than radius
-def radius_check_v(pt1:pr.Vector2, pt2:pr.Vector2, radius:int)->bool:
+# def radius_check_v(pt1:pr.Vector2, pt2:pr.Vector2, radius:int)->bool:
+#     if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
+#         return True
+#     else:
+#         return False
+
+# same as above but with Point instead of Vector2
+def radius_check_v(pt1:Point, pt2:Point, radius:int)->bool:
     if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
         return True
     else:
         return False
     
-def radius_check_two_circles(center1: pr.Vector2, radius1: int, center2: pr.Vector2, radius2: int)->bool:
+# def radius_check_two_circles(center1: pr.Vector2, radius1: int, center2: pr.Vector2, radius2: int)->bool:
+#     if math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2):
+#         return True
+#     else:
+#         return False
+
+def radius_check_two_circles(center1: Point, radius1: int, center2: Point, radius2: int)->bool:
     if math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2):
         return True
     else:
         return False
-    
+
 
 def sort_hexes(hexes) -> list:
     return sorted(hexes, key=attrgetter("q", "r", "s"))
@@ -119,7 +135,7 @@ class Edge:
     
     def get_edge_points_set(self) -> set:
         return hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b)
-        
+
     def get_edge_points(self) -> list:
         return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
     
