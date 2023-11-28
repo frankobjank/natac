@@ -329,7 +329,7 @@ class Node:
                 if None not in adj_edge_players and state.current_player not in adj_edge_players:
                     print("can't build in middle of road")
                     return False
-                
+        print("no conflicts")
         return True
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
@@ -617,9 +617,6 @@ class State:
         self.ocean_tiles = []
         self.all_tiles = []
 
-        # user input, can be keyboard key or mouse
-        self.user_input = None
-
         # selecting via mouse
         self.world_position = None
         self.current_hex = None
@@ -673,6 +670,20 @@ class State:
         self.camera.offset = pr.Vector2(screen_width/2, screen_height/2)
         self.camera.rotation = 0.0
         self.camera.zoom = default_zoom
+
+    def build_packet(self):
+        return {
+            "client_request": None,
+            "server_response": None,
+            "board": {
+                "land_tiles": self.land_tiles,
+                "ocean_tiles": self.ocean_tiles,
+                "all_tiles": self.all_tiles,
+                "players": self.players,
+                "edges": self.edges,
+                "nodes": self.nodes
+                }
+            }
 
 
 state = State()
@@ -802,33 +813,193 @@ def initialize_board(state):
 def get_user_input(state):
     state.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), state.camera)
 
-    state.user_input = None
 
     if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
-        state.user_input = pr.MouseButton.MOUSE_BUTTON_LEFT
+        return pr.MouseButton.MOUSE_BUTTON_LEFT
 
     # camera controls
     # not sure how to capture mouse wheel, also currently using RAYLIB for these inputs
     # state.camera.zoom += get_mouse_wheel_move() * 0.03
 
     elif pr.is_key_down(pr.KeyboardKey.KEY_RIGHT_BRACKET):
-        state.user_input = pr.KeyboardKey.KEY_RIGHT_BRACKET
+        return pr.KeyboardKey.KEY_RIGHT_BRACKET
 
     elif pr.is_key_down(pr.KeyboardKey.KEY_LEFT_BRACKET):
-        state.user_input = pr.KeyboardKey.KEY_LEFT_BRACKET
+        return pr.KeyboardKey.KEY_LEFT_BRACKET
 
     # camera and board reset (zoom and rotation)
     elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
-        state.user_input = pr.KeyboardKey.KEY_R
+        return pr.KeyboardKey.KEY_R
 
     elif pr.is_key_pressed(pr.KeyboardKey.KEY_E):
-        state.user_input = pr.KeyboardKey.KEY_E
+        return pr.KeyboardKey.KEY_E
     
     elif pr.is_key_pressed(pr.KeyboardKey.KEY_F):
-        state.user_input = pr.KeyboardKey.KEY_F
+        return pr.KeyboardKey.KEY_F
+    
+def build_request(user_input, state):
+    # reset current hex, edge, node
+    state.current_hex = None
+    state.current_hex_2 = None
+    state.current_hex_3 = None
+
+    state.current_edge = None
+    state.current_node = None
+    
+    # check radius for current hex
+    for hex in state.all_hexes:
+        if radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+            state.current_hex = hex
+            break
+    # 2nd loop for edges - current_hex_2
+    for hex in state.all_hexes:
+        if state.current_hex != hex:
+            if radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+                state.current_hex_2 = hex
+                break
+    # 3rd loop for nodes - current_hex_3
+    for hex in state.all_hexes:
+        if state.current_hex != hex and state.current_hex_2 != hex:
+            if radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+                state.current_hex_3 = hex
+                break
+    
+
+    # defining current_node
+    if state.current_hex_3:
+        sorted_hexes = sorted((state.current_hex, state.current_hex_2, state.current_hex_3), key=attrgetter("q", "r", "s"))
+        for node in state.nodes:
+            if node.hex_a == sorted_hexes[0] and node.hex_b == sorted_hexes[1] and node.hex_c == sorted_hexes[2]:
+                state.current_node = node
+                break
+    
+    # defining current_edge
+    elif state.current_hex_2:
+        sorted_hexes = sorted((state.current_hex, state.current_hex_2), key=attrgetter("q", "r", "s"))
+        for edge in state.edges:
+            if edge.hex_a == sorted_hexes[0] and edge.hex_b == sorted_hexes[1]:
+                state.current_edge = edge
+                break
 
 
-def update(state):
+
+    # selecting based on mouse button input from get_user_input()
+    if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+        if state.current_node:
+            state.selection = state.current_node
+            print(state.current_node)
+            # toggle between settlement, city, None
+                
+            if state.current_node.town == None and state.current_player != None:
+                if state.current_node.build_check_settlement(state):
+                    state.current_node.town = "settlement"
+                    state.current_node.player = state.current_player
+                    state.current_player.settlements.append(state.current_node)
+                    state.current_player.ports.append(state.current_node.port)
+
+            elif state.current_node.town == "settlement":
+                current_owner = state.current_node.player
+                # owner is same as current_player, upgrade to city
+                if current_owner == state.current_player:
+                    # city build check
+                    if len(state.current_player.cities) == 4:
+                        print("no available cities")
+                    else:
+                        state.current_node.town = "city"
+                        state.current_player.settlements.remove(state.current_node)
+                        state.current_player.cities.append(state.current_node)
+                # owner is different as current_player, remove
+                elif current_owner != state.current_player:
+                    current_owner.settlements.remove(state.current_node)
+                    state.current_node.player = None
+                    state.current_node.town = None
+
+            # town is city and should be removed
+            elif state.current_node.town == "city":
+                state.current_node.player = None
+                state.current_node.town = None
+                state.current_player.cities.remove(state.current_node)
+
+        
+        elif state.current_edge:
+            state.selection = state.current_edge
+
+            # place roads unowned edge
+            if state.current_edge.player == None and state.current_player != None:
+                if state.current_edge.build_check_road(state):
+                    state.current_edge.player = state.current_player
+                    if state.current_player:
+                        state.current_player.roads.append(state.current_edge)
+
+            # remove roads
+            elif state.current_edge.player:
+                current_owner = state.current_edge.player
+                current_owner.roads.remove(state.current_edge)
+                state.current_edge.player = None
+
+
+
+        # use to place robber, might have to adjust hex selection 
+            # circle overlap affects selection range
+        elif state.current_hex:
+            state.selection = state.current_hex
+            if state.move_robber == True:
+                for tile in state.land_tiles:
+                    if tile.robber == True:
+                        # find robber in tiles
+                        current_robber_tile = tile
+                        break
+                # used 2 identical loops here since calculating robber_tile on the fly
+                for tile in state.land_tiles:
+                    if tile.hex == state.current_hex:
+                        # remove robber from old tile, add to new tile
+                        current_robber_tile.robber = False
+                        tile.robber = True
+                        state.move_robber = False
+
+
+            # DEBUG PRINT STATEMENTS
+            print(f"hex: {state.current_hex}")
+            for tile in state.land_tiles:
+                if tile.hex == state.current_hex:
+                    print(f"tile terrain: {tile.terrain}")
+        else:
+            state.selection = None
+        
+        # DEBUG - buttons
+        if state.debug == True:
+            for button in state.buttons:
+                if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
+                    if button.name == "ROBBER":
+                        state.move_robber = button.toggle(state.move_robber)
+                        state.current_player = None
+                    else:
+                        state.current_player = button.toggle(state.current_player)
+
+
+def client_to_server(request, state):
+    # assemble packet to send to server
+    # packet looks like this: {
+    #     "client_request": None,
+    #     "board": {
+    #     "players": state.players,
+    #     "all_hexes": state.all_hexes  
+    #    }
+    # }
+
+    packet = state.build_packet()
+    # convert packet to json and send message to server
+    json_to_send = json.dumps(packet)
+    msg_to_send = json_to_send.encode()
+    client_socket.sendto(msg_to_send, (local_IP, local_port))
+
+    # receive message from server
+    msg_recv, address = client_socket.recvfrom(buffer_size)
+    packet_recv = json.loads(msg_recv.decode())
+    print(f"Received from server {packet_recv}")
+
+
+def update(user_input, state):
     
     # reset current hex, edge, node
     state.current_hex = None
@@ -889,7 +1060,7 @@ def update(state):
 
 
     # selecting based on mouse button input from get_user_input()
-    if state.user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+    if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
         if state.current_node:
             state.selection = state.current_node
             print(state.current_node)
@@ -990,12 +1161,12 @@ def update(state):
     # camera controls
 
     # not sure how to represent mouse wheel
-    # if state.user_input == mouse wheel
+    # if user_input == mouse wheel
     # state.camera.zoom += get_mouse_wheel_move() * 0.03
 
-    if state.user_input == pr.KeyboardKey.KEY_RIGHT_BRACKET:
+    if user_input == pr.KeyboardKey.KEY_RIGHT_BRACKET:
         state.camera.zoom += 0.03
-    elif state.user_input == pr.KeyboardKey.KEY_LEFT_BRACKET:
+    elif user_input == pr.KeyboardKey.KEY_LEFT_BRACKET:
         state.camera.zoom -= 0.03
 
     # zoom boundary automatic reset
@@ -1004,21 +1175,16 @@ def update(state):
     elif state.camera.zoom < 0.1:
         state.camera.zoom = 0.1
 
-    if state.user_input == pr.KeyboardKey.KEY_F:
+    if user_input == pr.KeyboardKey.KEY_F:
         pr.toggle_fullscreen()
 
-    if state.user_input == pr.KeyboardKey.KEY_E:
+    if user_input == pr.KeyboardKey.KEY_E:
         state.debug = not state.debug # toggle
 
     # camera and board reset (zoom and rotation)
-    if state.user_input == pr.KeyboardKey.KEY_R:
-        state.reset = True
+    if user_input == pr.KeyboardKey.KEY_R:
         state.camera.zoom = default_zoom
         state.camera.rotation = 0.0
-        
-        # buggy - brings back roads/ settlements but doesn't clear new ones
-        # state = State()
-        # initialize_board(state)
 
 
 
@@ -1192,22 +1358,35 @@ def render(state):
         
     pr.end_drawing()
 
-
-def main():
-    # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
-    pr.init_window(screen_width, screen_height, "Natac")
+def main(state):
+    pr.init_window(screen_width, screen_height, "Game")
     pr.set_target_fps(60)
-    initialize_board(state)
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
     while not pr.window_should_close():
-        get_user_input(state)
+        user_input = get_user_input(state)
+        client_request = build_request(user_input)
+        client_to_server(client_request, state)
         update(state)
         render(state)
     pr.unload_font(pr.gui_get_font())
     pr.close_window()
 
+
+# def main(state):
+#     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
+#     pr.init_window(screen_width, screen_height, "Natac")
+#     pr.set_target_fps(60)
+#     initialize_board(state)
+#     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
+#     while not pr.window_should_close():
+#         get_user_input(state)
+#         update(state)
+#         render(state)
+#     pr.unload_font(pr.gui_get_font())
+#     pr.close_window()
+
 def test():
     initialize_board(state)
 
-main()
+main(state)
 # test()
