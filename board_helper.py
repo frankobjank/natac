@@ -309,9 +309,9 @@ class Node:
         return True
 
 class Player:
-    def __init__(self, color):
-        self.name = color # eventually change this to user inputted name
-        self.color = color
+    def __init__(self, name):
+        self.name = name # eventually change this to user inputted name
+        self.color = None
         self.cities = []
         self.settlements = []
         self.roads = []
@@ -600,11 +600,11 @@ class State:
         self.nodes = []
 
         # hardcoded players, can set up later to take different combos based on user input
-        self.nil_player = Player("NIL")
-        self.red_player = Player("RED")
-        self.blue_player = Player("BLUE")
-        self.orange_player = Player("ORANGE")
-        self.white_player = Player("WHITE")
+        self.nil_player = Player("PLAYER_NIL")
+        self.red_player = Player("PLAYER_RED")
+        self.blue_player = Player("PLAYER_BLUE")
+        self.orange_player = Player("PLAYER_ORANGE")
+        self.white_player = Player("PLAYER_WHITE")
 
         self.players = [self.nil_player, self.red_player, self.blue_player, self.orange_player, self.white_player]
 

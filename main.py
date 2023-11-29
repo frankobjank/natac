@@ -38,25 +38,26 @@ all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
 all_ports = ["three_to_one", "wood_port", "brick_port", "sheep_port", "wheat_port", "ore_port"]        
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
-class GameColor(Enum):
+game_color_dict = {
     # players
-    PLAYER_NIL = pr.GRAY
-    PLAYER_RED = pr.get_color(0xe1282fff)
-    PLAYER_BLUE = pr.get_color(0x2974b8ff)
-    PLAYER_ORANGE = pr.get_color(0xd46a24ff)
-    PLAYER_WHITE = pr.get_color(0xd6d6d6ff)
+    "PLAYER_NIL": pr.GRAY,
+    "PLAYER_RED": pr.get_color(0xe1282fff),
+    "PLAYER_BLUE": pr.get_color(0x2974b8ff),
+    "PLAYER_ORANGE": pr.get_color(0xd46a24ff),
+    "PLAYER_WHITE": pr.get_color(0xd6d6d6ff),
 
     # other pieces
-    ROBBER = pr.BLACK
+    "ROBBER": pr.BLACK,
     # buttons
     # put terrain colors here
-    FOREST = pr.get_color(0x517d19ff)
-    HILL = pr.get_color(0x9c4300ff)
-    PASTURE = pr.get_color(0x17b97fff)
-    FIELD = pr.get_color(0xf0ad00ff)
-    MOUNTAIN = pr.get_color(0x7b6f83ff)
-    DESERT = pr.get_color(0xffd966ff)
-    OCEAN = pr.get_color(0x4fa6ebff)
+    "FOREST": pr.get_color(0x517d19ff),
+    "HILL": pr.get_color(0x9c4300ff),
+    "PASTURE": pr.get_color(0x17b97fff),
+    "FIELD": pr.get_color(0xf0ad00ff),
+    "MOUNTAIN": pr.get_color(0x7b6f83ff),
+    "DESERT": pr.get_color(0xffd966ff),
+    "OCEAN": pr.get_color(0x4fa6ebff)
+    }
 
 
 
@@ -122,9 +123,7 @@ class LandTile:
         self.robber = False
         self.terrain = terrain.name
         self.resource = terrain_to_resource[terrain.name]
-        for color in GameColor:
-            if color.name == terrain.name:
-                self.color = color.value
+        self.color = game_color_dict[terrain.name]
         self.hex = hex
         self.token = token
         for k, v in self.token.items():
@@ -169,10 +168,10 @@ default_ports= [Port.THREE, None, Port.WHEAT, None,
 
 
 class Button:
-    def __init__(self, rec:pr.Rectangle, color:GameColor, set_var=None) -> None:
+    def __init__(self, rec:pr.Rectangle, name, set_var=None) -> None:
         self.rec = rec
-        self.color = color.value
-        self.name = color.name
+        self.name = name
+        self.color = game_color_dict[name]
         self.set_var = set_var
         self.is_bool = False
         if set_var == None:
@@ -229,12 +228,12 @@ class State:
 
         # debug buttons
         self.buttons=[
-            Button(pr.Rectangle(750, 20, 40, 40), GameColor.PLAYER_BLUE, self.blue_player),
-            Button(pr.Rectangle(700, 20, 40, 40), GameColor.PLAYER_ORANGE, self.orange_player), 
-            Button(pr.Rectangle(650, 20, 40, 40), GameColor.PLAYER_WHITE, self.white_player), 
-            Button(pr.Rectangle(600, 20, 40, 40), GameColor.PLAYER_RED, self.red_player),
-            Button(pr.Rectangle(550, 20, 40, 40), GameColor.ROBBER)
-            # Button(pr.Rectangle(500, 20, 40, 40), GameColor.PLAYER_NIL, nil_player),
+            Button(pr.Rectangle(750, 20, 40, 40), "PLAYER_BLUE"),
+            Button(pr.Rectangle(700, 20, 40, 40), "PLAYER_ORANGE"), 
+            Button(pr.Rectangle(650, 20, 40, 40), "PLAYER_WHITE"), 
+            Button(pr.Rectangle(600, 20, 40, 40), "PLAYER_RED"),
+            Button(pr.Rectangle(550, 20, 40, 40), "ROBBER")
+            # Button(pr.Rectangle(500, 20, 40, 40), GameColor.PLAYER_jNIL, nil_player),
         ]
 
 
@@ -473,19 +472,19 @@ def update(user_input, state):
     
     # check radius for current hex
     for hex in state.all_hexes:
-        if radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+        if bh.radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
             state.current_hex = hex
             break
     # 2nd loop for edges - current_hex_2
     for hex in state.all_hexes:
         if state.current_hex != hex:
-            if radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+            if bh.radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
                 state.current_hex_2 = hex
                 break
     # 3rd loop for nodes - current_hex_3
     for hex in state.all_hexes:
         if state.current_hex != hex and state.current_hex_2 != hex:
-            if radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+            if bh.radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
                 state.current_hex_3 = hex
                 break
     
@@ -844,7 +843,7 @@ def main(state):
 #     pr.close_window()
 
 def test():
-    initialize_board(state)
+    bh.initialize_board(state)
 
 main(state)
 # test()
