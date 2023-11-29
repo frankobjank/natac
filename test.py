@@ -1,4 +1,5 @@
 from pyray import *
+import pyray as pr
 from enum import Enum
 from hex_helper import *
 
@@ -202,8 +203,6 @@ for i in range(len(hexes)):
                     nodes.append(Node(hexes[i], hexes[j], hexes[k]))
 
 node = nodes[0]
-print(node)
-print(node.get_adj_edges(edges))
 
 class Tile:
     def __init__(self, terrain, hex, token, port=None):
@@ -504,6 +503,46 @@ def main_test():
 
 # main_test()
 
+TerrainToResource = {"FOREST": "WOOD"}
+terrain = "FOREST"
+print(TerrainToResource[terrain])
+
+class Terrain(Enum):
+    FOREST = "forest"
+    HILL = "hill"
+    PASTURE = "pasture"
+    FIELD = "field"
+    MOUNTAIN = "mountain"
+    DESERT = "desert"
+    OCEAN = "ocean"
+
+
+class GameColor(Enum):
+    # players
+    NIL = pr.GRAY
+    RED = pr.get_color(0xe1282fff)
+    BLUE = pr.get_color(0x2974b8ff)
+    ORANGE = pr.get_color(0xd46a24ff)
+    WHITE = pr.get_color(0xd6d6d6ff)
+
+    # other pieces
+    ROBBER = pr.BLACK
+
+    # put terrain colors here
+    FOREST = pr.get_color(0x517d19ff)
+    HILL = pr.get_color(0x9c4300ff)
+    PASTURE = pr.get_color(0x17b97fff)
+    FIELD = pr.get_color(0xf0ad00ff)
+    MOUNTAIN = pr.get_color(0x7b6f83ff)
+    DESERT = pr.get_color(0xffd966ff)
+    OCEAN = pr.get_color(0x4fa6ebff)
+
+
+def assign_colors(GameColor, Terrain, PlayerEnum):
+    for color in GameColor:
+        for terrain in Terrain:
+            if color.name == terrain.name:
+                print(color.name, color.value)
 
 
 # dimensions of a hex

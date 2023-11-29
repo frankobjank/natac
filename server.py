@@ -12,11 +12,11 @@ buffer_size = 1024
 server_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 server_socket.bind((local_IP, local_port))
 
-class Server_State:
+class ServerState:
     def __init__(self):
         self.packet = {}
 
-s_state = Server_State()
+s_state = ServerState()
 
 
 def initialize_board(s_state):

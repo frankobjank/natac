@@ -1,5 +1,7 @@
 import hex_helper as hh
 import math
+import random
+from enum import Enum
 from operator import attrgetter
 from collections import namedtuple
 
@@ -8,6 +10,26 @@ Point = namedtuple("Point", ["x", "y"])
 def point_round(point):
     return hh.Point(int(point.x), int(point.y))
 
+# check if distance between mouse and hex_center shorter than radius
+# def radius_check_v(pt1:pr.Vector2, pt2:pr.Vector2, radius:int)->bool:
+#     if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
+#         return True
+#     else:
+#         return False
+
+    
+# def radius_check_two_circles(center1: pr.Vector2, radius1: int, center2: pr.Vector2, radius2: int)->bool:
+#     if math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2):
+#         return True
+#     else:
+#         return False
+
+
+# same as above but with Point instead of Vector2
+
+# wrote my own without raylib:
+    # check_collision_circles -> radius_check_two_circles()
+    # check_collision_point_circle -> radius_check_v()
 
 def radius_check_v(pt1:Point, pt2:Point, radius:int)->bool:
     if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
@@ -113,7 +135,7 @@ class Edge:
         return adj_nodes
     
     # using hexes/radii instead of points
-    def get_adj_nodes_using_hexes(self, hexes) -> list:
+    def get_adj_nodes_using_hexes(self, hexes, state) -> list:
         adj_hexes = []
         for hex in hexes:
             # use self.hex_a and self.hex_b as circle comparisons
@@ -285,3 +307,340 @@ class Node:
                     return False
         print("no conflicts")
         return True
+
+class Player:
+    def __init__(self, color):
+        self.name = color # eventually change this to user inputted name
+        self.color = color
+        self.cities = []
+        self.settlements = []
+        self.roads = []
+        self.ports = []
+        self.hand = []
+        self.development_cards = []
+        self.victory_points = 0
+    
+    def __repr__(self):
+        return f"Player {self.name}: cities: {self.cities}, settlements: {self.settlements}, roads: {self.roads}, ports: {self.ports}, hand: {self.hand}, victory points: {self.victory_points}"
+    
+    def __str__(self):
+        return f"Player {self.name}"
+
+
+class Terrain(Enum):
+    FOREST = "wood"
+    HILL = "brick"
+    PASTURE = "sheep"
+    FIELD = "wheat"
+    MOUNTAIN = "ore"
+    DESERT = "desert"
+    OCEAN = "ocean"
+
+    # FOREST = "forest"
+    # HILL = "hill"
+    # PASTURE = "pasture"
+    # FIELD = "field"
+    # MOUNTAIN = "mountain"
+    # DESERT = "desert"
+    # OCEAN = "ocean"
+
+
+
+class Port(Enum):
+    THREE = " ? \n3:1"
+    WHEAT = " 2:1 \nwheat"
+    ORE = "2:1\nore"
+    WOOD = " 2:1 \nwood"
+    BRICK = " 2:1 \nbrick"
+    SHEEP = " 2:1 \nsheep"
+
+# is there a better way to format this - a way to zip up info that will be associated
+# with other info without using a dictionary or class
+port_active_corners = [
+        (5, 0), None, (4, 5), None,
+        None, (4, 5),
+        (1, 0), None,
+        None, (3, 4),
+        (1, 0), None,
+        None, (2, 3),
+        (2, 1), None, (2, 3), None
+    ] 
+
+port_node_hexes = [
+    sort_hexes((hh.set_hex(-1, -2, 3), hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2))),
+    sort_hexes((hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2), hh.set_hex(1, -3, 2))),
+    sort_hexes((hh.set_hex(1, -3, 2), hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1))),
+    sort_hexes((hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1), hh.set_hex(2, -2, 0))),
+    sort_hexes((hh.set_hex(2, -2, 0), hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1))),
+    sort_hexes((hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1), hh.set_hex(3, -1, -2))),
+    sort_hexes((hh.set_hex(-2, -1, 3), hh.set_hex(-1, -2, 3), hh.set_hex(-1, -1, 2))),
+    sort_hexes((hh.set_hex(-2, -1, 3), hh.set_hex(-2, 0, 2), hh.set_hex(-1, -1, 2))),
+    sort_hexes((hh.set_hex(2, 0, -2), hh.set_hex(3, -1, -2), hh.set_hex(3, 0, -3))),
+    sort_hexes((hh.set_hex(2, 0, -2), hh.set_hex(2, 1, -3), hh.set_hex(3, 0, -3))),
+    sort_hexes((hh.set_hex(-3, 1, 2), hh.set_hex(-2, 0, 2), hh.set_hex(-2, 1, 1))),
+    sort_hexes((hh.set_hex(-3, 1, 2), hh.set_hex(-3, 2, 1), hh.set_hex(-2, 1, 1))),
+    sort_hexes((hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3), hh.set_hex(2, 1, -3))),
+    sort_hexes((hh.set_hex(0, 2, -2), hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3))),
+    sort_hexes((hh.set_hex(-3, 2, 1), hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0))),
+    sort_hexes((hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0), hh.set_hex(-2, 3, -1))),
+    sort_hexes((hh.set_hex(-2, 3, -1), hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2))),
+    sort_hexes((hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2), hh.set_hex(0, 2, -2)))
+    ]
+
+
+# Currently both land and ocean (Tile class)
+class LandTile:
+    def __init__(self, terrain, hex, token):
+        self.robber = False
+        self.terrain = terrain.name
+        self.resource = terrain.value["resource"]
+        self.color = terrain.value["color"]
+        self.hex = hex
+        self.token = token
+        for k, v in self.token.items():
+            self.num = k
+            self.dots = v
+    
+    def __repr__(self):
+        return f"LandTile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, robber: {self.robber})"
+    
+class OceanTile:
+    def __init__(self, terrain, hex, port=None):
+        self.terrain = terrain.name
+        self.resource = terrain.value["resource"]
+        self.color = terrain.value["color"]
+        self.hex = hex
+        self.port = port
+        if port:
+            self.port_display = port.value
+        self.active_corners = []
+    
+    def __repr__(self):
+        return f"OceanTile(hex: {self.hex}, port: {self.port})"
+
+
+default_terrains=[
+    Terrain.MOUNTAIN, Terrain.PASTURE, Terrain.FOREST,
+    Terrain.FIELD, Terrain.HILL, Terrain.PASTURE, Terrain.HILL,
+    Terrain.FIELD, Terrain.FOREST, Terrain.DESERT, Terrain.FOREST, Terrain.MOUNTAIN,
+    Terrain.FOREST, Terrain.MOUNTAIN, Terrain.FIELD, Terrain.PASTURE,
+    Terrain.HILL, Terrain.FIELD, Terrain.PASTURE]
+
+# default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
+
+default_ports= [Port.THREE, None, Port.WHEAT, None, 
+                None, Port.ORE,
+                Port.WOOD, None,
+                None, Port.THREE,
+                Port.BRICK, None,
+                None, Port.SHEEP, 
+                Port.THREE, None, Port.THREE, None]
+
+port_order_for_nodes = [Port.THREE, Port.THREE, Port.WHEAT, Port.WHEAT, Port.ORE, Port.ORE, Port.WOOD, Port.WOOD, Port.THREE, Port.THREE, Port.BRICK, Port.BRICK, Port.SHEEP, Port.SHEEP, Port.THREE, Port.THREE, Port.THREE, Port.THREE]
+
+# 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
+def get_random_terrain():
+    # if desert, skip token
+    terrain_tiles = []
+    tile_counts = {Terrain.MOUNTAIN: 4, Terrain.FOREST: 4, Terrain.FIELD: 4, Terrain.HILL: 3, Terrain.PASTURE: 3, Terrain.DESERT: 1}
+    tiles_for_random = tile_counts.keys()
+    while len(terrain_tiles) < 19:
+        for i in range(19):
+            rand_tile = tiles_for_random[random.randrange(6)]
+            if tile_counts[rand_tile] > 0:
+                terrain_tiles.append(rand_tile)
+                tile_counts[rand_tile] -= 1
+    return terrain_tiles
+
+
+
+
+
+
+
+def set_demo_settlements(state):
+    # for demo, initiate default roads and settlements
+    # Red
+    red_nodes = [Node(hh.Hex(0, -2, 2), hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Node(hh.Hex(-2, 0, 2), hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
+    red_edges = [Edge(hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Edge(hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
+
+    # Blue
+    blue_nodes = [Node(hh.Hex(-2, 1, 1), hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Node(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2), hh.Hex(0, 2, -2))]
+    blue_edges = [Edge(hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Edge(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2))]
+
+    # White
+    white_nodes = [Node(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1), hh.Hex(q=0, r=-1, s=1)), Node(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=1, r=1, s=-2), hh.Hex(q=2, r=0, s=-2))]
+    white_edges = [Edge(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=2, r=0, s=-2)), Edge(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1))]
+
+    # Orange
+    orange_nodes = [Node(hh.Hex(q=-1, r=1, s=0), hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1)), Node(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0), hh.Hex(q=2, r=-1, s=-1))]
+    orange_edges=[Edge(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0)), Edge(hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1))]
+
+    for node in state.nodes:
+        for orange_node in orange_nodes:
+            if node.hex_a == orange_node.hex_a and node.hex_b == orange_node.hex_b and node.hex_c == orange_node.hex_c:
+                # 4 ways to add the settlement..... too many?
+                state.orange_player.settlements.append(node)
+                node.player = state.orange_player
+                node.town = "settlement"
+
+        for blue_node in blue_nodes:
+            if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
+                state.blue_player.settlements.append(node)
+                node.player = state.blue_player
+                node.town = "settlement"
+
+        for red_node in red_nodes:
+            if node.hex_a == red_node.hex_a and node.hex_b == red_node.hex_b and node.hex_c == red_node.hex_c:
+                state.red_player.settlements.append(node)
+                node.player = state.red_player
+                node.town = "settlement"
+
+        for white_node in white_nodes:
+            if node.hex_a == white_node.hex_a and node.hex_b == white_node.hex_b and node.hex_c == white_node.hex_c:
+                state.white_player.settlements.append(node)
+                node.player = state.white_player
+                node.town = "settlement"
+
+    for edge in state.edges:
+        for orange_edge in orange_edges:
+            if edge.hex_a == orange_edge.hex_a and edge.hex_b == orange_edge.hex_b:
+                state.orange_player.roads.append(edge)
+                edge.player = state.orange_player
+
+        for blue_edge in blue_edges:
+            if edge.hex_a == blue_edge.hex_a and edge.hex_b == blue_edge.hex_b:
+                state.blue_player.roads.append(edge)
+                edge.player = state.blue_player
+
+        for red_edge in red_edges:
+            if edge.hex_a == red_edge.hex_a and edge.hex_b == red_edge.hex_b:
+                state.red_player.roads.append(edge)
+                edge.player = state.red_player
+
+        for white_edge in white_edges:
+            if edge.hex_a == white_edge.hex_a and edge.hex_b == white_edge.hex_b:
+                state.white_player.roads.append(edge)
+                edge.player = state.white_player
+
+# STATE.BOARD:
+# will need to pass in tiles instead of using global variables at some point
+def initialize_board(state):
+    # comment/uncomment for random vs default
+    # terrain_tiles = get_random_terrain()
+    terrain_tiles = default_terrains
+    tokens = default_tile_tokens_dict
+    ports = default_ports
+
+    # defining land tiles
+    for i in range(len(land_hexes)):
+        state.land_tiles.append(LandTile(terrain_tiles[i], state.land_hexes[i], tokens[i]))
+
+    # defining ocean tiles
+    for i in range(len(ocean_hexes)):
+        state.ocean_tiles.append(OceanTile(Terrain.OCEAN, state.ocean_hexes[i], ports[i]))
+
+
+    state.all_hexes = land_hexes + ocean_hexes
+
+    # triple 'for' loop to fill state.edges and state.nodes lists
+    # replaced raylib func with my own for radius check
+    for i in range(len(state.all_hexes)):
+        for j in range(i+1, len(state.all_hexes)):
+            # first two loops create Edges
+            if radius_check_two_circles(hh.hex_to_pixel(pointy, state.all_hexes[i]), 60, hh.hex_to_pixel(pointy, state.all_hexes[j]), 60):
+                state.edges.append(Edge(state.all_hexes[i], state.all_hexes[j]))
+                # third loop creates Nodes
+                for k in range(j+1, len(state.all_hexes)):
+                    if radius_check_two_circles(hh.hex_to_pixel(pointy, state.all_hexes[i]), 60, hh.hex_to_pixel(pointy, state.all_hexes[k]), 60):
+                        state.nodes.append(Node(state.all_hexes[i], state.all_hexes[j], state.all_hexes[k]))
+
+
+    # start robber in desert
+    for tile in state.land_tiles:
+        if tile.terrain == "DESERT":
+            tile.robber = True
+            break
+
+    # in case ocean+land tiles are needed:
+    state.all_tiles = state.land_tiles + state.ocean_tiles
+
+
+    # TODO iterate through nodes and activate ports if tile is adjacent to port
+    i = 0
+    for hexes in port_node_hexes:
+        for node in state.nodes:
+            if hexes[0] == node.hex_a and hexes[1] == node.hex_b and hexes[2] == node.hex_c:
+                node.port = port_order_for_nodes[i]
+                i += 1
+
+    # settlement and road placement based on last page in manual
+    set_demo_settlements()
+
+class State:
+    def __init__(self):
+
+        # land and ocean hexes only
+        self.all_hexes = land_hexes + ocean_hexes
+
+        self.land_tiles = []
+        self.ocean_tiles = []
+        self.all_tiles = []
+
+        self.current_player = None
+
+        self.selection = None
+
+        # turn rules
+        self.move_robber = False
+
+        # game pieces
+        # move robber with current_hex, maybe need to adjust selection to ignore edges and nodes
+        self.edges = []
+        self.nodes = []
+
+        # hardcoded players, can set up later to take different combos based on user input
+        self.nil_player = Player("NIL")
+        self.red_player = Player("RED")
+        self.blue_player = Player("BLUE")
+        self.orange_player = Player("ORANGE")
+        self.white_player = Player("WHITE")
+
+        self.players = [self.nil_player, self.red_player, self.blue_player, self.orange_player, self.white_player]
+
+
+        # GLOBAL general vars
+        # self.debug = False
+        self.debug = True
+
+        # debug buttons
+        self.buttons=[
+            Button(pr.Rectangle(750, 20, 40, 40), GameColor.PLAYER_BLUE, self.blue_player),
+            Button(pr.Rectangle(700, 20, 40, 40), GameColor.PLAYER_ORANGE, self.orange_player), 
+            Button(pr.Rectangle(650, 20, 40, 40), GameColor.PLAYER_WHITE, self.white_player), 
+            Button(pr.Rectangle(600, 20, 40, 40), GameColor.PLAYER_RED, self.red_player),
+            Button(pr.Rectangle(550, 20, 40, 40), GameColor.ROBBER)
+            # Button(pr.Rectangle(500, 20, 40, 40), GameColor.PLAYER_NIL, nil_player),
+        ]
+
+
+        # camera controls
+        self.camera = pr.Camera2D()
+        self.camera.target = pr.Vector2(0, 0)
+        self.camera.offset = pr.Vector2(screen_width/2, screen_height/2)
+        self.camera.rotation = 0.0
+        self.camera.zoom = default_zoom
+
+    def build_packet(self):
+        return {
+            "client_request": None,
+            "server_response": None,
+            "board": {
+                "land_tiles": self.land_tiles,
+                "ocean_tiles": self.ocean_tiles,
+                "all_tiles": self.all_tiles,
+                "players": self.players,
+                "edges": self.edges,
+                "nodes": self.nodes
+                }
+            }
