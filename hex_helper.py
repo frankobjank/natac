@@ -12,7 +12,7 @@ from pyray import Vector2
 
 # prob has to do with how Point and Vector2 are defined differently but not sure
     # might be Point and Vector2 cannot be compared with each other directly.
-    # try Point.x = Vector2.x ?
+# try Point.x = Vector2.x ?
 
 # will work on getting basic server/client down first then decide what to do about pt/vector2
 
