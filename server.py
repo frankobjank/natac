@@ -582,8 +582,8 @@ def update(client_request, s_state):
     # get user input from packet, update the s_state
     # selecting based on mouse button input from get_user_input()
     # CLIENT REQUEST needs to include build (town), for player (white), at Node (3 hexes)
-    # client_request = {"build": "town", "player": "PLAYER_NAME", "location": Node or Edge}
-    if client_request["build"] == "town":
+    # client_request = {"action": "build_town", "player": "PLAYER_NAME", "location": Node or Edge}
+    if client_request["action"] == "build_town":
         # toggle between settlement, city, None
         for node in s_state.nodes:
             if node == client_request["location"]:
@@ -618,7 +618,7 @@ def update(client_request, s_state):
                     s_state.current_player.cities.remove(node)
 
         
-    elif client_request["build"] == "road":
+    elif client_request["action"] == "build_road":
         for edge in s_state.edges:
             if edge == client_request["location"]:
                 
@@ -636,39 +636,31 @@ def update(client_request, s_state):
 
 
 
-        # use to place robber, might have to adjust hex selection 
-            # circle overlap affects selection range
-        elif state.current_hex:
-            state.selection = state.current_hex
-            if state.move_robber == True:
-                for tile in state.land_tiles:
-                    if tile.robber == True:
-                        # find robber in tiles
-                        current_robber_tile = tile
-                        break
-                # used 2 identical loops here since calculating robber_tile on the fly
-                for tile in state.land_tiles:
-                    if tile.hex == state.current_hex:
-                        # remove robber from old tile, add to new tile
-                        current_robber_tile.robber = False
-                        tile.robber = True
-                        state.move_robber = False
+    # use to place robber, might have to adjust hex selection 
+        # circle overlap affects selection range
+    # USE TILE for robber location
+    elif client_request["action"] == "move_robber":
 
+        # find robber current location
+        for tile in s_state.land_tiles:
+            if tile.robber == True:
+                current_robber_tile = tile
+                break
 
-            # DEBUG PRINT STATEMENTS
-            print(f"hex: {state.current_hex}")
-            for tile in state.land_tiles:
-                if tile.hex == state.current_hex:
-                    print(f"tile terrain: {tile.terrain}")
-        else:
-            state.selection = None
+        # objects will not be equal, so need to find an identifier that will be the same between client and server. maybe comparing the hex of each tile
+        for tile in s_state.land_tiles:
+            if tile != current_robber_tile and tile.hex == client_request["location"]["hex"]:
+                # remove robber from old tile, add to new tile
+                current_robber_tile.robber = False
+                tile.robber = True
         
                     
                     
 
     # update player stats
-    for player in state.players:
+    for player in s_state.players:
         player.victory_points = len(player.settlements)+(len(player.cities)*2)
+        # AND longest road, largest army, Development card VPs
 
 def server_to_client(s_state):
     # receive message
