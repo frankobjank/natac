@@ -51,6 +51,11 @@ class ServerState:
 
         self.edges = []
         self.nodes = []
+    def initialize_game(self):
+        self.initialize_board()
+        self.initialize_players()
+        self.set_demo_settlements()
+
 
     # hardcoded players, can set up later to take different combos based on user input
     def initialize_players(self):
@@ -286,10 +291,6 @@ class ServerState:
 
 s_state = ServerState()
 
-def initialize_game(s_state):
-    s_state.initialize_board()
-    s_state.initialize_players()
-    s_state.set_demo_settlements()
 
 
 
@@ -515,14 +516,23 @@ class Node:
         print("no conflicts")
         return True
 
+# add these to Terrain class?
+terrain_to_resource = {
+    "FOREST": "WOOD",
+    "HILL": "BRICK",
+    "PASTURE": "SHEEP",
+    "FIELD": "WHEAT",
+    "MOUNTAIN": "ORE"
+    }
 
 # Tiles, terrain, ports initialize_board
 class LandTile:
     def __init__(self, terrain, hex, token):
         self.robber = False
         self.terrain = terrain.name
-        self.resource = terrain.value["resource"]
-        self.color = terrain.value["color"]
+        self.resource = terrain_to_resource[terrain.name]
+        self.color = None
+        # self.color = game_color_dict[terrain.name]
         self.hex = hex
         self.token = token
         for k, v in self.token.items():
@@ -572,57 +582,57 @@ def update(client_request, s_state):
     # get user input from packet, update the s_state
     # selecting based on mouse button input from get_user_input()
     # CLIENT REQUEST needs to include build (town), for player (white), at Node (3 hexes)
-    # client_request = {"build": "town", "player": "PLAYER_NAME", "node": Node}
-    if s_state.client_request["build"] == "town":
+    # client_request = {"build": "town", "player": "PLAYER_NAME", "location": Node or Edge}
+    if client_request["build"] == "town":
         # toggle between settlement, city, None
         for node in s_state.nodes:
-            if node == s_state.client_request["node"]:
-                if s_state.client_request["node"].town == None and state.current_player != None:
-                    if state.current_node.build_check_settlement(state):
-                        state.current_node.town = "settlement"
-                        state.current_node.player = state.current_player
-                        state.current_player.settlements.append(state.current_node)
-                        state.current_player.ports.append(state.current_node.port)
+            if node == client_request["location"]:
+                if node.town == None and s_state.current_player != None:
+                    if node.build_check_settlement(s_state):
+                        node.town = "settlement"
+                        node.player = s_state.current_player
+                        s_state.current_player.settlements.append(node)
+                        s_state.current_player.ports.append(node.port)
 
-        elif state.current_node.town == "settlement":
-            current_owner = state.current_node.player
-            # owner is same as current_player, upgrade to city
-            if current_owner == state.current_player:
-                # city build check
-                if len(state.current_player.cities) == 4:
-                    print("no available cities")
-                else:
-                    state.current_node.town = "city"
-                    state.current_player.settlements.remove(state.current_node)
-                    state.current_player.cities.append(state.current_node)
-            # owner is different as current_player, remove
-            elif current_owner != state.current_player:
-                current_owner.settlements.remove(state.current_node)
-                state.current_node.player = None
-                state.current_node.town = None
+                elif node.town == "settlement":
+                    current_owner = node.player
+                    # if owner is same as current_player, upgrade to city
+                    if current_owner == s_state.current_player:
+                        # city build check
+                        if len(s_state.current_player.cities) == 4:
+                            print("no available cities")
+                        else:
+                            node.town = "city"
+                            s_state.current_player.settlements.remove(node)
+                            s_state.current_player.cities.append(node)
+                    # if owner is different from current_player, remove
+                    elif current_owner != s_state.current_player:
+                        current_owner.settlements.remove(node)
+                        node.player = None
+                        node.town = None
 
-        # town is city and should be removed
-        elif state.current_node.town == "city":
-            state.current_node.player = None
-            state.current_node.town = None
-            state.current_player.cities.remove(state.current_node)
+                # town is city and should be removed
+                elif node.town == "city":
+                    node.player = None
+                    node.town = None
+                    s_state.current_player.cities.remove(node)
 
         
-        elif client_request == "build_road":
-            state.selection = state.current_edge
+    elif client_request["build"] == "road":
+        for edge in s_state.edges:
+            if edge == client_request["location"]:
+                
+                # place roads unowned edge
+                if edge.player == None and s_state.current_player != None:
+                    if edge.build_check_road(s_state):
+                        edge.player = s_state.current_player
+                        s_state.current_player.roads.append(edge)
 
-            # place roads unowned edge
-            if state.current_edge.player == None and state.current_player != None:
-                if state.current_edge.build_check_road(state):
-                    state.current_edge.player = state.current_player
-                    if state.current_player:
-                        state.current_player.roads.append(state.current_edge)
-
-            # remove roads
-            elif state.current_edge.player:
-                current_owner = state.current_edge.player
-                current_owner.roads.remove(state.current_edge)
-                state.current_edge.player = None
+                # remove roads
+                elif edge.player:
+                    current_owner = edge.player
+                    current_owner.roads.remove(edge)
+                    edge.player = None
 
 
 
@@ -679,8 +689,9 @@ def server_to_client(s_state):
 
 def main(s_state):
     print("starting server")
-    initialize_game(s_state)
+    s_state.initialize_game()
     while True:
+        # receives msg, updates s_state, then sends message
         server_to_client(s_state)
 
 # main(s_state)
