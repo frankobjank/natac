@@ -286,7 +286,7 @@ s_state = ServerState()
 
 class Board:
     def __init__(self):
-
+        pass
 
 
 class Player:
