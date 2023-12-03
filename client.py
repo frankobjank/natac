@@ -192,7 +192,7 @@ class Button:
 
 
 
-class State:
+class ClientState:
     def __init__(self):
         self.land_tiles = []
         self.ocean_tiles = []
@@ -259,13 +259,13 @@ class State:
             }
 
 
-state = State()
+c_state = ClientState()
 
 
 
 
-def get_user_input(state):
-    state.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), state.camera)
+def get_user_input(c_state):
+    c_state.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), c_state.camera)
 
 
     if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
@@ -273,7 +273,7 @@ def get_user_input(state):
 
     # camera controls
     # not sure how to capture mouse wheel, also currently using RAYLIB for these inputs
-    # state.camera.zoom += get_mouse_wheel_move() * 0.03
+    # c_state.camera.zoom += get_mouse_wheel_move() * 0.03
 
     elif pr.is_key_down(pr.KeyboardKey.KEY_RIGHT_BRACKET):
         return pr.KeyboardKey.KEY_RIGHT_BRACKET
@@ -291,48 +291,50 @@ def get_user_input(state):
     elif pr.is_key_pressed(pr.KeyboardKey.KEY_F):
         return pr.KeyboardKey.KEY_F
     
-def build_client_request(user_input, state):
+def build_client_request(user_input, c_state):
+    client_request = {}
+    
     # reset current hex, edge, node
-    state.current_hex = None
-    state.current_hex_2 = None
-    state.current_hex_3 = None
+    c_state.current_hex = None
+    c_state.current_hex_2 = None
+    c_state.current_hex_3 = None
 
-    state.current_edge = None
-    state.current_node = None
+    c_state.current_edge = None
+    c_state.current_node = None
     
     # check radius for current hex
-    for hex in state.all_hexes:
-        if pr.check_collision_point_circle(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
-            state.current_hex = hex
+    for hex in c_state.all_hexes:
+        if pr.check_collision_point_circle(c_state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+            c_state.current_hex = hex
             break
     # 2nd loop for edges - current_hex_2
-    for hex in state.all_hexes:
-        if state.current_hex != hex:
-            if pr.check_collision_point_circle(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
-                state.current_hex_2 = hex
+    for hex in c_state.all_hexes:
+        if c_state.current_hex != hex:
+            if pr.check_collision_point_circle(c_state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+                c_state.current_hex_2 = hex
                 break
     # 3rd loop for nodes - current_hex_3
-    for hex in state.all_hexes:
-        if state.current_hex != hex and state.current_hex_2 != hex:
-            if pr.check_collision_point_circle(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
-                state.current_hex_3 = hex
+    for hex in c_state.all_hexes:
+        if c_state.current_hex != hex and c_state.current_hex_2 != hex:
+            if pr.check_collision_point_circle(c_state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+                c_state.current_hex_3 = hex
                 break
     
 
     # defining current_node
-    if state.current_hex_3:
-        sorted_hexes = sorted((state.current_hex, state.current_hex_2, state.current_hex_3), key=attrgetter("q", "r", "s"))
-        for node in state.nodes:
+    if c_state.current_hex_3:
+        sorted_hexes = sorted((c_state.current_hex, c_state.current_hex_2, c_state.current_hex_3), key=attrgetter("q", "r", "s"))
+        for node in c_state.nodes:
             if node.hex_a == sorted_hexes[0] and node.hex_b == sorted_hexes[1] and node.hex_c == sorted_hexes[2]:
-                state.current_node = node
+                c_state.current_node = node
                 break
     
     # defining current_edge
-    elif state.current_hex_2:
-        sorted_hexes = sorted((state.current_hex, state.current_hex_2), key=attrgetter("q", "r", "s"))
-        for edge in state.edges:
+    elif c_state.current_hex_2:
+        sorted_hexes = sorted((c_state.current_hex, c_state.current_hex_2), key=attrgetter("q", "r", "s"))
+        for edge in c_state.edges:
             if edge.hex_a == sorted_hexes[0] and edge.hex_b == sorted_hexes[1]:
-                state.current_edge = edge
+                c_state.current_edge = edge
                 break
 
 
@@ -430,10 +432,9 @@ def build_client_request(user_input, state):
                     else:
                         state.current_player = button.toggle(state.current_player)
     
-    state.client_request = {}
-    # return client request, for now in state
+    return client_request
 
-def client_to_server(state):
+def client_to_server(client_request, c_state):
     # assemble packet to send to server
     # packet looks like this: {
     #     "client_request": None,
@@ -444,7 +445,7 @@ def client_to_server(state):
     #    }
     # }
 
-    packet = state.build_packet()
+    packet = c_state.build_packet(client_request)
     # convert packet to json and send message to server
     json_to_send = json.dumps(packet)
     msg_to_send = json_to_send.encode()
@@ -454,209 +455,54 @@ def client_to_server(state):
     msg_recv, address = client_socket.recvfrom(buffer_size)
     packet_recv = json.loads(msg_recv.decode())
     print(f"Received from server {packet_recv}")
+    return packet_recv
 
+def client_update(server_response, c_state):
+    # unpack server response and update state
+    pass
 
-def update(user_input, state):
+def update_camera(user_input, c_state):
     
-    # reset current hex, edge, node
-    state.current_hex = None
-    state.current_hex_2 = None
-    state.current_hex_3 = None
-
-    state.current_edge = None
-    state.current_node = None
-
-    # DEBUG - defining current edge nodes
-    # state.current_edge_node = None
-    # state.current_edge_node_2 = None
-    
-    # check radius for current hex
-    for hex in state.all_hexes:
-        if bh.radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
-            state.current_hex = hex
-            break
-    # 2nd loop for edges - current_hex_2
-    for hex in state.all_hexes:
-        if state.current_hex != hex:
-            if bh.radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
-                state.current_hex_2 = hex
-                break
-    # 3rd loop for nodes - current_hex_3
-    for hex in state.all_hexes:
-        if state.current_hex != hex and state.current_hex_2 != hex:
-            if bh.radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
-                state.current_hex_3 = hex
-                break
-    
-
-    # defining current_node
-    if state.current_hex_3:
-        sorted_hexes = sorted((state.current_hex, state.current_hex_2, state.current_hex_3), key=attrgetter("q", "r", "s"))
-        for node in state.nodes:
-            if node.hex_a == sorted_hexes[0] and node.hex_b == sorted_hexes[1] and node.hex_c == sorted_hexes[2]:
-                state.current_node = node
-                break
-    
-    # defining current_edge
-    elif state.current_hex_2:
-        sorted_hexes = sorted((state.current_hex, state.current_hex_2), key=attrgetter("q", "r", "s"))
-        for edge in state.edges:
-            if edge.hex_a == sorted_hexes[0] and edge.hex_b == sorted_hexes[1]:
-                state.current_edge = edge
-                break
-
-
-        # DEBUG - defining edge nodes
-        # adj_nodes = state.current_edge.get_adj_nodes(state.nodes)
-        # adj_nodes = state.current_edge.get_adj_nodes_using_hexes(state.all_hexes, state)
-        # if len(adj_nodes) > 0:
-        #     print("hello")
-        #     state.current_edge_node = adj_nodes[0]
-        # if len(adj_nodes) > 1:
-        #     state.current_edge_node_2 = adj_nodes[1]
-
-
-    # selecting based on mouse button input from get_user_input()
-    if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-        if state.current_node:
-            state.selection = state.current_node
-            print(state.current_node)
-            # toggle between settlement, city, None
-                
-            if state.current_node.town == None and state.current_player != None:
-                if state.current_node.build_check_settlement(state):
-                    state.current_node.town = "settlement"
-                    state.current_node.player = state.current_player
-                    state.current_player.settlements.append(state.current_node)
-                    state.current_player.ports.append(state.current_node.port)
-
-            elif state.current_node.town == "settlement":
-                current_owner = state.current_node.player
-                # owner is same as current_player, upgrade to city
-                if current_owner == state.current_player:
-                    # city build check
-                    if len(state.current_player.cities) == 4:
-                        print("no available cities")
-                    else:
-                        state.current_node.town = "city"
-                        state.current_player.settlements.remove(state.current_node)
-                        state.current_player.cities.append(state.current_node)
-                # owner is different as current_player, remove
-                elif current_owner != state.current_player:
-                    current_owner.settlements.remove(state.current_node)
-                    state.current_node.player = None
-                    state.current_node.town = None
-
-            # town is city and should be removed
-            elif state.current_node.town == "city":
-                state.current_node.player = None
-                state.current_node.town = None
-                state.current_player.cities.remove(state.current_node)
-
-        
-        elif state.current_edge:
-            state.selection = state.current_edge
-
-            # place roads unowned edge
-            if state.current_edge.player == None and state.current_player != None:
-                if state.current_edge.build_check_road(state):
-                    state.current_edge.player = state.current_player
-                    if state.current_player:
-                        state.current_player.roads.append(state.current_edge)
-
-            # remove roads
-            elif state.current_edge.player:
-                current_owner = state.current_edge.player
-                current_owner.roads.remove(state.current_edge)
-                state.current_edge.player = None
-
-
-
-        # use to place robber, might have to adjust hex selection 
-            # circle overlap affects selection range
-        elif state.current_hex:
-            state.selection = state.current_hex
-            if state.move_robber == True:
-                for tile in state.land_tiles:
-                    if tile.robber == True:
-                        # find robber in tiles
-                        current_robber_tile = tile
-                        break
-                # used 2 identical loops here since calculating robber_tile on the fly
-                for tile in state.land_tiles:
-                    if tile.hex == state.current_hex:
-                        # remove robber from old tile, add to new tile
-                        current_robber_tile.robber = False
-                        tile.robber = True
-                        state.move_robber = False
-
-
-            # DEBUG PRINT STATEMENTS
-            print(f"hex: {state.current_hex}")
-            for tile in state.land_tiles:
-                if tile.hex == state.current_hex:
-                    print(f"tile terrain: {tile.terrain}")
-        else:
-            state.selection = None
-        
-        # DEBUG - buttons
-        if state.debug == True:
-            for button in state.buttons:
-                if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                    if button.name == "ROBBER":
-                        state.move_robber = button.toggle(state.move_robber)
-                        state.current_player = None
-                    else:
-                        state.current_player = button.toggle(state.current_player)
-                    
-                    
-
-    # update player stats
-    for player in state.players:
-        player.victory_points = len(player.settlements)+(len(player.cities)*2)
-
     # camera controls
-
-    # not sure how to represent mouse wheel
-    # if user_input == mouse wheel
-    # state.camera.zoom += get_mouse_wheel_move() * 0.03
+    # not sure how to represent mouse wheel as user input
+    # c_state.camera.zoom += get_mouse_wheel_move() * 0.03
 
     if user_input == pr.KeyboardKey.KEY_RIGHT_BRACKET:
-        state.camera.zoom += 0.03
+        c_state.camera.zoom += 0.03
     elif user_input == pr.KeyboardKey.KEY_LEFT_BRACKET:
-        state.camera.zoom -= 0.03
+        c_state.camera.zoom -= 0.03
 
     # zoom boundary automatic reset
-    if state.camera.zoom > 3.0:
-        state.camera.zoom = 3.0
-    elif state.camera.zoom < 0.1:
-        state.camera.zoom = 0.1
+    if c_state.camera.zoom > 3.0:
+        c_state.camera.zoom = 3.0
+    elif c_state.camera.zoom < 0.1:
+        c_state.camera.zoom = 0.1
 
     if user_input == pr.KeyboardKey.KEY_F:
         pr.toggle_fullscreen()
 
     if user_input == pr.KeyboardKey.KEY_E:
-        state.debug = not state.debug # toggle
+        c_state.debug = not c_state.debug # toggle
 
     # camera and board reset (zoom and rotation)
     if user_input == pr.KeyboardKey.KEY_R:
-        state.camera.zoom = default_zoom
-        state.camera.rotation = 0.0
+        c_state.camera.zoom = default_zoom
+        c_state.camera.rotation = 0.0
 
 
 
 
 
 
-def render(state):
+def render(c_state):
     
     pr.begin_drawing()
     pr.clear_background(pr.BLUE)
 
-    pr.begin_mode_2d(state.camera)
+    pr.begin_mode_2d(c_state.camera)
 
     # draw land tiles, numbers, dots
-    for tile in state.land_tiles:
+    for tile in c_state.land_tiles:
         # draw resource hexes
         pr.draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, tile.color)
 
@@ -671,11 +517,11 @@ def render(state):
             rf.draw_dots(tile, layout=pointy)
         
         # drawing circles in hex centers to center text
-        # if state.debug == True:
+        # if c_state.debug == True:
         #     draw_circle(int(hh.hex_to_pixel(pointy, tile.hex).x), int(hh.hex_to_pixel(pointy, tile.hex).y), 4, BLACK)
     
     # draw ocean tiles, ports
-    for tile in state.ocean_tiles:
+    for tile in c_state.ocean_tiles:
         pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, pr.BLACK)
         if tile.port:
             hex_center = hh.hex_to_pixel(pointy, tile.hex)
@@ -815,35 +661,21 @@ def render(state):
         
     pr.end_drawing()
 
-def main(state):
+def main(c_state):
+    # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
     pr.init_window(screen_width, screen_height, "Game")
     pr.set_target_fps(60)
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
     while not pr.window_should_close():
-        user_input = get_user_input(state)
-        build_client_request(user_input)
-        client_to_server(state)
-        update(state)
-        render(state)
+        user_input = get_user_input(c_state)
+        client_request = build_client_request(user_input, c_state)
+        server_response = client_to_server(client_request, c_state)
+        client_update(server_response, c_state)
+        update_camera(user_input, c_state)
+        render(c_state)
     pr.unload_font(pr.gui_get_font())
     pr.close_window()
 
 
-# def main(state):
-#     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
-#     pr.init_window(screen_width, screen_height, "Natac")
-#     pr.set_target_fps(60)
-#     initialize_board(state)
-#     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
-#     while not pr.window_should_close():
-#         get_user_input(state)
-#         update(state)
-#         render(state)
-#     pr.unload_font(pr.gui_get_font())
-#     pr.close_window()
 
-def test():
-    bh.initialize_board(state)
-
-main(state)
-# test()
+main(c_state)
