@@ -181,12 +181,6 @@ class Board:
         # land and ocean hexes only
         self.all_hexes = land_hexes + ocean_hexes
 
-
-
-
-
-
-
     def initialize_board(self):
         # comment/uncomment for random vs default
         # terrain_tiles = get_random_terrain()
@@ -233,6 +227,7 @@ class Board:
         # defining ocean tiles
         for i in range(len(self.ocean_hexes)):
             self.ocean_tiles.append(OceanTile(Terrain.OCEAN, self.ocean_hexes[i], ports[i]))
+            self.ocean_tiles[i].active_corners = port_active_corners
         # is there a better way to format this - a way to zip up info that will be associated
         # with other info without using a dictionary or class
 
@@ -281,6 +276,8 @@ class Board:
 
         # activating certain port nodes
         i = 0
+        # for ocean_tile in self.ocean_tiles:
+            # if ocean_tile.hex in port_node_hexes:
         for hexes in port_node_hexes:
             for node in self.nodes:
                 if hexes[0] == node.hex_a and hexes[1] == node.hex_b and hexes[2] == node.hex_c:
@@ -316,7 +313,7 @@ class Board:
 
             for blue_node in blue_nodes:
                 if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
-                    state.blue_player.settlements.append(node)
+                    # state.blue_player.settlements.append(node)
                     node.player = state.blue_player
                     node.town = "settlement"
 
@@ -385,7 +382,7 @@ class Edge:
         return adj_nodes
     
     # using hexes/radii instead of points
-    def get_adj_nodes_using_hexes(self, hexes) -> list:
+    def get_adj_nodes_using_hexes(self, hexes, state) -> list:
         adj_hexes = []
         for hex in hexes:
             # use self.hex_a and self.hex_b as circle comparisons
@@ -397,7 +394,7 @@ class Edge:
         adj_nodes = []
         self_nodes = [Node(self.hex_a, self.hex_b, h) for h in adj_hexes]
         for self_node in self_nodes:
-            for node in state.nodes:
+            for node in state.board.nodes:
                 if self_node.get_hexes() == node.get_hexes():
                     adj_nodes.append(node)
         return adj_nodes
@@ -421,19 +418,19 @@ class Edge:
             return False
 
         # ocean check
-        if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes:
+        if self.hex_a in state.board.ocean_hexes and self.hex_b in state.board.ocean_hexes:
             print("can't build in ocean")
             return False
         
         # home check. if adj node is a same-player town, return True
-        self_nodes = self.get_adj_nodes(state.nodes)
+        self_nodes = self.get_adj_nodes(state.board.nodes)
         for node in self_nodes:
             if node.player == state.current_player:
                 print("building next to settlement")
                 return True
         
         # contiguous check. if no edges are not owned by player, break
-        adj_edges = self.get_adj_node_edges(state.nodes, state.edges)
+        adj_edges = self.get_adj_node_edges(state.board.nodes, state.board.edges)
         origin_edge = None # Edge
         for edge in adj_edges:
             if edge.player == state.current_player:
@@ -444,7 +441,7 @@ class Edge:
             return False
         # origin stops at first match of current player. this shows what direction road is going.
         # check if origin node has opposing settlement blocking path
-        origin_nodes = origin_edge.get_adj_nodes(state.nodes)
+        origin_nodes = origin_edge.get_adj_nodes(state.board.nodes)
         # (commented out since already defined above)
         # self_nodes = self.get_adj_nodes(state.nodes)
         if self_nodes[0] in origin_nodes:
@@ -530,18 +527,18 @@ class Node:
             return False
         
         # ocean check
-        if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes and self.hex_c in state.ocean_hexes:
+        if self.hex_a in state.board.ocean_hexes and self.hex_b in state.board.ocean_hexes and self.hex_c in state.board.ocean_hexes:
             print("can't build in ocean")
             return False
         
         # get 3 adjacent nodes and make sure no town is built there
-        adj_nodes = self.get_adj_nodes_from_node(state.nodes)
+        adj_nodes = self.get_adj_nodes_from_node(state.board.nodes)
         for node in adj_nodes:
             if node.town != None:
                 print("too close to settlement")
                 return False
             
-        adj_edges = self.get_adj_edges(state.edges)
+        adj_edges = self.get_adj_edges(state.board.edges)
         # is node adjacent to at least 1 same-colored road
         if all(edge.player != state.current_player for edge in adj_edges):
             print("no adjacent roads")
@@ -708,14 +705,6 @@ class OceanTile:
         return f"OceanTile(hex: {self.hex}, port: {self.port})"
 
 
-default_terrains=[
-    Terrain.MOUNTAIN, Terrain.PASTURE, Terrain.FOREST,
-    Terrain.FIELD, Terrain.HILL, Terrain.PASTURE, Terrain.HILL,
-    Terrain.FIELD, Terrain.FOREST, Terrain.DESERT, Terrain.FOREST, Terrain.MOUNTAIN,
-    Terrain.FOREST, Terrain.MOUNTAIN, Terrain.FIELD, Terrain.PASTURE,
-    Terrain.HILL, Terrain.FIELD, Terrain.PASTURE]
-
-# default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
 
 default_ports= [Port.THREE, None, Port.WHEAT, None, 
                 None, Port.ORE,
@@ -852,11 +841,6 @@ class State:
         ]
 
 
-
-
-
-
-
 def get_user_input(state):
     state.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), state.camera)
 
@@ -938,7 +922,7 @@ def update(state):
 
         # DEBUG - defining edge nodes
         # adj_nodes = state.current_edge.get_adj_nodes(state.nodes)
-        # adj_nodes = state.current_edge.get_adj_nodes_using_hexes(state.all_hexes)
+        # adj_nodes = state.current_edge.get_adj_nodes_using_hexes(state.board.all_hexes)
         # if len(adj_nodes) > 0:
         #     print("hello")
         #     state.current_edge_node = adj_nodes[0]
