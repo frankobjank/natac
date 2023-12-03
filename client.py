@@ -1,5 +1,3 @@
-from __future__ import division
-from __future__ import print_function
 import random
 import math
 import socket
@@ -194,19 +192,23 @@ class Button:
 
 class ClientState:
     def __init__(self):
-        self.land_tiles = []
-        self.ocean_tiles = []
-        self.all_tiles = []
+        self.board = None
+            # self.edges = []
+            # self.nodes = []
+            # self.land_tiles = []
+            # self.ocean_tiles = []
+            # self.all_tiles = []
+
 
         # selecting via mouse
         self.world_position = None
         self.current_hex = None
-        self.current_hex_2 = None
-        self.current_hex_3 = None
+        # self.current_hex_2 = None
+        # self.current_hex_3 = None
         self.current_edge = None
         self.current_node = None
-        self.current_edge_node = None
-        self.current_edge_node_2 = None
+        # self.current_edge_node = None
+        # self.current_edge_node_2 = None
 
         self.current_player = None
 
@@ -217,8 +219,7 @@ class ClientState:
 
         # game pieces
         # move robber with current_hex, maybe need to adjust selection to ignore edges and nodes
-        self.edges = []
-        self.nodes = []
+
 
         self.players = []
 

@@ -41,16 +41,9 @@ class ServerState:
         # NETWORKING
         self.packet = {}
         self.client_request = {}
+        
+        # self.board = Board()
 
-
-        # TILES/ HEXES/ EDGES/ NODES
-        # all_hexes = land_hexes + ocean_hexes
-        self.land_tiles = []
-        self.ocean_tiles = []
-        self.all_tiles = []
-
-        self.edges = []
-        self.nodes = []
     def initialize_game(self):
         self.initialize_board()
         self.initialize_players()
@@ -291,6 +284,8 @@ class ServerState:
 
 s_state = ServerState()
 
+class Board:
+    def __init__(self):
 
 
 
