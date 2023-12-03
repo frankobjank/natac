@@ -322,6 +322,7 @@ class Node:
         return True
 
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
+
 game_color_dict = {
     # players
     "PLAYER_NIL": pr.GRAY,
@@ -386,6 +387,15 @@ class Terrain(Enum):
     DESERT = "desert"
     OCEAN = "ocean"
 
+terrain_to_resource = {
+    "FOREST": "WOOD",
+    "HILL": "BRICK",
+    "PASTURE": "SHEEP",
+    "FIELD": "WHEAT",
+    "MOUNTAIN": "ORE",
+    "DESERT": None
+    }
+
 
 
 class Port(Enum):
@@ -435,22 +445,22 @@ class LandTile:
     def __init__(self, terrain, hex, token):
         self.robber = False
         self.terrain = terrain.name
-        self.resource = terrain.value["resource"]
-        self.color = terrain.value["color"]
+        self.resource = terrain_to_resource[terrain.name]
+        self.color = game_color_dict[terrain.name]
         self.hex = hex
         self.token = token
         for k, v in self.token.items():
             self.num = k
             self.dots = v
-    
+
     def __repr__(self):
         return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, robber: {self.robber})"
     
 class OceanTile:
     def __init__(self, terrain, hex, port=None):
         self.terrain = terrain.name
-        self.resource = terrain.value["resource"]
-        self.color = terrain.value["color"]
+        self.resource = None
+        self.color = game_color_dict[terrain.name]
         self.hex = hex
         self.port = port
         if port:
@@ -495,9 +505,9 @@ def get_random_terrain():
     return terrain_tiles
 
 class Player:
-    def __init__(self, GameColor):
-        self.name = GameColor.name
-        self.color = GameColor.value
+    def __init__(self, name):
+        self.name = name
+        self.color = game_color_dict[self.name]
         self.cities = []
         self.settlements = []
         self.roads = []
@@ -515,10 +525,10 @@ class Player:
 
 
 class Button:
-    def __init__(self, rec:pr.Rectangle, color:GameColor, set_var=None) -> None:
+    def __init__(self, rec:pr.Rectangle, name, set_var=None):
         self.rec = rec
-        self.color = color.value
-        self.name = color.name
+        self.name = name
+        self.color = game_color_dict[self.name]
         self.set_var = set_var
         self.is_bool = False
         if set_var == None:
@@ -625,11 +635,11 @@ class State:
         self.nodes = []
 
         # hardcoded players, can set up later to take different combos based on user input
-        self.nil_player = Player(GameColor.PLAYER_NIL)
-        self.red_player = Player(GameColor.PLAYER_RED)
-        self.blue_player = Player(GameColor.PLAYER_BLUE)
-        self.orange_player = Player(GameColor.PLAYER_ORANGE)
-        self.white_player = Player(GameColor.PLAYER_WHITE)
+        self.nil_player = Player("PLAYER_NIL")
+        self.red_player = Player("PLAYER_RED")
+        self.blue_player = Player("PLAYER_BLUE")
+        self.orange_player = Player("PLAYER_ORANGE")
+        self.white_player = Player("PLAYER_WHITE")
 
         self.players = [self.nil_player, self.red_player, self.blue_player, self.orange_player, self.white_player]
 
@@ -640,11 +650,11 @@ class State:
 
         # debug buttons
         self.buttons=[
-            Button(pr.Rectangle(750, 20, 40, 40), GameColor.PLAYER_BLUE, self.blue_player),
-            Button(pr.Rectangle(700, 20, 40, 40), GameColor.PLAYER_ORANGE, self.orange_player), 
-            Button(pr.Rectangle(650, 20, 40, 40), GameColor.PLAYER_WHITE, self.white_player), 
-            Button(pr.Rectangle(600, 20, 40, 40), GameColor.PLAYER_RED, self.red_player),
-            Button(pr.Rectangle(550, 20, 40, 40), GameColor.ROBBER)
+            Button(pr.Rectangle(750, 20, 40, 40), "PLAYER_BLUE", self.blue_player),
+            Button(pr.Rectangle(700, 20, 40, 40), "PLAYER_ORANGE", self.orange_player), 
+            Button(pr.Rectangle(650, 20, 40, 40), "PLAYER_WHITE", self.white_player), 
+            Button(pr.Rectangle(600, 20, 40, 40), "PLAYER_RED", self.red_player),
+            Button(pr.Rectangle(550, 20, 40, 40), "ROBBER")
             # Button(pr.Rectangle(500, 20, 40, 40), GameColor.PLAYER_NIL, nil_player),
         ]
 
