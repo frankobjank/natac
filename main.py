@@ -226,8 +226,7 @@ class Board:
 
         # defining ocean tiles
         for i in range(len(self.ocean_hexes)):
-            self.ocean_tiles.append(OceanTile(Terrain.OCEAN, self.ocean_hexes[i], ports[i]))
-            self.ocean_tiles[i].active_corners = port_active_corners
+            self.ocean_tiles.append(OceanTile(Terrain.OCEAN, self.ocean_hexes[i], ports[i], port_active_corners[i]))
         # is there a better way to format this - a way to zip up info that will be associated
         # with other info without using a dictionary or class
 
@@ -630,8 +629,6 @@ terrain_to_resource = {
     "DESERT": None
     }
 
-
-
 class Port(Enum):
     THREE = " ? \n3:1"
     WHEAT = " 2:1 \nwheat"
@@ -640,38 +637,6 @@ class Port(Enum):
     BRICK = " 2:1 \nbrick"
     SHEEP = " 2:1 \nsheep"
 
-# is there a better way to format this - a way to zip up info that will be associated
-# with other info without using a dictionary or class
-port_active_corners = [
-        (5, 0), None, (4, 5), None,
-        None, (4, 5),
-        (1, 0), None,
-        None, (3, 4),
-        (1, 0), None,
-        None, (2, 3),
-        (2, 1), None, (2, 3), None
-    ] 
-
-port_node_hexes = [
-    sort_hexes((hh.set_hex(-1, -2, 3), hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2))),
-    sort_hexes((hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2), hh.set_hex(1, -3, 2))),
-    sort_hexes((hh.set_hex(1, -3, 2), hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1))),
-    sort_hexes((hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1), hh.set_hex(2, -2, 0))),
-    sort_hexes((hh.set_hex(2, -2, 0), hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1))),
-    sort_hexes((hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1), hh.set_hex(3, -1, -2))),
-    sort_hexes((hh.set_hex(-2, -1, 3), hh.set_hex(-1, -2, 3), hh.set_hex(-1, -1, 2))),
-    sort_hexes((hh.set_hex(-2, -1, 3), hh.set_hex(-2, 0, 2), hh.set_hex(-1, -1, 2))),
-    sort_hexes((hh.set_hex(2, 0, -2), hh.set_hex(3, -1, -2), hh.set_hex(3, 0, -3))),
-    sort_hexes((hh.set_hex(2, 0, -2), hh.set_hex(2, 1, -3), hh.set_hex(3, 0, -3))),
-    sort_hexes((hh.set_hex(-3, 1, 2), hh.set_hex(-2, 0, 2), hh.set_hex(-2, 1, 1))),
-    sort_hexes((hh.set_hex(-3, 1, 2), hh.set_hex(-3, 2, 1), hh.set_hex(-2, 1, 1))),
-    sort_hexes((hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3), hh.set_hex(2, 1, -3))),
-    sort_hexes((hh.set_hex(0, 2, -2), hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3))),
-    sort_hexes((hh.set_hex(-3, 2, 1), hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0))),
-    sort_hexes((hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0), hh.set_hex(-2, 3, -1))),
-    sort_hexes((hh.set_hex(-2, 3, -1), hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2))),
-    sort_hexes((hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2), hh.set_hex(0, 2, -2)))
-    ]
 
 
 # Currently both land and ocean (Tile class)
@@ -691,7 +656,7 @@ class LandTile:
         return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, robber: {self.robber})"
     
 class OceanTile:
-    def __init__(self, terrain, hex, port=None):
+    def __init__(self, terrain, hex, port, active_corners):
         self.terrain = terrain.name
         self.resource = None
         self.color = game_color_dict[terrain.name]
@@ -699,8 +664,8 @@ class OceanTile:
         self.port = port
         if port:
             self.port_display = port.value
-        self.active_corners = []
-    
+        self.active_corners = active_corners
+
     def __repr__(self):
         return f"OceanTile(hex: {self.hex}, port: {self.port})"
 
@@ -790,9 +755,10 @@ class State:
         
         self.selection = None
 
-        # for debugging
+        # can calculate on the fly, though if rendering this it will have to be passed to render
         self.current_hex_2 = None
         self.current_hex_3 = None
+        # for debugging
         self.current_edge_node = None
         self.current_edge_node_2 = None
 
@@ -1057,10 +1023,6 @@ def update(state):
         state.reset = True
         state.camera.zoom = default_zoom
         state.camera.rotation = 0.0
-        
-        # buggy - brings back roads/ settlements but doesn't clear new ones
-        # state = State()
-        # initialize_board(state)
 
 
 
@@ -1106,7 +1068,6 @@ def render(state):
             for i in range(6):
                 if i in tile.active_corners:
                     corner = hh.hex_corners_list(pointy, tile.hex)[i]
-            # for corner in tile.active_corners:
                     center = hh.hex_to_pixel(pointy, tile.hex)
                     midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
                     pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
@@ -1144,32 +1105,6 @@ def render(state):
         corners = state.current_edge.get_edge_points()
         pr.draw_line_ex(corners[0], corners[1], 12, pr.BLACK)
         
-        # DEBUG: draw adj edges to edge 
-        # adj_edges = state.current_edge.get_adj_node_edges(state.nodes, state.edges)
-        # if adj_edges != None:
-        #     for edge in adj_edges:
-        #         corners = edge.get_edge_points()
-        #         draw_line_ex(corners[0], corners[1], 12, YELLOW)
-
-
-        # DEBUG: draw edge nodes
-        # EDGE NODE ONE
-        # if state.current_edge_node:
-        #     draw_circle_v(state.current_edge_node.get_node_point(), 10, YELLOW)
-
-            # node_edges = state.current_edge_node.get_adj_edges(state.edges)
-            # for edge in node_edges:
-            #     corners = edge.get_edge_points()
-            #     draw_line_ex(corners[0], corners[1], 12, GREEN)
-
-        # EDGE NODE TWO
-        # if state.current_edge_node_2:
-        #     draw_circle_v(state.current_edge_node_2.get_node_point(), 10, YELLOW)
-
-        #     node_edges = state.current_edge_node_2.get_adj_edges(state.edges)
-        #     for edge in node_edges:
-        #         corners = edge.get_edge_points()
-        #         draw_line_ex(corners[0], corners[1], 12, BLUE)
         
         
     # draw roads, settlements, cities
@@ -1195,17 +1130,7 @@ def render(state):
 
     pr.end_mode_2d()
 
-    if state.debug == True:
-        # debug info top left of screen
-        # debug_1 = f"Current hex: {state.current_hex}"
-        # debug_2 = f"Current hex_2: {state.current_hex_2}"
-        # debug_3 = f"Current hex_3 = {state.current_hex_3}"
-
-        # debug_3 = f"Current edge: {state.current_edge}"
-        # debug_4 = f"Current node = {state.current_node}"
-        # debug_5 = f"Current selection = {state.selection}"
-        # debug_msgs = [debug_1, debug_2, debug_3, debug_4, debug_5]
-        
+    if state.debug == True:        
         debug_1 = f"World mouse at: ({int(state.world_position.x)}, {int(state.world_position.y)})"
         debug_2 = f"Current player = {state.current_player}"
         if state.current_player:

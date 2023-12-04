@@ -662,3 +662,45 @@ def assign_colors(GameColor, Terrain, PlayerEnum):
 #     if port_active_corners[i] != None:
 #         for index in port_active_corners[i]:
 #             state.ocean_tiles[i].active_corners.append(corners[index])
+
+
+
+# render edge/ node debug scratch
+        # DEBUG: draw adj edges to edge 
+        # adj_edges = state.current_edge.get_adj_node_edges(state.nodes, state.edges)
+        # if adj_edges != None:
+        #     for edge in adj_edges:
+        #         corners = edge.get_edge_points()
+        #         draw_line_ex(corners[0], corners[1], 12, YELLOW)
+
+
+        # DEBUG: draw edge nodes
+        # EDGE NODE ONE
+        # if state.current_edge_node:
+        #     draw_circle_v(state.current_edge_node.get_node_point(), 10, YELLOW)
+
+            # node_edges = state.current_edge_node.get_adj_edges(state.edges)
+            # for edge in node_edges:
+            #     corners = edge.get_edge_points()
+            #     draw_line_ex(corners[0], corners[1], 12, GREEN)
+
+        # EDGE NODE TWO
+        # if state.current_edge_node_2:
+        #     draw_circle_v(state.current_edge_node_2.get_node_point(), 10, YELLOW)
+
+        #     node_edges = state.current_edge_node_2.get_adj_edges(state.edges)
+        #     for edge in node_edges:
+        #         corners = edge.get_edge_points()
+        #         draw_line_ex(corners[0], corners[1], 12, BLUE)
+
+
+# current hex debug
+        # debug info top left of screen
+        # debug_1 = f"Current hex: {state.current_hex}"
+        # debug_2 = f"Current hex_2: {state.current_hex_2}"
+        # debug_3 = f"Current hex_3 = {state.current_hex_3}"
+
+        # debug_3 = f"Current edge: {state.current_edge}"
+        # debug_4 = f"Current node = {state.current_node}"
+        # debug_msgs = [debug_1, debug_2, debug_3, debug_4, debug_5]
+        # debug_5 = f"Current selection = {state.selection}"
