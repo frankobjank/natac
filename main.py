@@ -1102,11 +1102,14 @@ def render(state):
             text_location = pr.Vector2(hex_center.x-text_offset.x//2, hex_center.y-16)
             pr.draw_text_ex(pr.gui_get_font(), tile.port_display, text_location, 16, 0, pr.BLACK)
             
-            # draw active port corners 
-            for corner in tile.active_corners:
-                center = hh.hex_to_pixel(pointy, tile.hex)
-                midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
-                pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
+            # draw active port corners
+            for i in range(6):
+                if i in tile.active_corners:
+                    corner = hh.hex_corners_list(pointy, tile.hex)[i]
+            # for corner in tile.active_corners:
+                    center = hh.hex_to_pixel(pointy, tile.hex)
+                    midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
+                    pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
 
 

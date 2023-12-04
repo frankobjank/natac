@@ -115,7 +115,7 @@ def hex_corner_offset(layout, corner):
     angle = 2.0 * math.pi * (M.start_angle - corner) / 6.0
     return Vector2(size.x * math.cos(angle), size.y * math.sin(angle))
 
-def polygon_corners(layout, h):
+def hex_corners_list(layout, h):
     corners = []
     center = hex_to_pixel(layout, h)
     for i in range(0, 6):
@@ -134,7 +134,7 @@ def hex_corners_set(layout, h):
     return corners
 
 def hex_triangles(layout, h):
-    corners = polygon_corners(layout, h)
+    corners = hex_corners_list(layout, h)
     center = hex_to_pixel(layout, h)
     hex_tri = []
     for i in range(0, 6):
