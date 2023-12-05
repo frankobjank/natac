@@ -246,6 +246,7 @@ class ClientState:
         self.camera.zoom = default_zoom
 
     def build_packet(self):
+        # use this for server - use json.dumps and zip like in UDP testing 
         return {
             "client_request": None,
             "server_response": None,
@@ -342,13 +343,13 @@ def build_client_request(user_input, c_state):
 
     # selecting based on mouse button input from get_user_input()
     if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-        if state.current_node:
-            state.selection = state.current_node
-            print(state.current_node)
+        if c_state.current_node:
+            c_state.selection = c_state.current_node
+            print(c_state.current_node)
             # toggle between settlement, city, None
                 
-            if state.current_node.town == None and state.current_player != None:
-                if state.current_node.build_check_settlement(state):
+            if c_state.current_node.town == None and c_state.current_player != None:
+                if c_state.current_node.build_check_settlement(state):
                     state.current_node.town = "settlement"
                     state.current_node.player = state.current_player
                     state.current_player.settlements.append(state.current_node)
