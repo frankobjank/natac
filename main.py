@@ -135,11 +135,11 @@ class Board:
             hh.set_hex(-1, 3, -2), # port
             hh.set_hex(0, 3, -3)]
         # land and ocean hexes only
-        self.all_hexes = land_hexes + ocean_hexes
+        self.all_hexes = self.land_hexes + self.ocean_hexes
 
     def initialize_board(self):
-        # comment/uncomment for random vs default
-        # terrain_tiles = get_random_terrain()
+    #     # comment/uncomment for random vs default
+    #     # terrain_tiles = get_random_terrain()
 
         default_terrains =[Terrain.MOUNTAIN, Terrain.PASTURE, Terrain.FOREST,
         Terrain.FIELD, Terrain.HILL, Terrain.PASTURE, Terrain.HILL,
@@ -240,7 +240,7 @@ class Board:
                     i += 1
 
 
-    def set_demo_settlements(self, state):
+    def set_demo_settlements(self, s_state):
         # for demo, initiate default roads and settlements
         # Red
         red_nodes = [Node(hh.Hex(0, -2, 2), hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Node(hh.Hex(-2, 0, 2), hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
@@ -262,48 +262,48 @@ class Board:
             for orange_node in orange_nodes:
                 if node.hex_a == orange_node.hex_a and node.hex_b == orange_node.hex_b and node.hex_c == orange_node.hex_c:
                     # 4 ways to add the settlement..... too many?
-                    state.orange_player.settlements.append(node)
-                    node.player = state.orange_player
+                    s_state.orange_player.settlements.append(node)
+                    node.player = s_state.orange_player
                     node.town = "settlement"
 
             for blue_node in blue_nodes:
                 if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
                     # state.blue_player.settlements.append(node)
-                    node.player = state.blue_player
+                    node.player = s_state.blue_player
                     node.town = "settlement"
 
             for red_node in red_nodes:
                 if node.hex_a == red_node.hex_a and node.hex_b == red_node.hex_b and node.hex_c == red_node.hex_c:
-                    state.red_player.settlements.append(node)
-                    node.player = state.red_player
+                    s_state.red_player.settlements.append(node)
+                    node.player = s_state.red_player
                     node.town = "settlement"
 
             for white_node in white_nodes:
                 if node.hex_a == white_node.hex_a and node.hex_b == white_node.hex_b and node.hex_c == white_node.hex_c:
-                    state.white_player.settlements.append(node)
-                    node.player = state.white_player
+                    s_state.white_player.settlements.append(node)
+                    node.player = s_state.white_player
                     node.town = "settlement"
 
         for edge in self.edges:
             for orange_edge in orange_edges:
                 if edge.hex_a == orange_edge.hex_a and edge.hex_b == orange_edge.hex_b:
-                    state.orange_player.roads.append(edge)
-                    edge.player = state.orange_player
+                    s_state.orange_player.roads.append(edge)
+                    edge.player = s_state.orange_player
 
             for blue_edge in blue_edges:
                 if edge.hex_a == blue_edge.hex_a and edge.hex_b == blue_edge.hex_b:
-                    state.blue_player.roads.append(edge)
-                    edge.player = state.blue_player
+                    s_state.blue_player.roads.append(edge)
+                    edge.player = s_state.blue_player
 
             for red_edge in red_edges:
                 if edge.hex_a == red_edge.hex_a and edge.hex_b == red_edge.hex_b:
-                    state.red_player.roads.append(edge)
-                    edge.player = state.red_player
+                    s_state.red_player.roads.append(edge)
+                    edge.player = s_state.red_player
 
             for white_edge in white_edges:
                 if edge.hex_a == white_edge.hex_a and edge.hex_b == white_edge.hex_b:
-                    state.white_player.roads.append(edge)
-                    edge.player = state.white_player
+                    s_state.white_player.roads.append(edge)
+                    edge.player = s_state.white_player
 
 
 class Edge:
@@ -586,12 +586,21 @@ terrain_to_resource = {
     }
 
 class Port(Enum):
-    THREE = " ? \n3:1"
-    WHEAT = " 2:1 \nwheat"
-    ORE = "2:1\nore"
-    WOOD = " 2:1 \nwood"
-    BRICK = " 2:1 \nbrick"
-    SHEEP = " 2:1 \nsheep"
+    THREE = "three"
+    WHEAT = "wheat"
+    ORE = "ore"
+    WOOD = "wood"
+    BRICK = "brick"
+    SHEEP = "sheep"
+
+port_to_display = {
+    "THREE": " ? \n3:1",
+    "WHEAT": " 2:1 \nwheat",
+    "ORE": "2:1\nore",
+    "WOOD": " 2:1 \nwood",
+    "BRICK": " 2:1 \nbrick",
+    "SHEEP": " 2:1 \nsheep"
+}
 
 
 
@@ -601,7 +610,8 @@ class LandTile:
         self.robber = False
         self.terrain = terrain.name
         self.resource = terrain_to_resource[terrain.name]
-        self.color = game_color_dict[terrain.name]
+        # self.color = game_color_dict[terrain.name]
+        # (add to client only)
         self.hex = hex
         self.token = token
         for k, v in self.token.items():
@@ -615,11 +625,16 @@ class OceanTile:
     def __init__(self, terrain, hex, port, active_corners):
         self.terrain = terrain.name
         self.resource = None
-        self.color = game_color_dict[terrain.name]
+        # self.color = game_color_dict[terrain.name]
+        # (add to client only)
         self.hex = hex
-        self.port = port
-        if port:
-            self.port_display = port.value
+        self.port = port.name
+
+        # if port:
+        #    self.port_display = port_to_display[port.name]
+        # else:
+        #     self.port_display = 
+        # (add to client only)
         self.active_corners = active_corners
 
     def __repr__(self):
@@ -707,7 +722,6 @@ class ServerState:
         # self.current_player = None
 
     def start_server(self):
-        print("starting server")
         self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         self.socket.bind((local_IP, local_port))
 
@@ -980,12 +994,12 @@ def build_client_request(user_input, c_state):
     # c_state.current_edge_node_2 = None
     
     # check radius for current hex
-    for hex in c_state.board.all_hexes:
-        if radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
-            state.current_hex = hex
+    for hex in c_state.board["all_hexes"]:
+        if radius_check_v(c_state.world_position, hh.hex_to_pixel(pointy, hex), 60):
+            c_state.current_hex = hex
             break
     # 2nd loop for edges - current_hex_2
-    for hex in state.board.all_hexes:
+    for hex in c_state.board["all_hexes"]:
         if state.current_hex != hex:
             if radius_check_v(state.world_position, hh.hex_to_pixel(pointy, hex), 60):
                 state.current_hex_2 = hex
@@ -1124,7 +1138,26 @@ def build_client_request(user_input, c_state):
     for player in state.players:
         player.victory_points = len(player.settlements)+(len(player.cities)*2)
 
+def client_to_server(client_request, c_state):
+    # only need to send client_request as the server holds all of the board data
+    # since client_request is a dict should be easy to convert to json
 
+    json_to_send = json.dumps(client_request)
+    msg_to_send = json_to_send.encode()
+    # c_state.socket.sendto(msg_to_send, (local_IP, local_port))
+
+    # receive message from server
+    # msg_recv, address = c_state.socket.recvfrom(buffer_size)
+    msg_recv = msg_to_send
+    packet_recv = json.loads(msg_recv.decode())
+    print(f"Received from server {packet_recv}")
+    return packet_recv
+
+
+
+def client_update(server_response, c_state):
+    # unpack server response and update state
+    pass
 
 
 
@@ -1265,9 +1298,10 @@ def render(c_state, s_state):
 
 
 
-def main():
+def run_combined():
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
-    pr.init_window(screen_width, screen_height, "Game")
+    print("starting combined client-server")
+    pr.init_window(screen_width, screen_height, "Natac")
     pr.set_target_fps(60)
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
     s_state = ServerState() # initialize board, players
@@ -1279,17 +1313,69 @@ def main():
         update_client_settings(user_input, c_state)
 
         client_request = build_client_request(user_input, c_state)
-        server_to_client(s_state) 
-        server_response = client_to_server(client_request, c_state)
+        client_to_server(client_request, c_state)
+        server_to_client(s_state)
 
         client_update(server_response, c_state)
         render(c_state)
     pr.unload_font(pr.gui_get_font())
     pr.close_window()
 
-main()
+def run_client():
+    # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
+    print("starting client")
+    pr.init_window(screen_width, screen_height, "Natac")
+    pr.set_target_fps(60)
+    pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
+    c_state = ClientState()
+    c_state.initialize_debug()
+    while not pr.window_should_close():
+        user_input = get_user_input(c_state)
+        update_client_settings(user_input, c_state)
+        client_request = build_client_request(user_input, c_state)
+        server_response = client_to_server(client_request, c_state)
+        client_update(server_response, c_state)
+        render(c_state)
+    pr.unload_font(pr.gui_get_font())
+    pr.close_window()
+
+
+def run_server():
+    print("starting server")
+    s_state = ServerState() # initialize board, players
+    s_state.start_server()
+    s_state.initialize_game()
+    while True:
+        # receives msg, updates s_state, then sends message
+        server_to_client(s_state)
+
+
+# run_combined()
 
 # 3 ways to play:
 # computer to computer
 # client to server on own computer
 # "client" to "server" encoding and decoding within same program
+
+
+
+
+def to_json(obj):
+    
+    return json.dumps(obj, default=lambda o: o.__dict__)
+    # add indent 4 for nice display (adds \n and 4 spaces between each entry)
+    # return json.dumps(obj, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+
+def test():
+    s_state = ServerState() # initialize board, players
+    s_state.initialize_game()
+
+    json_board = to_json(s_state.board)
+    # nodes, edges, landtile pass thru to_json
+    test_object = json_board
+    json_test = to_json(test_object)
+
+    print(json_test)
+
+
+test()
