@@ -13,6 +13,9 @@ local_IP = '127.0.0.1'
 local_port = 12345
 buffer_size = 1024
 
+def to_json(obj):
+    return json.dumps(obj, default=lambda o: o.__dict__)
+
 
 screen_width=800
 screen_height=600
@@ -164,35 +167,48 @@ class Board:
 
     def get_random_ports(self):
         ocean_tiles = []
-        tile_counts = {"mountain": 4, "forest": 4, "field": 4, "hill": 3, "pasture": 3, "desert": 1}
+        tile_counts = {"three": 4, "ore": 1, "wood": 1, "wheat": 1, "brick": 1, "sheep": 1}
         tiles_for_random = tile_counts.keys()
-        while len(terrain_tiles) < 19:
-            for i in range(19):
+        while len(ocean_tiles) < 9:
+            for i in range(9):
                 rand_tile = tiles_for_random[random.randrange(6)]
                 if tile_counts[rand_tile] > 0:
-                    terrain_tiles.append(rand_tile)
+                    ocean_tiles.append(rand_tile)
                     tile_counts[rand_tile] -= 1
-        return terrain_tiles
+        return ocean_tiles
+    
+    def get_port_to_nodes(self, ports):
+        port_order_for_nodes_random = []
+        for port in ports:
+            if port == None:
+                continue
+            else:
+                port_order_for_nodes_random.append(port)
+                port_order_for_nodes_random.append(port)
+        return port_order_for_nodes_random
+
+
+    
+    def randomize_tiles(self):
+        terrain_tiles = self.get_random_terrain()
+        ports = self.get_random_ports()
+        ports_to_nodes = self.get_port_order_for_nodes_random(ports)
+        return terrain_tiles, ports, ports_to_nodes
 
     def initialize_board(self):
         # comment/uncomment for random vs default
-        # terrain_tiles = get_random_terrain()
+        # terrain_tiles, ports, ports_to_nodes = self.randomize_tiles()
 
-        default_terrains =["mountain", "pasture", "forest",
+        default_terrains = ["mountain", "pasture", "forest",
         "field", "hill", "pasture", "hill",
         "field", "forest", "desert", "forest", "mountain",
         "forest", "mountain", "field", "pasture",
         "hill", "field", "pasture"]
 
+        # this needs to be randomized too
         default_tile_tokens_dict = [{10: 3}, {2: 1}, {9: 4}, {12: 1}, {6: 5}, {4: 3}, {10: 3}, {9: 4}, {11: 2}, {None: None}, {3: 2}, {8: 5}, {8: 5}, {3: 2}, {4: 3}, {5: 4}, {5: 4}, {6: 5}, {11: 2}]
 
-        # default_ports = [Port.THREE, None, Port.WHEAT, None, 
-        #                 None, Port.ORE,
-        #                 Port.WOOD, None,
-        #                 None, Port.THREE,
-        #                 Port.BRICK, None,
-        #                 None, Port.SHEEP, 
-        #                 Port.THREE, None, Port.THREE, None]
+
         default_ports = ["three", None, "wheat", None, 
                         None, "ore",
                         "wood", None,
@@ -200,8 +216,6 @@ class Board:
                         "brick", None,
                         None, "sheep", 
                         "three", None, "three", None]
-        
-
         
         port_active_corners = [
                 (5, 0), None, (4, 5), None,
@@ -213,7 +227,8 @@ class Board:
                 (2, 1), None, (2, 3), None
             ] 
 
-        port_order_for_nodes = ["three", "three", "wheat", "wheat", "ore", "ore", "wood", "wood", "three", "three", "brick", "brick", "sheep", "sheep", "three", "three", "three", "three"]
+        # can be generalized by iterating over ports and repeating if not None 
+        ports_to_nodes = ["three", "three", "wheat", "wheat", "ore", "ore", "wood", "wood", "three", "three", "brick", "brick", "sheep", "sheep", "three", "three", "three", "three"]
 
         # defined as defaults, can be randomized though
         terrain_tiles = default_terrains
@@ -282,7 +297,7 @@ class Board:
         for hexes in port_node_hexes:
             for node in self.nodes:
                 if hexes[0] == node.hex_a and hexes[1] == node.hex_b and hexes[2] == node.hex_c:
-                    node.port = port_order_for_nodes[i]
+                    node.port = ports_to_nodes[i]
                     i += 1
 
 
@@ -559,12 +574,6 @@ class Node:
 
 
 
-
-
-
-
-
-
 # Currently both land and ocean (Tile class)
 class LandTile:
     def __init__(self, terrain, hex, token):
@@ -633,7 +642,17 @@ class ServerState:
         self.packet = {}
         self.client_request = {}
 
-        self.board = None        
+        self.board = None
+
+        self.nil_player = None
+        self.red_player = None
+        self.blue_player = None
+        self.orange_player = None
+        self.white_player = None
+
+        self.players = {}
+
+
         # self.selection = None
         # self.current_player = None
 
@@ -658,22 +677,15 @@ class ServerState:
         self.orange_player = Player("orange_player")
         self.white_player = Player("white_player")
 
-        self.players = [self.nil_player, self.red_player, self.blue_player, self.orange_player, self.white_player]
+        self.players = {self.nil_player.name: self.nil_player, self.red_player.name: self.red_player, self.blue_player.name: self.blue_player, self.orange_player.name: self.orange_player, self.white_player.name: self.white_player}
 
     # have to send back updated dicts to client. maybe even just the thing that changed, tbd
     def build_packet(self):
         # use json.dumps and zip to build dict/json like in UDP testing 
         return {
-            "client_request": None,
             "server_response": None,
-            "board": {
-                "land_tiles": self.land_tiles,
-                "ocean_tiles": self.ocean_tiles,
-                "all_tiles": self.all_tiles,
-                "players": self.players,
-                "edges": self.edges,
-                "nodes": self.nodes
-                }
+            "board": self.board,
+            "players": self.players
             }
 
 
@@ -1284,17 +1296,26 @@ def run_combined():
     c_state = ClientState()
     c_state.initialize_debug()
     while not pr.window_should_close():
+        # get user input
         user_input = get_user_input(c_state)
+        # update client-specific settings unrelated to server
         update_client_settings(user_input, c_state)
 
+        # encode msg based on user_input
         client_request = build_client_request(user_input, c_state)
+        # 'send' msg to server - (in this case pass in client_request)
         client_to_server(client_request, c_state)
-        server_to_client(s_state)
+        # decode msg, update server state, return server_response for client
+        server_response = server_to_client(s_state)
 
+        # use server_response to update and render
         client_update(server_response, c_state)
         render(c_state)
     pr.unload_font(pr.gui_get_font())
     pr.close_window()
+
+
+
 
 def run_client():
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
@@ -1306,9 +1327,12 @@ def run_client():
     c_state.initialize_debug()
     while not pr.window_should_close():
         user_input = get_user_input(c_state)
+
         update_client_settings(user_input, c_state)
+
         client_request = build_client_request(user_input, c_state)
         server_response = client_to_server(client_request, c_state)
+
         client_update(server_response, c_state)
         render(c_state)
     pr.unload_font(pr.gui_get_font())
@@ -1325,7 +1349,7 @@ def run_server():
         server_to_client(s_state)
 
 
-# run_combined()
+
 
 # 3 ways to play:
 # computer to computer
@@ -1333,24 +1357,19 @@ def run_server():
 # "client" to "server" encoding and decoding within same program
 
 
-
-
-def to_json(obj):
-    
-    return json.dumps(obj, default=lambda o: o.__dict__)
-    # add indent 4 for nice display (adds \n and 4 spaces between each entry)
-    # return json.dumps(obj, default=lambda o: o.__dict__, sort_keys=True, indent=4)
-
 def test():
     s_state = ServerState() # initialize board, players
     s_state.initialize_game()
 
-    json_board = to_json(s_state.board)
-    # nodes, edges, landtile pass thru to_json
-    test_object = json_board
-    json_test = to_json(test_object)
+    packet = to_json(s_state.build_packet())
 
-    print(json_test)
+    msg_encoded = packet.encode()
+    
+    msg_decoded = json.loads(msg_encoded)
+
+    print(msg_decoded["players"])
 
 
+
+# run_combined()
 test()
