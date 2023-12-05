@@ -138,8 +138,8 @@ class Board:
         self.all_hexes = self.land_hexes + self.ocean_hexes
 
     def initialize_board(self):
-    #     # comment/uncomment for random vs default
-    #     # terrain_tiles = get_random_terrain()
+        # comment/uncomment for random vs default
+        # terrain_tiles = get_random_terrain()
 
         default_terrains =[Terrain.MOUNTAIN, Terrain.PASTURE, Terrain.FOREST,
         Terrain.FIELD, Terrain.HILL, Terrain.PASTURE, Terrain.HILL,
@@ -147,6 +147,7 @@ class Board:
         Terrain.FOREST, Terrain.MOUNTAIN, Terrain.FIELD, Terrain.PASTURE,
         Terrain.HILL, Terrain.FIELD, Terrain.PASTURE]
 
+        default_tile_tokens_dict = [{10: 3}, {2: 1}, {9: 4}, {12: 1}, {6: 5}, {4: 3}, {10: 3}, {9: 4}, {11: 2}, {None: None}, {3: 2}, {8: 5}, {8: 5}, {3: 2}, {4: 3}, {5: 4}, {5: 4}, {6: 5}, {11: 2}]
 
         default_ports = [Port.THREE, None, Port.WHEAT, None, 
                         None, Port.ORE,
@@ -168,7 +169,6 @@ class Board:
 
         port_order_for_nodes = [Port.THREE, Port.THREE, Port.WHEAT, Port.WHEAT, Port.ORE, Port.ORE, Port.WOOD, Port.WOOD, Port.THREE, Port.THREE, Port.BRICK, Port.BRICK, Port.SHEEP, Port.SHEEP, Port.THREE, Port.THREE, Port.THREE, Port.THREE]
 
-        default_tile_tokens_dict = [{10: 3}, {2: 1}, {9: 4}, {12: 1}, {6: 5}, {4: 3}, {10: 3}, {9: 4}, {11: 2}, {None: None}, {3: 2}, {8: 5}, {8: 5}, {3: 2}, {4: 3}, {5: 4}, {5: 4}, {6: 5}, {11: 2}]
         
         terrain_tiles = default_terrains
         tokens = default_tile_tokens_dict
@@ -628,7 +628,8 @@ class OceanTile:
         # self.color = game_color_dict[terrain.name]
         # (add to client only)
         self.hex = hex
-        self.port = port.name
+        if port:
+            self.port = port.name
 
         # if port:
         #    self.port_display = port_to_display[port.name]
@@ -669,7 +670,8 @@ def get_random_terrain():
 class Player:
     def __init__(self, name):
         self.name = name
-        self.color = game_color_dict[self.name]
+        # self.color = game_color_dict[self.name]
+        # (only for client)
         self.cities = []
         self.settlements = []
         self.roads = []
@@ -730,7 +732,7 @@ class ServerState:
         self.initialize_players()
         self.board = Board()
         self.board.initialize_board()
-        self.board.set_demo_settlements(self)
+        # self.board.set_demo_settlements(self)
     
     
     # hardcoded players, can set up later to take different combos based on user input
