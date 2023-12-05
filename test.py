@@ -704,3 +704,14 @@ def assign_colors(GameColor, Terrain, PlayerEnum):
         # debug_4 = f"Current node = {state.current_node}"
         # debug_msgs = [debug_1, debug_2, debug_3, debug_4, debug_5]
         # debug_5 = f"Current selection = {state.selection}"
+
+
+# ENUM graveyard
+
+class DevelopmentCards(Enum):
+    VICTORY_POINT = "victory_point"
+    KNIGHT = "knight"
+    MONOPOLY = "monopoly"
+    YEAR_OF_PLENTY = "year_of_plenty"
+    ROAD_BUILDING = "road_building"
+

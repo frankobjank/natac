@@ -67,10 +67,21 @@ size = 50 # (radius)
 pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
 # turned these into Enum classes, might be useful for random functions later
-all_game_pieces = ["road", "settlement", "city", "robber"]
-all_tiles = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
+all_game_pieces = ["settlement", "city", "road", "robber", "longest_road", "largest_army"]
+all_terrains = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
 all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
-all_ports = ["three_to_one", "wood_port", "brick_port", "sheep_port", "wheat_port", "ore_port"]
+all_ports = ["three", "wood", "brick", "sheep", "wheat", "ore"]
+development_cards = ["victory_point", "knight", "monopoly", "year_of_plenty", "road_building"]
+
+terrain_to_resource = {
+    "forest": "wood",
+    "hill": "brick",
+    "pasture": "sheep",
+    "field": "wheat",
+    "mountain": "ore",
+    "desert": None
+    }
+
 
 
 class Board:
@@ -137,25 +148,60 @@ class Board:
         # land and ocean hexes only
         self.all_hexes = self.land_hexes + self.ocean_hexes
 
+    # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
+    def get_random_terrain(self):
+        # if desert, skip token
+        terrain_tiles = []
+        tile_counts = {"mountain": 4, "forest": 4, "field": 4, "hill": 3, "pasture": 3, "desert": 1}
+        tiles_for_random = tile_counts.keys()
+        while len(terrain_tiles) < 19:
+            for i in range(19):
+                rand_tile = tiles_for_random[random.randrange(6)]
+                if tile_counts[rand_tile] > 0:
+                    terrain_tiles.append(rand_tile)
+                    tile_counts[rand_tile] -= 1
+        return terrain_tiles
+
+    def get_random_ports(self):
+        ocean_tiles = []
+        tile_counts = {"mountain": 4, "forest": 4, "field": 4, "hill": 3, "pasture": 3, "desert": 1}
+        tiles_for_random = tile_counts.keys()
+        while len(terrain_tiles) < 19:
+            for i in range(19):
+                rand_tile = tiles_for_random[random.randrange(6)]
+                if tile_counts[rand_tile] > 0:
+                    terrain_tiles.append(rand_tile)
+                    tile_counts[rand_tile] -= 1
+        return terrain_tiles
+
     def initialize_board(self):
         # comment/uncomment for random vs default
         # terrain_tiles = get_random_terrain()
 
-        default_terrains =[Terrain.MOUNTAIN, Terrain.PASTURE, Terrain.FOREST,
-        Terrain.FIELD, Terrain.HILL, Terrain.PASTURE, Terrain.HILL,
-        Terrain.FIELD, Terrain.FOREST, Terrain.DESERT, Terrain.FOREST, Terrain.MOUNTAIN,
-        Terrain.FOREST, Terrain.MOUNTAIN, Terrain.FIELD, Terrain.PASTURE,
-        Terrain.HILL, Terrain.FIELD, Terrain.PASTURE]
+        default_terrains =["mountain", "pasture", "forest",
+        "field", "hill", "pasture", "hill",
+        "field", "forest", "desert", "forest", "mountain",
+        "forest", "mountain", "field", "pasture",
+        "hill", "field", "pasture"]
 
         default_tile_tokens_dict = [{10: 3}, {2: 1}, {9: 4}, {12: 1}, {6: 5}, {4: 3}, {10: 3}, {9: 4}, {11: 2}, {None: None}, {3: 2}, {8: 5}, {8: 5}, {3: 2}, {4: 3}, {5: 4}, {5: 4}, {6: 5}, {11: 2}]
 
-        default_ports = [Port.THREE, None, Port.WHEAT, None, 
-                        None, Port.ORE,
-                        Port.WOOD, None,
-                        None, Port.THREE,
-                        Port.BRICK, None,
-                        None, Port.SHEEP, 
-                        Port.THREE, None, Port.THREE, None]
+        # default_ports = [Port.THREE, None, Port.WHEAT, None, 
+        #                 None, Port.ORE,
+        #                 Port.WOOD, None,
+        #                 None, Port.THREE,
+        #                 Port.BRICK, None,
+        #                 None, Port.SHEEP, 
+        #                 Port.THREE, None, Port.THREE, None]
+        default_ports = ["three", None, "wheat", None, 
+                        None, "ore",
+                        "wood", None,
+                        None, "three",
+                        "brick", None,
+                        None, "sheep", 
+                        "three", None, "three", None]
+        
+
         
         port_active_corners = [
                 (5, 0), None, (4, 5), None,
@@ -167,9 +213,9 @@ class Board:
                 (2, 1), None, (2, 3), None
             ] 
 
-        port_order_for_nodes = [Port.THREE, Port.THREE, Port.WHEAT, Port.WHEAT, Port.ORE, Port.ORE, Port.WOOD, Port.WOOD, Port.THREE, Port.THREE, Port.BRICK, Port.BRICK, Port.SHEEP, Port.SHEEP, Port.THREE, Port.THREE, Port.THREE, Port.THREE]
+        port_order_for_nodes = ["three", "three", "wheat", "wheat", "ore", "ore", "wood", "wood", "three", "three", "brick", "brick", "sheep", "sheep", "three", "three", "three", "three"]
 
-        
+        # defined as defaults, can be randomized though
         terrain_tiles = default_terrains
         tokens = default_tile_tokens_dict
         ports = default_ports
@@ -182,7 +228,7 @@ class Board:
 
         # defining ocean tiles
         for i in range(len(self.ocean_hexes)):
-            self.ocean_tiles.append(OceanTile(Terrain.OCEAN, self.ocean_hexes[i], ports[i], port_active_corners[i]))
+            self.ocean_tiles.append(OceanTile("ocean", self.ocean_hexes[i], ports[i], port_active_corners[i]))
         # is there a better way to format this - a way to zip up info that will be associated
         # with other info without using a dictionary or class
 
@@ -510,97 +556,12 @@ class Node:
                 
         return True
 
-# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
-
-game_color_dict = {
-    # players
-    "PLAYER_NIL": pr.GRAY,
-    "PLAYER_RED": pr.get_color(0xe1282fff),
-    "PLAYER_BLUE": pr.get_color(0x2974b8ff),
-    "PLAYER_ORANGE": pr.get_color(0xd46a24ff),
-    "PLAYER_WHITE": pr.get_color(0xd6d6d6ff),
-
-    # other pieces
-    "ROBBER": pr.BLACK,
-    # buttons
-    # put terrain colors here
-    "FOREST": pr.get_color(0x517d19ff),
-    "HILL": pr.get_color(0x9c4300ff),
-    "PASTURE": pr.get_color(0x17b97fff),
-    "FIELD": pr.get_color(0xf0ad00ff),
-    "MOUNTAIN": pr.get_color(0x7b6f83ff),
-    "DESERT": pr.get_color(0xffd966ff),
-    "OCEAN": pr.get_color(0x4fa6ebff)
-    }
 
 
 
-# could store shapes
-class Piece(Enum):
-    SETTLEMENT = "settlement"
-    CITY = "city"
-    ROAD = "road"
-    ROBBER = "robber"
-    LONGEST_ROAD = "longest_road"
-    LARGEST_ARMY = "largest_army"
-
-class ResourceCard(Enum):
-    WOOD = "wood"
-    BRICK = "brick"
-    SHEEP = "sheep"
-    WHEAT = "wheat"
-    ORE = "ore"
-
-class DevelopmentCards(Enum):
-    VICTORY_POINT = "victory_point"
-    KNIGHT = "knight"
-    MONOPOLY = "monopoly"
-    YEAR_OF_PLENTY = "year_of_plenty"
-    ROAD_BUILDING = "road_building"
-
-# add these to Terrain class?
-class Resource(Enum):
-    WOOD = "wood"
-    BRICK = "brick"
-    SHEEP = "sheep"
-    WHEAT = "wheat"
-    ORE = "ore"
 
 
-class Terrain(Enum):
-    FOREST = "forest"
-    HILL = "hill"
-    PASTURE = "pasture"
-    FIELD = "field"
-    MOUNTAIN = "mountain"
-    DESERT = "desert"
-    OCEAN = "ocean"
 
-terrain_to_resource = {
-    "FOREST": "WOOD",
-    "HILL": "BRICK",
-    "PASTURE": "SHEEP",
-    "FIELD": "WHEAT",
-    "MOUNTAIN": "ORE",
-    "DESERT": None
-    }
-
-class Port(Enum):
-    THREE = "three"
-    WHEAT = "wheat"
-    ORE = "ore"
-    WOOD = "wood"
-    BRICK = "brick"
-    SHEEP = "sheep"
-
-port_to_display = {
-    "THREE": " ? \n3:1",
-    "WHEAT": " 2:1 \nwheat",
-    "ORE": "2:1\nore",
-    "WOOD": " 2:1 \nwood",
-    "BRICK": " 2:1 \nbrick",
-    "SHEEP": " 2:1 \nsheep"
-}
 
 
 
@@ -608,8 +569,8 @@ port_to_display = {
 class LandTile:
     def __init__(self, terrain, hex, token):
         self.robber = False
-        self.terrain = terrain.name
-        self.resource = terrain_to_resource[terrain.name]
+        self.terrain = terrain
+        self.resource = terrain_to_resource[terrain]
         # self.color = game_color_dict[terrain.name]
         # (add to client only)
         self.hex = hex
@@ -623,13 +584,12 @@ class LandTile:
     
 class OceanTile:
     def __init__(self, terrain, hex, port, active_corners):
-        self.terrain = terrain.name
+        self.terrain = terrain
         self.resource = None
         # self.color = game_color_dict[terrain.name]
         # (add to client only)
         self.hex = hex
-        if port:
-            self.port = port.name
+        self.port = port
 
         # if port:
         #    self.port_display = port_to_display[port.name]
@@ -643,29 +603,7 @@ class OceanTile:
 
 
 
-default_ports= [Port.THREE, None, Port.WHEAT, None, 
-                None, Port.ORE,
-                Port.WOOD, None,
-                None, Port.THREE,
-                Port.BRICK, None,
-                None, Port.SHEEP, 
-                Port.THREE, None, Port.THREE, None]
 
-port_order_for_nodes = [Port.THREE, Port.THREE, Port.WHEAT, Port.WHEAT, Port.ORE, Port.ORE, Port.WOOD, Port.WOOD, Port.THREE, Port.THREE, Port.BRICK, Port.BRICK, Port.SHEEP, Port.SHEEP, Port.THREE, Port.THREE, Port.THREE, Port.THREE]
-
-# 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
-def get_random_terrain():
-    # if desert, skip token
-    terrain_tiles = []
-    tile_counts = {Terrain.MOUNTAIN: 4, Terrain.FOREST: 4, Terrain.FIELD: 4, Terrain.HILL: 3, Terrain.PASTURE: 3, Terrain.DESERT: 1}
-    tiles_for_random = tile_counts.keys()
-    while len(terrain_tiles) < 19:
-        for i in range(19):
-            rand_tile = tiles_for_random[random.randrange(6)]
-            if tile_counts[rand_tile] > 0:
-                terrain_tiles.append(rand_tile)
-                tile_counts[rand_tile] -= 1
-    return terrain_tiles
 
 class Player:
     def __init__(self, name):
@@ -686,30 +624,6 @@ class Player:
     def __str__(self):
         return f"Player {self.name}"
     
-
-
-class Button:
-    def __init__(self, rec:pr.Rectangle, name, set_var=None):
-        self.rec = rec
-        self.name = name
-        self.color = game_color_dict[self.name]
-        self.set_var = set_var
-        self.is_bool = False
-        if set_var == None:
-            self.is_bool = True
-        # ex: self.var_to_set=current_player, self.set_var=blue_player
-    
-    def __repr__(self):
-        return f"Button({self.name} for {self.set_var}, is_bool = {self.is_bool})"
-    
-    def toggle(self, var_to_set):
-        if self.is_bool:
-            return not var_to_set
-        
-        if var_to_set != self.set_var:
-            return self.set_var
-        elif var_to_set == self.set_var:
-            return None
 
 
 
@@ -738,11 +652,11 @@ class ServerState:
     # hardcoded players, can set up later to take different combos based on user input
     def initialize_players(self):
         # PLAYERS
-        self.nil_player = Player("PLAYER_NIL")
-        self.red_player = Player("PLAYER_RED")
-        self.blue_player = Player("PLAYER_BLUE")
-        self.orange_player = Player("PLAYER_ORANGE")
-        self.white_player = Player("PLAYER_WHITE")
+        self.nil_player = Player("nil_player")
+        self.red_player = Player("red_player")
+        self.blue_player = Player("blue_player")
+        self.orange_player = Player("orange_player")
+        self.white_player = Player("white_player")
 
         self.players = [self.nil_player, self.red_player, self.blue_player, self.orange_player, self.white_player]
 
@@ -864,6 +778,65 @@ def server_to_client(client_request, s_state):
     # respond to client
 
 
+# CONSTANTS FOR CLIENT DISPLAY
+
+# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
+game_color_dict = {
+    # players
+    "nil_player": pr.GRAY,
+    "red_player": pr.get_color(0xe1282fff),
+    "blue_player": pr.get_color(0x2974b8ff),
+    "orange_player": pr.get_color(0xd46a24ff),
+    "white_player": pr.get_color(0xd6d6d6ff),
+
+    # other pieces
+    "robber": pr.BLACK,
+    # buttons
+    # put terrain colors here
+    "forest": pr.get_color(0x517d19ff),
+    "hill": pr.get_color(0x9c4300ff),
+    "pasture": pr.get_color(0x17b97fff),
+    "field": pr.get_color(0xf0ad00ff),
+    "mountain": pr.get_color(0x7b6f83ff),
+    "desert": pr.get_color(0xffd966ff),
+    "ocean": pr.get_color(0x4fa6ebff)
+    }
+
+port_to_display = {
+    "THREE": " ? \n3:1",
+    "WHEAT": " 2:1 \nwheat",
+    "ORE": "2:1\nore",
+    "WOOD": " 2:1 \nwood",
+    "BRICK": " 2:1 \nbrick",
+    "SHEEP": " 2:1 \nsheep"
+}
+
+
+class Button:
+    def __init__(self, rec:pr.Rectangle, name, set_var=None):
+        self.rec = rec
+        self.name = name
+        self.color = game_color_dict[self.name]
+        self.set_var = set_var
+        self.is_bool = False
+        if set_var == None:
+            self.is_bool = True
+        # ex: self.var_to_set=current_player, self.set_var=blue_player
+    
+    def __repr__(self):
+        return f"Button({self.name} for {self.set_var}, is_bool = {self.is_bool})"
+    
+    def toggle(self, var_to_set):
+        if self.is_bool:
+            return not var_to_set
+        
+        if var_to_set != self.set_var:
+            return self.set_var
+        elif var_to_set == self.set_var:
+            return None
+
+
+
 class ClientState:
     def __init__(self):
         # Networking
@@ -914,12 +887,12 @@ class ClientState:
 
         # debug buttons
         self.buttons=[
-            Button(pr.Rectangle(750, 20, 40, 40), "PLAYER_BLUE", self.blue_player),
-            Button(pr.Rectangle(700, 20, 40, 40), "PLAYER_ORANGE", self.orange_player), 
-            Button(pr.Rectangle(650, 20, 40, 40), "PLAYER_WHITE", self.white_player), 
-            Button(pr.Rectangle(600, 20, 40, 40), "PLAYER_RED", self.red_player),
-            Button(pr.Rectangle(550, 20, 40, 40), "ROBBER")
-            # Button(pr.Rectangle(500, 20, 40, 40), GameColor.PLAYER_NIL, nil_player),
+            Button(pr.Rectangle(750, 20, 40, 40), "blue_player", self.blue_player),
+            Button(pr.Rectangle(700, 20, 40, 40), "orange_player", self.orange_player), 
+            Button(pr.Rectangle(650, 20, 40, 40), "white_player", self.white_player), 
+            Button(pr.Rectangle(600, 20, 40, 40), "red_player", self.red_player),
+            Button(pr.Rectangle(550, 20, 40, 40), "robber")
+            # Button(pr.Rectangle(500, 20, 40, 40), "nil_player", self.nil_player),
         ]
 
 # client user input
