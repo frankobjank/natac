@@ -581,7 +581,7 @@ class LandTile:
         self.terrain = terrain
         self.resource = terrain_to_resource[terrain]
         # self.color = game_color_dict[terrain.name]
-        # (add to client only)
+        # (add to client render only)
         self.hex = hex
         self.token = token
         for k, v in self.token.items():
@@ -663,9 +663,7 @@ class ServerState:
         
         if combined == True:
             # send initial state so client has board
-            packet = to_json(self.build_packet())
-            msg_encoded = packet.encode()
-            return msg_encoded
+            return self.build_server_response()
 
     
     def initialize_game(self):
@@ -694,6 +692,11 @@ class ServerState:
             "board": self.board,
             "players": self.players
             }
+    
+    def build_server_response(self):
+        packet = to_json(self.build_packet())
+        msg_encoded = packet.encode()
+        return msg_encoded
 
 
 
@@ -782,19 +785,33 @@ def update_server(client_request, s_state):
         player.victory_points = len(player.settlements)+(len(player.cities)*2)
         # AND longest road, largest army, Development card VPs
 
+    return # something indicating if request was accepted or denied?
 
-def server_to_client(client_request, s_state):
-    # receive message (real server)
-    # msg_recv, address = s_state.socket.recvfrom(buffer_size)
-    
-    print(f"Message from client: {client_request.decode()}")
-    packet_recv = json.loads(client_request) # loads directly from bytes so don't need to .decode()
+def server_to_client(s_state, client_request=None, combined=False):
+    msg_recv = ""
+    if combined == False:
+        # use socket
+        msg_recv, address = s_state.socket.recvfrom(buffer_size)
+    else:
+        # or just pass in variable
+        msg_recv = client_request
 
+    print(f"Message from client: {msg_recv.decode()}")
 
-    # update state
-    update_server(client_request, s_state)
+    packet_recv = json.loads(msg_recv) # loads directly from bytes so don't need to .decode()
+
+    # update s_state (return "accepted"/"denied"?)
+    update_server(packet_recv, s_state)
 
     # respond to client
+    if combined == False:
+        # use socket to respond
+        print(f"returning: {s_state.build_packet()}")    
+        msg_to_send = s_state.build_server_response()
+        s_state.socket.sendto(msg_to_send, address)
+    else:
+        # or just return
+        return s_state.build_server_response()
 
 
 
@@ -803,7 +820,7 @@ class Button:
     def __init__(self, rec:pr.Rectangle, name, set_var=None):
         self.rec = rec
         self.name = name
-        self.color = game_color_dict[self.name]
+        self.color = rf.game_color_dict[self.name]
         self.set_var = set_var
         self.is_bool = False
         if set_var == None:
@@ -944,7 +961,17 @@ def update_client_settings(user_input, c_state):
         c_state.camera.zoom = default_zoom
         c_state.camera.rotation = 0.0
 
-# client (old update())
+    # DEBUG - buttons
+    if c_state.debug == True:
+        for button in c_state.buttons:
+            if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
+                if button.name == "ROBBER":
+                    c_state.move_robber = button.toggle(c_state.move_robber)
+                    c_state.current_player = None
+                else:
+                    c_state.current_player = button.toggle(c_state.current_player)
+
+
 def build_client_request(user_input, c_state):
     # client_request = {"action": "build_town", "player": "PLAYER_NAME", "location": Node or Edge}
     client_request = {}
@@ -978,7 +1005,7 @@ def build_client_request(user_input, c_state):
                 c_state.current_hex_3 = hex
                 break
     
-# 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, 
+    # 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, 
 
     # defining current_node
     if c_state.current_hex_3:
@@ -1078,36 +1105,26 @@ def build_client_request(user_input, c_state):
                 if tile.hex == state.current_hex:
                     print(f"tile terrain: {tile.terrain}")
         else:
-            state.selection = None
-        
-        # DEBUG - buttons
-        if state.debug == True:
-            for button in state.buttons:
-                if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                    if button.name == "ROBBER":
-                        state.move_robber = button.toggle(state.move_robber)
-                        state.current_player = None
-                    else:
-                        state.current_player = button.toggle(state.current_player)
+            state.selection = None                    
                     
-                    
-
     # update player stats
-    for player in state.players:
-        player.victory_points = len(player.settlements)+(len(player.cities)*2)
+    # for player in state.players:
+    #     player.victory_points = len(player.settlements)+(len(player.cities)*2)
 
-def client_to_server(client_request, c_state):
-    # only need to send client_request as the server holds all of the board data
-    # since client_request is a dict should be easy to convert to json
+    return client_request
+
+def client_to_server(client_request, c_state, combined=False):
 
     json_to_send = json.dumps(client_request)
     msg_to_send = json_to_send.encode()
-    # c_state.socket.sendto(msg_to_send, (local_IP, local_port))
-
-    # receive message from server
-    # msg_recv, address = c_state.socket.recvfrom(buffer_size)
-    msg_recv = msg_to_send
-    packet_recv = json.loads(msg_recv.decode())
+    if combined == False:
+        c_state.socket.sendto(msg_to_send, (local_IP, local_port))
+        # receive message from server
+        msg_recv, address = c_state.socket.recvfrom(buffer_size)
+    else:
+        msg_recv = msg_to_send
+    
+    packet_recv = json.loads(msg_recv)
     print(f"Received from server {packet_recv}")
     return packet_recv
 
@@ -1282,10 +1299,11 @@ def run_combined():
 
         # encode msg based on user_input
         client_request = build_client_request(user_input, c_state)
-        # 'send' msg to server - (in this case pass in client_request)
-        client_to_server(client_request, c_state)
+        # normally sends message, server receives, server returns
+        # if combined, just package client_request for sending and pass it into server_to_client
+        client_to_server(client_request, c_state, combined=True)
         # decode msg, update server state, return server_response for client
-        server_response = server_to_client(s_state)
+        server_response = server_to_client(s_state, client_request, combined=True)
 
         # use server_response to update and render
         update_client(server_response, c_state)
@@ -1305,7 +1323,8 @@ def run_client():
     c_state = ClientState()
     c_state.initialize_debug()
     # receive init message with board?
-    c_state.
+    server_response = client_to_server(client_request, c_state)
+    update_client(server_response, c_state)
     while not pr.window_should_close():
         user_input = get_user_input(c_state)
 
