@@ -887,7 +887,7 @@ class ClientState:
         self.camera.zoom = default_zoom
     
     def does_board_exist(self):
-        if "land_tiles" in self.board:
+        if len(self.board) > 0:
             return True
       
     def initialize_debug(self):
@@ -975,6 +975,9 @@ def update_client_settings(user_input, c_state):
 def build_client_request(user_input, c_state):
     # client_request = {"action": "build_town", "player": "PLAYER_NAME", "location": Node or Edge}
     client_request = {}
+    if not c_state.does_board_exist():
+        return
+
  
     # reset current hex, edge, node
     c_state.current_hex = None
@@ -1134,31 +1137,30 @@ def update_client(server_response, c_state):
     # unpack server response and update state
     pass
 
+def render_board(board):
+    # {'land_tiles': [{'robber': False, 'terrain': 'mountain', 'resource': 'ore', 'hex': [0, -2, 2], 'token': {'10': 3}, 'num': 10, 'dots': 3}, {'robber': False, 'terrain': 'pasture', 'resource': 
 
-
-# client. s_state only here for debugging, will remove
-# MAKE SURE TO INCLUDE the necessary attributes in server response so client can draw it
-def render(c_state, s_state):
-    
-    pr.begin_drawing()
-    pr.clear_background(pr.BLUE)
-
-    pr.begin_mode_2d(c_state.camera)
+    # hex details
+    # layout = type, size, origin
+    size = 50 # (radius)
+    pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
     # draw land tiles, numbers, dots
-    for tile in s_state.board.land_tiles:
+    for tile in board["land_tiles"]:
         # draw resource hexes
-        pr.draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, tile.color)
+        hex = hh.set_hex(tile["hex"][0], tile["hex"][1], tile["hex"][2])
+        color = rf.game_color_dict[tile["terrain"]]
+        pr.draw_poly(hh.hex_to_pixel(pointy, hex), 6, size, 0, color)
 
         # draw black outlines around hexes
-        pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, pr.BLACK)
+        pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, size, 0, 1, pr.BLACK)
 
     
         # draw numbers, dots on hexes
-        if tile.num != None:
+        if tile["num"] != None:
             # have to specify layout for hex calculations
-            rf.draw_num(tile, layout=pointy)
-            rf.draw_dots(tile, layout=pointy)
+            rf.draw_num(hex, tile["num"], layout=pointy)
+            rf.draw_dots(hex, tile["dots"], layout=pointy)
         
         # drawing circles in hex centers to center text
         # if state.debug == True:
@@ -1181,10 +1183,28 @@ def render(c_state, s_state):
                     midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
                     pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
+    # draw roads, settlements, cities
+    for edge in s_state.board.edges:
+        if edge.player != None:
+            rf.draw_road(edge, edge.player.color)
+
+    for node in s_state.board.nodes:
+        if node.player != None:
+            if node.town == "settlement":
+                rf.draw_settlement(node, node.player.color)
+            elif node.town == "city":
+                rf.draw_city(node, node.player.color)      
+
+    # draw robber
+    for tile in s_state.board.land_tiles:
+        if tile.robber == True:
+            hex_center = vector2_round(hh.hex_to_pixel(pointy, tile.hex))
+            rf.draw_robber(hex_center)
+            break
 
 
 
-
+def render_mouse_hover(c_state):
     # outline up to 3 current hexes
     if c_state.current_hex: # and not state.current_edge:
         pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, c_state.current_hex), 6, 50, 0, 6, pr.BLACK)
@@ -1215,29 +1235,16 @@ def render(c_state, s_state):
         pr.draw_line_ex(corners[0], corners[1], 12, pr.BLACK)
         
         
-        
-    # draw roads, settlements, cities
-    for edge in s_state.board.edges:
-        if edge.player != None:
-            rf.draw_road(edge, edge.player.color)
+def render_client(c_state):
+    
+    pr.begin_drawing()
+    pr.clear_background(pr.BLUE)
 
-    for node in s_state.board.nodes:
-        if node.player != None:
-            if node.town == "settlement":
-                rf.draw_settlement(node, node.player.color)
-            elif node.town == "city":
-                rf.draw_city(node, node.player.color)      
-
-    # draw robber
-    for tile in s_state.board.land_tiles:
-        if tile.robber == True:
-            hex_center = vector2_round(hh.hex_to_pixel(pointy, tile.hex))
-            rf.draw_robber(hex_center)
-            break
-
-        
-
-    pr.end_mode_2d()
+    if c_state.does_board_exist():
+        pr.begin_mode_2d(c_state.camera)
+        render_board(c_state.board)
+        render_mouse_hover(c_state)
+        pr.end_mode_2d()
 
     if c_state.debug == True:        
         debug_1 = f"World mouse at: ({int(c_state.world_position.x)}, {int(c_state.world_position.y)})"
@@ -1307,7 +1314,7 @@ def run_combined():
 
         # use server_response to update and render
         update_client(server_response, c_state)
-        render(c_state)
+        render_client(c_state)
     pr.unload_font(pr.gui_get_font())
     pr.close_window()
 

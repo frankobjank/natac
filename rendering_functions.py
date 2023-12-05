@@ -36,38 +36,38 @@ port_to_display = {
 
 
 # have to specify layout for hex calculations
-def draw_num(tile, layout):
-    pr.draw_circle(int(hh.hex_to_pixel(layout, tile.hex).x), int(hh.hex_to_pixel(layout, tile.hex).y), 18, pr.RAYWHITE)
-    text_size = pr.measure_text_ex(pr.gui_get_font(), f"{tile.num}", 20, 0)
-    center_numbers_offset = pr.Vector2(int(hh.hex_to_pixel(layout, tile.hex).x-text_size.x/2+2), int(hh.hex_to_pixel(layout, tile.hex).y-text_size.y/2-1))
-    if tile.num == 8 or tile.num == 6:
-        pr.draw_text_ex(pr.gui_get_font(), str(tile.num), center_numbers_offset, 22, 0, pr.BLACK)
-        pr.draw_text_ex(pr.gui_get_font(), str(tile.num), center_numbers_offset, 20, 0, pr.RED)
+def draw_num(hex, num, layout):
+    pr.draw_circle(int(hh.hex_to_pixel(layout, hex).x), int(hh.hex_to_pixel(layout, hex).y), 18, pr.RAYWHITE)
+    text_size = pr.measure_text_ex(pr.gui_get_font(), f"{num}", 20, 0)
+    center_numbers_offset = pr.Vector2(int(hh.hex_to_pixel(layout, hex).x-text_size.x/2+2), int(hh.hex_to_pixel(layout, hex).y-text_size.y/2-1))
+    if num == 8 or num == 6:
+        pr.draw_text_ex(pr.gui_get_font(), str(num), center_numbers_offset, 22, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), str(num), center_numbers_offset, 20, 0, pr.RED)
     else:
-        pr.draw_text_ex(pr.gui_get_font(), str(tile.num), center_numbers_offset, 20, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), str(num), center_numbers_offset, 20, 0, pr.BLACK)
 
 
-def draw_dots(tile, layout):
+def draw_dots(hex, dots, layout):
     # draw dots, wrote out all possibilities
     dot_x_offset = 4
     dot_size = 2.8
-    dot_x = int(hh.hex_to_pixel(layout, tile.hex).x)
-    dot_y = int(hh.hex_to_pixel(layout, tile.hex).y)+25
-    if tile.dots == 1:
+    dot_x = int(hh.hex_to_pixel(layout, hex).x)
+    dot_y = int(hh.hex_to_pixel(layout, hex).y)+25
+    if dots == 1:
         pr.draw_circle(dot_x, dot_y, dot_size, pr.BLACK)
-    elif tile.dots == 2:
+    elif dots == 2:
         pr.draw_circle(dot_x-dot_x_offset, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x+dot_x_offset, dot_y, dot_size, pr.BLACK)
-    elif tile.dots == 3:
+    elif dots == 3:
         pr.draw_circle(dot_x-dot_x_offset*2, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x+dot_x_offset*2, dot_y, dot_size, pr.BLACK)
-    elif tile.dots == 4:
+    elif dots == 4:
         pr.draw_circle(dot_x-dot_x_offset*3, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x-dot_x_offset, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x+dot_x_offset, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x+dot_x_offset*3, dot_y, dot_size, pr.BLACK)
-    elif tile.dots == 5:
+    elif dots == 5:
         pr.draw_circle(dot_x-dot_x_offset*4, dot_y, dot_size, pr.RED)
         pr.draw_circle_lines(dot_x-dot_x_offset*4, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x-dot_x_offset*2, dot_y, dot_size, pr.RED)
