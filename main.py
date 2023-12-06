@@ -697,118 +697,115 @@ class ServerState:
 
 
 
-# server update (old update())
-def update_server(client_request, s_state):
-    # get user input from packet, update the s_state
-    # selecting based on mouse button input from get_user_input()
-    # CLIENT REQUEST needs to include build (town), for player (white), at Node (3 hexes)
-    # client_request = {"action": "build_town", "player": "PLAYER_NAME", "location": Node or Edge}
-    if client_request["action"] == "build_town":
-        # toggle between settlement, city, None
-        for node in s_state.nodes:
-            if node == client_request["location"]:
-                if node.town == None and s_state.current_player != None:
-                    if node.build_check_settlement(s_state):
-                        node.town = "settlement"
-                        node.player = s_state.current_player
-                        s_state.current_player.settlements.append(node)
-                        s_state.current_player.ports.append(node.port)
+    # server update (old update())
+    def update_server(self, client_request):
+        # get user input from packet, update the s_state
+        # selecting based on mouse button input from get_user_input()
+        # CLIENT REQUEST needs to include build (town), for player (white), at Node (3 hexes)
+        # client_request = {"action": "build_town", "player": "PLAYER_NAME", "location": Node or Edge}
+        if client_request["action"] == "build_town":
+            # toggle between settlement, city, None
+            for node in s_state.nodes:
+                if node == client_request["location"]:
+                    if node.town == None and s_state.current_player != None:
+                        if node.build_check_settlement(s_state):
+                            node.town = "settlement"
+                            node.player = s_state.current_player
+                            s_state.current_player.settlements.append(node)
+                            s_state.current_player.ports.append(node.port)
 
-                elif node.town == "settlement":
-                    current_owner = node.player
-                    # if owner is same as current_player, upgrade to city
-                    if current_owner == s_state.current_player:
-                        # city build check
-                        if len(s_state.current_player.cities) == 4:
-                            print("no available cities")
-                        else:
-                            node.town = "city"
-                            s_state.current_player.settlements.remove(node)
-                            s_state.current_player.cities.append(node)
-                    # if owner is different from current_player, remove
-                    elif current_owner != s_state.current_player:
-                        current_owner.settlements.remove(node)
+                    elif node.town == "settlement":
+                        current_owner = node.player
+                        # if owner is same as current_player, upgrade to city
+                        if current_owner == s_state.current_player:
+                            # city build check
+                            if len(s_state.current_player.cities) == 4:
+                                print("no available cities")
+                            else:
+                                node.town = "city"
+                                s_state.current_player.settlements.remove(node)
+                                s_state.current_player.cities.append(node)
+                        # if owner is different from current_player, remove
+                        elif current_owner != s_state.current_player:
+                            current_owner.settlements.remove(node)
+                            node.player = None
+                            node.town = None
+
+                    # town is city and should be removed
+                    elif node.town == "city":
                         node.player = None
                         node.town = None
+                        s_state.current_player.cities.remove(node)
 
-                # town is city and should be removed
-                elif node.town == "city":
-                    node.player = None
-                    node.town = None
-                    s_state.current_player.cities.remove(node)
-
-        
-    elif client_request["action"] == "build_road":
-        for edge in s_state.edges:
-            if edge == client_request["location"]:
-                
-                # place roads unowned edge
-                if edge.player == None and s_state.current_player != None:
-                    if edge.build_check_road(s_state):
-                        edge.player = s_state.current_player
-                        s_state.current_player.roads.append(edge)
-
-                # remove roads
-                elif edge.player:
-                    current_owner = edge.player
-                    current_owner.roads.remove(edge)
-                    edge.player = None
-
-
-
-    # use to place robber, might have to adjust hex selection 
-        # circle overlap affects selection range
-    # USE TILE for robber location
-    elif client_request["action"] == "move_robber":
-
-        # find robber current location
-        for tile in s_state.land_tiles:
-            if tile.robber == True:
-                current_robber_tile = tile
-                break
-
-        # objects will not be equal, so need to find an identifier that will be the same between client and server. maybe comparing the hex of each tile
-        for tile in s_state.land_tiles:
-            if tile != current_robber_tile and tile.hex == client_request["location"]["hex"]:
-                # remove robber from old tile, add to new tile
-                current_robber_tile.robber = False
-                tile.robber = True
-        
+            
+        elif client_request["action"] == "build_road":
+            for edge in s_state.edges:
+                if edge == client_request["location"]:
                     
-                    
+                    # place roads unowned edge
+                    if edge.player == None and s_state.current_player != None:
+                        if edge.build_check_road(s_state):
+                            edge.player = s_state.current_player
+                            s_state.current_player.roads.append(edge)
 
-    # update player stats
-    for player in s_state.players:
-        player.victory_points = len(player.settlements)+(len(player.cities)*2)
-        # AND longest road, largest army, Development card VPs
+                    # remove roads
+                    elif edge.player:
+                        current_owner = edge.player
+                        current_owner.roads.remove(edge)
+                        edge.player = None
 
-    return # something indicating if request was accepted or denied?
 
-def server_to_client(s_state, client_request=None, combined=False):
-    msg_recv = ""
-    if combined == False:
-        # use socket
-        msg_recv, address = s_state.socket.recvfrom(buffer_size)
-    else:
-        # or just pass in variable
-        msg_recv = client_request
 
-    print(f"Message from client: {msg_recv.decode()}")
+        # use to place robber, might have to adjust hex selection 
+            # circle overlap affects selection range
+        # USE TILE for robber location
+        elif client_request["action"] == "move_robber":
 
-    packet_recv = json.loads(msg_recv) # loads directly from bytes so don't need to .decode()
+            # find robber current location
+            for tile in s_state.land_tiles:
+                if tile.robber == True:
+                    current_robber_tile = tile
+                    break
 
-    # update s_state (return "accepted"/"denied"?)
-    update_server(packet_recv, s_state)
+            # objects will not be equal, so need to find an identifier that will be the same between client and server. maybe comparing the hex of each tile
+            for tile in s_state.land_tiles:
+                if tile != current_robber_tile and tile.hex == client_request["location"]["hex"]:
+                    # remove robber from old tile, add to new tile
+                    current_robber_tile.robber = False
+                    tile.robber = True
+            
+                        
+                        
 
-    # respond to client
-    if combined == False:
-        # use socket to respond
-        print(f"returning: {s_state.build_packet()}")    
-        msg_to_send = s_state.build_msg_to_client()
-        s_state.socket.sendto(msg_to_send, address)
-    else:
-        # or just return
-        return s_state.build_msg_to_client()
+        # update player stats
+        for player in s_state.players:
+            player.victory_points = len(player.settlements)+(len(player.cities)*2)
+            # AND longest road, largest army, Development card VPs
+
+    def server_to_client(self, client_request=None, combined=False):
+        msg_recv = ""
+        if combined == False:
+            # use socket
+            msg_recv, address = self.socket.recvfrom(buffer_size)
+        else:
+            # or just pass in variable
+            msg_recv = client_request
+
+        print(f"Message from client: {msg_recv.decode()}")
+
+        packet_recv = json.loads(msg_recv) # loads directly from bytes so don't need to decode
+
+        self.update_server(packet_recv)
+
+        # respond to client
+        if combined == False:
+            # use socket to respond
+            print(f"returning: {self.build_packet()}")    
+            msg_to_send = self.build_msg_to_client()
+            self.socket.sendto(msg_to_send, address)
+        else:
+            # or just return
+            return self.build_msg_to_client()
 
 
 
@@ -973,6 +970,7 @@ class ClientState:
         # client_request = {"action": "build_town", "player": "PLAYER_NAME", "location": Node or Edge}
         client_request = {}
         if not self.does_board_exist():
+            print("board does not exist yet")
             return
 
 
@@ -1039,14 +1037,14 @@ class ClientState:
                 selection = self.current_hex
 
             client_request["location"] = selection # can be node, edge, or hex. 
-            # since choices are unary server can determine the action depending on how many hexes there are
+            # since choices are unary, server can determine the action depending on how many hexes there are
             
                         
         # update player stats
         # write function that runs through nodes and totals which players own which nodes and what type of town is there
 
         if client_request != None:
-            print(client_request)
+            print(f"client request = {client_request}")
         return client_request
 
     # will have to work out how this is returning vars
@@ -1059,7 +1057,7 @@ class ClientState:
             
             # receive message from server
             msg_recv, address = self.socket.recvfrom(buffer_size)
-            print(f"Received from server {packet_recv}")
+            print(f"Received from server {msg_recv}")
             
         else:
             return msg_to_send
@@ -1237,16 +1235,16 @@ class ClientState:
 
 
 def run_combined():
+    print("starting server")
+    s_state = ServerState() # initialize board, players
+    s_state.initialize_game()
+    init_packet = s_state.start_server(combined=True)
+    
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
-    print("starting combined client-server")
     pr.init_window(screen_width, screen_height, "Natac")
     pr.set_target_fps(60)
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
 
-    s_state = ServerState() # initialize board, players
-    s_state.initialize_game()
-    print("starting server")
-    init_packet = s_state.start_server(combined=True)
 
     c_state = ClientState()
     print("starting client")
@@ -1260,18 +1258,17 @@ def run_combined():
 
         # encode msg based on user_input
         client_request = c_state.build_client_request(user_input)
-        # normally sends message, server receives, server returns
-        # if combined, just package client_request for sending and pass it into server_to_client
-        c_state.client_to_server(client_request, combined=True)
-        # decode msg, update server state, return server_response for client
-        server_response = server_to_client(s_state, client_request, combined=True)
+        # return encoded client_request
+        encoded_request = c_state.client_to_server(client_request, combined=True)
+        
+        # if combined, pass in client_request
+        server_response = s_state.server_to_client(encoded_request, combined=True)
 
         # use server_response to update and render
         c_state.update_client(server_response)
         c_state.render_client()
     pr.unload_font(pr.gui_get_font())
     pr.close_window()
-
 
 
 
@@ -1306,7 +1303,7 @@ def run_server():
     s_state.initialize_game()
     while True:
         # receives msg, updates s_state, then sends message
-        server_to_client(s_state)
+        s_state.server_to_client()
 
 
 
