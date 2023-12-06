@@ -1300,8 +1300,8 @@ def run_server():
 
 
 def test():
-    s_state = ServerState() # initialize board, players
-    s_state.initialize_game()
+    s_state = ServerState()
+    s_state.initialize_game() # initialize board, players
 
     msg_encoded = s_state.build_msg_to_client()
     msg_decoded = json.loads(msg_encoded)
