@@ -40,27 +40,13 @@ def get_node_point(hex_a, hex_b, hex_c):
     if len(node_list) != 0:
         return node_list[0]
 
-
-# check if distance between mouse and hex_center shorter than radius
-# def radius_check_v(pt1:pr.Vector2, pt2:pr.Vector2, radius:int)->bool:
-#     if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
-#         return True
-#     else:
-#         return False
-
-# same as above but with Point instead of Vector2
+# raylib functions without raylib for server
 def radius_check_v(pt1:Point, pt2:Point, radius:int)->bool:
     if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
         return True
     else:
         return False
     
-# def radius_check_two_circles(center1: pr.Vector2, radius1: int, center2: pr.Vector2, radius2: int)->bool:
-#     if math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2):
-#         return True
-#     else:
-#         return False
-
 def radius_check_two_circles(center1: Point, radius1: int, center2: Point, radius2: int)->bool:
     if math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2):
         return True
@@ -80,7 +66,7 @@ all_game_pieces = ["settlement", "city", "road", "robber", "longest_road", "larg
 all_terrains = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
 all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
 all_ports = ["three", "wood", "brick", "sheep", "wheat", "ore"]
-development_cards = ["victory_point", "knight", "monopoly", "year_of_plenty", "road_building"]
+all_development_cards = ["victory_point", "knight", "monopoly", "year_of_plenty", "road_building"]
 
 terrain_to_resource = {
     "forest": "wood",
@@ -99,7 +85,7 @@ class Board:
         self.ocean_tiles = []
         self.edges = []
         self.nodes = []
-        # set hex lists
+
         self.land_hexes = [
             hh.set_hex(0, -2, 2),
             hh.set_hex(1, -2, 1),
@@ -320,48 +306,47 @@ class Board:
         for node in self.nodes:
             for orange_node in orange_nodes:
                 if node.hex_a == orange_node.hex_a and node.hex_b == orange_node.hex_b and node.hex_c == orange_node.hex_c:
-                    # 4 ways to add the settlement..... too many?
-                    s_state.orange_player.settlements.append(node)
+                    s_state.orange_player.num_settlements += 1
                     node.player = s_state.orange_player
                     node.town = "settlement"
 
             for blue_node in blue_nodes:
                 if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
-                    # state.blue_player.settlements.append(node)
+                    s_state.blue_player.num_settlements += 1
                     node.player = s_state.blue_player
                     node.town = "settlement"
 
             for red_node in red_nodes:
                 if node.hex_a == red_node.hex_a and node.hex_b == red_node.hex_b and node.hex_c == red_node.hex_c:
-                    s_state.red_player.settlements.append(node)
+                    s_state.red_player.num_settlements += 1
                     node.player = s_state.red_player
                     node.town = "settlement"
 
             for white_node in white_nodes:
                 if node.hex_a == white_node.hex_a and node.hex_b == white_node.hex_b and node.hex_c == white_node.hex_c:
-                    s_state.white_player.settlements.append(node)
+                    s_state.white_player.num_settlements += 1
                     node.player = s_state.white_player
                     node.town = "settlement"
 
         for edge in self.edges:
             for orange_edge in orange_edges:
                 if edge.hex_a == orange_edge.hex_a and edge.hex_b == orange_edge.hex_b:
-                    s_state.orange_player.roads.append(edge)
+                    s_state.orange_player.num_roads += 1
                     edge.player = s_state.orange_player
 
             for blue_edge in blue_edges:
                 if edge.hex_a == blue_edge.hex_a and edge.hex_b == blue_edge.hex_b:
-                    s_state.blue_player.roads.append(edge)
+                    s_state.blue_player.num_roads += 1
                     edge.player = s_state.blue_player
 
             for red_edge in red_edges:
                 if edge.hex_a == red_edge.hex_a and edge.hex_b == red_edge.hex_b:
-                    s_state.red_player.roads.append(edge)
+                    s_state.red_player.num_roads += 1
                     edge.player = s_state.red_player
 
             for white_edge in white_edges:
                 if edge.hex_a == white_edge.hex_a and edge.hex_b == white_edge.hex_b:
-                    s_state.white_player.roads.append(edge)
+                    s_state.white_player.num_roads += 1
                     edge.player = s_state.white_player
 
 
@@ -578,8 +563,6 @@ class LandTile:
         self.robber = False
         self.terrain = terrain
         self.resource = terrain_to_resource[terrain]
-        # self.color = game_color_dict[terrain.name]
-        # (add to client render only)
         self.hex = hex
         self.token = token
         for k, v in self.token.items():
@@ -593,16 +576,8 @@ class OceanTile:
     def __init__(self, terrain, hex, port, active_corners):
         self.terrain = terrain
         self.resource = None
-        # self.color = game_color_dict[terrain.name]
-        # (add to client only)
         self.hex = hex
         self.port = port
-
-        # if port:
-        #    self.port_display = port_to_display[port.name]
-        # else:
-        #     self.port_display = 
-        # (add to client only)
         self.active_corners = active_corners
 
     def __repr__(self):
@@ -613,22 +588,36 @@ class OceanTile:
 class Player:
     def __init__(self, name):
         self.name = name
-        # self.color = game_color_dict[self.name]
-        # (only for client)
-        self.cities = []
-        self.settlements = []
-        self.roads = []
-        self.ports = []
-        self.hand = []
-        self.development_cards = []
+        self.hand = {}
+        # self.hand = {"brick": 4, "wood": 2}
+        self.development_cards = {}
+        # self.development_cards = {"soldier": 4, "victory_point": 1}
         self.victory_points = 0
+        self.num_cities = 0
+        self.num_settlements = 0
+        self.num_roads = 0
+        self.ports = []
+        self.longest_road = False
+        self.largest_army = False
+
     
     def __repr__(self):
-        return f"Player {self.name}:  cities: {self.cities}, settlements: {self.settlements}, roads: {self.roads}, ports: {self.ports}, hand: {self.hand}, victory points: {self.victory_points}"
+        return f"Player {self.name}: \nHand: {self.hand}, Victory points: {self.victory_points}"
     
     def __str__(self):
         return f"Player {self.name}"
     
+    def calculate_victory_points(self):
+        # settlements/ cities
+        self.victory_points = self.num_cities*2 + self.num_settlements*2
+        # largest army/ longest road
+        if self.longest_road:
+            self.victory_points += 2
+        if self.largest_army:
+            self.victory_points += 2
+        # development cards
+        if "victory_point" in self.development_cards:
+            self.victory_points += self.development_cards["victory_point"]
 
 
 
@@ -668,7 +657,7 @@ class ServerState:
         self.initialize_players()
         self.board = Board()
         self.board.initialize_board()
-        # self.board.set_demo_settlements(self)
+        self.board.set_demo_settlements(self)
     
     
     # hardcoded players, can set up later to take different combos based on user input
@@ -680,7 +669,7 @@ class ServerState:
         self.orange_player = Player("orange_player")
         self.white_player = Player("white_player")
 
-        self.players = {self.nil_player.name: self.nil_player, self.red_player.name: self.red_player, self.blue_player.name: self.blue_player, self.orange_player.name: self.orange_player, self.white_player.name: self.white_player}
+        self.players = {"nil_player": self.nil_player, "red_player": self.red_player, "blue_player": self.blue_player, "orange_player": self.orange_player, "white_player": self.white_player}
 
     # have to send back updated dicts to client. maybe even just the thing that changed, tbd
     def build_packet(self):
@@ -699,10 +688,12 @@ class ServerState:
 
     # server update (old update())
     def update_server(self, client_request):
-        # get user input from packet, update the s_state
-        # selecting based on mouse button input from get_user_input()
-        # CLIENT REQUEST needs to include build (town), for player (white), at Node (3 hexes)
-        # client_request = {"action": "build_town", "player": "PLAYER_NAME", "location": Node or Edge}
+        # 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, 
+
+        
+        # client_request = {"player": "PLAYER_NAME", "location": Hex, Node or Edge}
+        # if client_request["location"] = [q, r, s], hex, move robber
+        # if client_request["location"] = 
         if client_request["action"] == "build_town":
             # toggle between settlement, city, None
             for node in s_state.nodes:
@@ -774,28 +765,21 @@ class ServerState:
                     current_robber_tile.robber = False
                     tile.robber = True
             
-                        
-                        
 
-        # update player stats
-        for player in s_state.players:
-            player.victory_points = len(player.settlements)+(len(player.cities)*2)
-            # AND longest road, largest army, Development card VPs
-
-    def server_to_client(self, client_request=None, combined=False):
+    def server_to_client(self, encoded_client_request=None, combined=False):
         msg_recv = ""
         if combined == False:
             # use socket
             msg_recv, address = self.socket.recvfrom(buffer_size)
         else:
             # or just pass in variable
-            msg_recv = client_request
+            msg_recv = encoded_client_request
 
-        print(f"Message from client: {msg_recv.decode()}")
-
-        packet_recv = json.loads(msg_recv) # loads directly from bytes so don't need to decode
-
-        self.update_server(packet_recv)
+        # if msg_recv is none, json.loads and .decode() will throw error
+        if len(msg_recv) > 0:
+            print(f"Message from client: {msg_recv.decode()}")
+            packet_recv = json.loads(msg_recv) # loads directly from bytes
+            self.update_server(packet_recv)
 
         # respond to client
         if combined == False:
@@ -959,7 +943,7 @@ class ClientState:
         if self.debug == True:
             for button in self.buttons:
                 if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                    if button.name == "ROBBER":
+                    if button.name == "robber":
                         self.move_robber = button.toggle(self.move_robber)
                         self.current_player = None
                     else:
@@ -967,7 +951,7 @@ class ClientState:
 
 
     def build_client_request(self, user_input):
-        # client_request = {"action": "build_town", "player": "PLAYER_NAME", "location": Node or Edge}
+        # client_request = {"player": "PLAYER_NAME", "location": Hex, Node or Edge}
         client_request = {}
         if not self.does_board_exist():
             print("board does not exist yet")
@@ -1047,9 +1031,7 @@ class ClientState:
             print(f"client request = {client_request}")
         return client_request
 
-    # will have to work out how this is returning vars
     def client_to_server(self, client_request, combined=False):
-
         json_to_send = json.dumps(client_request)
         msg_to_send = json_to_send.encode()
         if combined == False:
@@ -1061,10 +1043,6 @@ class ClientState:
             
         else:
             return msg_to_send
-
-        
-
-
 
     def update_client(self, encoded_server_response):
         # unpack server response and update state
@@ -1157,25 +1135,33 @@ class ClientState:
                 rf.draw_robber(hex_center)
                 break
 
-
-
     def render_mouse_hover(self):
         # outline up to 3 current hexes
         if self.current_hex: # and not state.current_edge:
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 0, 6, pr.BLACK)
+            q, r, s = self.current_hex
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hh.set_hex(q, r, s)), 6, 50, 0, 6, pr.BLACK)
         if self.current_hex_2:
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex_2), 6, 50, 0, 6, pr.BLACK)
+            q, r, s = self.current_hex_2
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hh.set_hex(q, r, s)), 6, 50, 0, 6, pr.BLACK)
         if self.current_hex_3:
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex_3), 6, 50, 0, 6, pr.BLACK)
+            q, r, s, = self.current_hex_3
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hh.set_hex(q, r, s)), 6, 50, 0, 6, pr.BLACK)
             
             
         # highlight selected edge and node
         if self.current_node:
-            pr.draw_circle_v(self.current_node.get_node_point(), 10, pr.BLACK)
+            # took .get_node_point() from Node class
+            node_list = list(hh.hex_corners_set(pointy, self.current_node["hex_a"]) & hh.hex_corners_set(pointy, self.current_node["hex_b"]) & hh.hex_corners_set(pointy, self.current_node["hex_c"]))
+            if len(node_list) != 0:
+                node_point = node_list[0]
+
+            pr.draw_circle_v(node_point, 10, pr.BLACK)
 
         if self.current_edge and not self.current_node:
-            corners = self.current_edge.get_edge_points()
-            pr.draw_line_ex(corners[0], corners[1], 12, pr.BLACK)
+            # took .get_edge_points() from Edge class
+            edge_endpoints = list(hh.hex_corners_set(pointy, self.current_edge["hex_a"]) & hh.hex_corners_set(pointy, self.current_edge["hex_b"]))
+
+            pr.draw_line_ex(edge_endpoints[0], edge_endpoints[1], 12, pr.BLACK)
             
             # DEBUG - show adj_edges - can't draw without additional functions
             # adj_edges = self.current_node.get_adj_edges(s_state.board.edges)
@@ -1186,9 +1172,7 @@ class ClientState:
             # adj_nodes = self.current_node.get_adj_nodes_from_node(s_state.board.nodes)
             # for node in adj_nodes:
             #     pr.draw_circle_v(node.get_node_point(), 10, pr.YELLOW)
-
-            
-            
+       
     def render_client(self):
     
         pr.begin_drawing()
@@ -1308,10 +1292,6 @@ def run_server():
 
 
 
-# 3 ways to play:
-# computer to computer
-# client to server on own computer
-# "client" to "server" encoding and decoding within same program
 
 
 def test():
@@ -1319,11 +1299,7 @@ def test():
     s_state.initialize_game()
 
     msg_encoded = s_state.build_msg_to_client()
-    
     msg_decoded = json.loads(msg_encoded)
-
-    data = msg_decoded["board"]
-    all_hexes = data["land_hexes"] + data["ocean_hexes"]
     
 
 
@@ -1331,10 +1307,10 @@ def test():
 # run_combined()
 # test()
 
-hex1 = [-3, 3, 0]
-hex2 = [-2, 3, -1]
-hex3 = [-1, 3, -2]
-hex4 = [0, 3, -3]
-hexes = (hex2, hex4, hex3, hex1)
-print(f"real = {hexes}")
-print(f"sorted = {sorted(hexes)}")
+
+# 3 ways to play:
+# computer to computer
+# client to server on own computer
+# "client" to "server" encoding and decoding within same program
+
+# once board is initiated, all server has to send back is update on whatever has been updated 
