@@ -522,37 +522,40 @@ class Node:
         return adj_nodes
 
         
-    def build_check_settlement(self, state):
+    def build_check_settlement(self, s_state, current_player):
         print("build_check_settlement")
-
-        if len(state.current_player.settlements) > 4:
+        if current_player.num_settlements > 4:
             print("no available settlements")
             return False
         
         # ocean check
-        if self.hex_a in state.board.ocean_hexes and self.hex_b in state.board.ocean_hexes and self.hex_c in state.board.ocean_hexes:
+        if self.hex_a in s_state.board.ocean_hexes and self.hex_b in s_state.board.ocean_hexes and self.hex_c in s_state.board.ocean_hexes:
             print("can't build in ocean")
             return False
         
         # get 3 adjacent nodes and make sure no town is built there
-        adj_nodes = self.get_adj_nodes_from_node(state.board.nodes)
+        adj_nodes = self.get_adj_nodes_from_node(s_state.board.nodes)
         for node in adj_nodes:
-            if node.town != None:
+            if node.town == "settlement":
                 print("too close to settlement")
                 return False
+            elif node.town == "city":
+                print("too close to city")
+                return False
+
             
-        adj_edges = self.get_adj_edges(state.board.edges)
+        adj_edges = self.get_adj_edges(s_state.board.edges)
         # is node adjacent to at least 1 same-colored road
-        if all(edge.player != state.current_player for edge in adj_edges):
+        if all(edge.player != current_player for edge in adj_edges):
             print("no adjacent roads")
             return False
         
         # if between opponent's road
         adj_edge_players = [edge.player for edge in adj_edges]
-        if state.current_player in adj_edge_players:
-            adj_edge_players.remove(state.current_player)
+        if current_player in adj_edge_players:
+            adj_edge_players.remove(current_player)
             if adj_edge_players[0] == adj_edge_players[1]:
-                if None not in adj_edge_players and state.current_player not in adj_edge_players:
+                if None not in adj_edge_players and current_player not in adj_edge_players:
                     print("can't build in middle of road")
                     return False
                 
@@ -600,7 +603,7 @@ class Player:
         self.num_cities = 0
         self.num_settlements = 0
         self.num_roads = 0
-        self.ports = []
+        self.ports = [] # string so no circular reference
         self.longest_road = False
         self.largest_army = False
 
@@ -658,23 +661,14 @@ class ServerState:
 
     
     def initialize_game(self):
-        self.initialize_players()
+        self.initialize_players(red=True, blue=True, orange=True, white=True)
         self.board = Board()
         self.board.initialize_board()
         self.board.set_demo_settlements(self)
     
     
     # hardcoded players, can set up later to take different combos based on user input
-    def initialize_players(self, red, blue, orange, white):
-        # old version
-        # self.nil_player = Player("nil_player")
-        # self.red_player = Player("red_player")
-        # self.blue_player = Player("blue_player")
-        # self.orange_player = Player("orange_player")
-        # self.white_player = Player("white_player")
-
-        # self.players = {"nil_player": self.nil_player, "red_player": self.red_player, "blue_player": self.blue_player, "orange_player": self.orange_player, "white_player": self.white_player}
-
+    def initialize_players(self, red=False, blue=False, orange=False, white=False):
         self.players = {}
         if red:
             self.players["red_player"] = Player("red_player")
@@ -706,13 +700,13 @@ class ServerState:
     def update_server(self, client_request):
         # 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, 
 
-        # self.current_player = 
-        # client_request = {"player": "PLAYER_NAME", "location": Hex, Node or Edge}
-        if type(client_request["location"]) == list:
+        current_player = self.players[client_request["player"]]
+        # client_request = {"player": "PLAYER_NAME", "location": Hex, Node, or Edge}
+        if type(client_request["location"]) == list: # list means location is hex
             action = "move_robber"
-        elif "hex_c" in client_request["location"]:
+        elif "hex_c" in client_request["location"]: # hex_c means node
             action = "build_town"
-        elif "hex_b" in client_request["location"]:
+        elif "hex_b" in client_request["location"]: # hex_b and not hex_c means edge
             action = "build_road"
 
         if action == "build_town":
@@ -720,19 +714,18 @@ class ServerState:
             # toggle between settlement, city, None
             for node in self.board.nodes:
                 if node.hex_a == client_request["location"]["hex_a"] and node.hex_b == client_request["location"]["hex_b"] and node.hex_c == client_request["location"]["hex_c"]:
-                    if node.town == None and s_state.current_player != None:
-                        if node.build_check_settlement(s_state):
+                    if node.town == None and current_player != None:
+                        if node.build_check_settlement(self, current_player):
                             node.town = "settlement"
-                            node.player = s_state.current_player
-                            s_state.current_player.settlements.append(node)
-                            s_state.current_player.ports.append(node.port)
+                            node.player = current_player
+                            current_player.ports.append(node.port)
 
                     elif node.town == "settlement":
                         current_owner = node.player
                         # if owner is same as current_player, upgrade to city
-                        if current_owner == s_state.current_player:
+                        if current_owner == current_player:
                             # city build check
-                            if len(s_state.current_player.cities) == 4:
+                            if current_player.num_cities > 3:
                                 print("no available cities")
                             else:
                                 node.town = "city"
