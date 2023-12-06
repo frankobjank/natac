@@ -85,6 +85,10 @@ class Board:
         self.ocean_tiles = []
         self.edges = []
         self.nodes = []
+        # might be useful to have these lists for future gameplay implementation
+        self.settlements = []
+        self.cities = []
+        self.roads = []
 
         self.land_hexes = [
             hh.set_hex(0, -2, 2),
@@ -661,15 +665,27 @@ class ServerState:
     
     
     # hardcoded players, can set up later to take different combos based on user input
-    def initialize_players(self):
-        # PLAYERS
-        self.nil_player = Player("nil_player")
-        self.red_player = Player("red_player")
-        self.blue_player = Player("blue_player")
-        self.orange_player = Player("orange_player")
-        self.white_player = Player("white_player")
+    def initialize_players(self, red, blue, orange, white):
+        # old version
+        # self.nil_player = Player("nil_player")
+        # self.red_player = Player("red_player")
+        # self.blue_player = Player("blue_player")
+        # self.orange_player = Player("orange_player")
+        # self.white_player = Player("white_player")
 
-        self.players = {"nil_player": self.nil_player, "red_player": self.red_player, "blue_player": self.blue_player, "orange_player": self.orange_player, "white_player": self.white_player}
+        # self.players = {"nil_player": self.nil_player, "red_player": self.red_player, "blue_player": self.blue_player, "orange_player": self.orange_player, "white_player": self.white_player}
+
+        self.players = {}
+        if red:
+            self.players["red_player"] = Player("red_player")
+        if blue:
+            self.players["blue_player"] = Player("blue_player")
+        if orange:
+            self.players["orange_player"] = Player("orange_player")
+        if white:
+            self.players["white_player"] = Player("white_player")
+
+        # self.players = {"red_player": Player("red_player"), "blue_player": Player("blue_player"), "orange_player": Player("orange_player"), "white_player": Player("white_player")}
 
     # have to send back updated dicts to client. maybe even just the thing that changed, tbd
     def build_packet(self):
@@ -690,7 +706,7 @@ class ServerState:
     def update_server(self, client_request):
         # 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, 
 
-        
+        # self.current_player = 
         # client_request = {"player": "PLAYER_NAME", "location": Hex, Node or Edge}
         if type(client_request["location"]) == list:
             action = "move_robber"
@@ -700,9 +716,10 @@ class ServerState:
             action = "build_road"
 
         if action == "build_town":
+            # client_request["location"] is a node in form of dict
             # toggle between settlement, city, None
             for node in self.board.nodes:
-                if node == client_request["location"]:
+                if node.hex_a == client_request["location"]["hex_a"] and node.hex_b == client_request["location"]["hex_b"] and node.hex_c == client_request["location"]["hex_c"]:
                     if node.town == None and s_state.current_player != None:
                         if node.build_check_settlement(s_state):
                             node.town = "settlement"
@@ -1305,14 +1322,14 @@ def test():
 
     msg_encoded = s_state.build_msg_to_client()
     msg_decoded = json.loads(msg_encoded)
-    for edge in msg_decoded["board"]["edges"]:
+    for edge in msg_decoded["board"]["players"]:
         print(type(edge))
     
 
 
 
 # run_combined()
-# test()
+test()
 
 
 # 3 ways to play:
