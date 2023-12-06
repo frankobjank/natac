@@ -35,6 +35,12 @@ def vector2_round(vector2):
 def point_round(point):
     return hh.Point(int(point.x), int(point.y))
 
+def get_node_point(hex_a, hex_b, hex_c):
+    node_list = list(hh.hex_corners_set(pointy, hex_a) & hh.hex_corners_set(pointy, hex_b) & hh.hex_corners_set(pointy, hex_c))
+    if len(node_list) != 0:
+        return node_list[0]
+
+
 # check if distance between mouse and hex_center shorter than radius
 # def radius_check_v(pt1:pr.Vector2, pt2:pr.Vector2, radius:int)->bool:
 #     if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
@@ -91,13 +97,9 @@ class Board:
     def __init__(self):
         self.land_tiles = []
         self.ocean_tiles = []
-        self.all_tiles = []
-
         self.edges = []
         self.nodes = []
-
-
-        # tiles/hexes
+        # set hex lists
         self.land_hexes = [
             hh.set_hex(0, -2, 2),
             hh.set_hex(1, -2, 1),
@@ -122,7 +124,6 @@ class Board:
             hh.set_hex(-2, 2, 0),
             hh.set_hex(-1, 2, -1),
             hh.set_hex(0, 2, -2)]
-
         self.ocean_hexes = [
             hh.set_hex(0, -3, 3), # port
             hh.set_hex(1, -3, 2),
@@ -148,34 +149,32 @@ class Board:
             hh.set_hex(-2, 3, -1),
             hh.set_hex(-1, 3, -2), # port
             hh.set_hex(0, 3, -3)]
-        # land and ocean hexes only
-        self.all_hexes = self.land_hexes + self.ocean_hexes
-
+        
     # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
     def get_random_terrain(self):
         # if desert, skip token
-        terrain_tiles = []
-        tile_counts = {"mountain": 4, "forest": 4, "field": 4, "hill": 3, "pasture": 3, "desert": 1}
-        tiles_for_random = tile_counts.keys()
-        while len(terrain_tiles) < 19:
+        terrain_list = []
+        terrain_counts = {"mountain": 4, "forest": 4, "field": 4, "hill": 3, "pasture": 3, "desert": 1}
+        tiles_for_random = terrain_counts.keys()
+        while len(terrain_list) < 19:
             for i in range(19):
                 rand_tile = tiles_for_random[random.randrange(6)]
-                if tile_counts[rand_tile] > 0:
-                    terrain_tiles.append(rand_tile)
-                    tile_counts[rand_tile] -= 1
-        return terrain_tiles
+                if terrain_counts[rand_tile] > 0:
+                    terrain_list.append(rand_tile)
+                    terrain_counts[rand_tile] -= 1
+        return terrain_list
 
     def get_random_ports(self):
-        ocean_tiles = []
-        tile_counts = {"three": 4, "ore": 1, "wood": 1, "wheat": 1, "brick": 1, "sheep": 1}
-        tiles_for_random = tile_counts.keys()
-        while len(ocean_tiles) < 9:
+        ports_list = []
+        port_counts = {"three": 4, "ore": 1, "wood": 1, "wheat": 1, "brick": 1, "sheep": 1}
+        tiles_for_random = port_counts.keys()
+        while len(ports_list) < 9:
             for i in range(9):
                 rand_tile = tiles_for_random[random.randrange(6)]
-                if tile_counts[rand_tile] > 0:
-                    ocean_tiles.append(rand_tile)
-                    tile_counts[rand_tile] -= 1
-        return ocean_tiles
+                if port_counts[rand_tile] > 0:
+                    ports_list.append(rand_tile)
+                    port_counts[rand_tile] -= 1
+        return ports_list
     
     def get_port_to_nodes(self, ports):
         port_order_for_nodes_random = []
@@ -200,10 +199,11 @@ class Board:
         # terrain_tiles, ports, ports_to_nodes = self.randomize_tiles()
 
         default_terrains = ["mountain", "pasture", "forest",
-        "field", "hill", "pasture", "hill",
-        "field", "forest", "desert", "forest", "mountain",
-        "forest", "mountain", "field", "pasture",
-        "hill", "field", "pasture"]
+                            "field", "hill", "pasture", "hill",
+                            "field", "forest", "desert", "forest", "mountain",
+                            "forest", "mountain", "field", "pasture",
+                            "hill", "field", "pasture"
+                            ]
 
         # this needs to be randomized too
         default_tile_tokens_dict = [{10: 3}, {2: 1}, {9: 4}, {12: 1}, {6: 5}, {4: 3}, {10: 3}, {9: 4}, {11: 2}, {None: None}, {3: 2}, {8: 5}, {8: 5}, {3: 2}, {4: 3}, {5: 4}, {5: 4}, {6: 5}, {11: 2}]
@@ -270,15 +270,16 @@ class Board:
 
         # triple 'for' loop to fill s_state.edges and s_state.nodes lists
         # replaced raylib func with my own for radius check
-        for i in range(len(self.all_hexes)):
-            for j in range(i+1, len(self.all_hexes)):
+        all_hexes = self.land_hexes + self.ocean_hexes
+        for i in range(len(all_hexes)):
+            for j in range(i+1, len(all_hexes)):
                 # first two loops create Edges
-                if radius_check_two_circles(hh.hex_to_pixel(pointy, self.all_hexes[i]), 60, hh.hex_to_pixel(pointy, self.all_hexes[j]), 60):
-                    self.edges.append(Edge(self.all_hexes[i], self.all_hexes[j]))
+                if radius_check_two_circles(hh.hex_to_pixel(pointy, all_hexes[i]), 60, hh.hex_to_pixel(pointy, all_hexes[j]), 60):
+                    self.edges.append(Edge(all_hexes[i], all_hexes[j]))
                     # third loop creates Nodes
-                    for k in range(j+1, len(self.all_hexes)):
-                        if radius_check_two_circles(hh.hex_to_pixel(pointy, self.all_hexes[i]), 60, hh.hex_to_pixel(pointy, self.all_hexes[k]), 60):
-                            self.nodes.append(Node(self.all_hexes[i], self.all_hexes[j], self.all_hexes[k]))
+                    for k in range(j+1, len(all_hexes)):
+                        if radius_check_two_circles(hh.hex_to_pixel(pointy, all_hexes[i]), 60, hh.hex_to_pixel(pointy, all_hexes[k]), 60):
+                            self.nodes.append(Node(all_hexes[i], all_hexes[j], all_hexes[k]))
 
 
         # start robber in desert
@@ -286,9 +287,6 @@ class Board:
             if tile.terrain == "DESERT":
                 tile.robber = True
                 break
-
-        # in case ocean+land tiles are needed:
-        self.all_tiles = self.land_tiles + self.ocean_tiles
 
         # activating certain port nodes
         i = 0
@@ -589,7 +587,7 @@ class LandTile:
             self.dots = v
 
     def __repr__(self):
-        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, robber: {self.robber})"
+        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, robber: {self.robber})"
     
 class OceanTile:
     def __init__(self, terrain, hex, port, active_corners):
@@ -663,7 +661,7 @@ class ServerState:
         
         if combined == True:
             # send initial state so client has board
-            return self.build_server_response()
+            return self.build_msg_to_client()
 
     
     def initialize_game(self):
@@ -686,14 +684,13 @@ class ServerState:
 
     # have to send back updated dicts to client. maybe even just the thing that changed, tbd
     def build_packet(self):
-        # use json.dumps and zip to build dict/json like in UDP testing
-        return {
-            "server_response": None,
-            "board": self.board,
-            "players": self.players
-            }
+        return  {
+                    "response": None,
+                    "board": self.board,
+                    "players": self.players
+                }
     
-    def build_server_response(self):
+    def build_msg_to_client(self):
         packet = to_json(self.build_packet())
         msg_encoded = packet.encode()
         return msg_encoded
@@ -807,11 +804,11 @@ def server_to_client(s_state, client_request=None, combined=False):
     if combined == False:
         # use socket to respond
         print(f"returning: {s_state.build_packet()}")    
-        msg_to_send = s_state.build_server_response()
+        msg_to_send = s_state.build_msg_to_client()
         s_state.socket.sendto(msg_to_send, address)
     else:
         # or just return
-        return s_state.build_server_response()
+        return s_state.build_msg_to_client()
 
 
 
@@ -845,6 +842,7 @@ class ClientState:
     def __init__(self):
         # Networking
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.response = None
 
         self.board = {}
 
@@ -862,6 +860,19 @@ class ClientState:
         self.current_edge_node_2 = None
         
         self.selection = None
+        
+        self.debug = True
+
+        # debug buttons
+        self.buttons=[
+            Button(pr.Rectangle(750, 20, 40, 40), "blue_player", self.blue_player),
+            Button(pr.Rectangle(700, 20, 40, 40), "orange_player", self.orange_player), 
+            Button(pr.Rectangle(650, 20, 40, 40), "white_player", self.white_player), 
+            Button(pr.Rectangle(600, 20, 40, 40), "red_player", self.red_player),
+            Button(pr.Rectangle(550, 20, 40, 40), "robber")
+            # Button(pr.Rectangle(500, 20, 40, 40), "nil_player", self.nil_player),
+        ]
+
 
 
         # hardcoded players, can set up later to take different combos based on user input
@@ -890,352 +901,334 @@ class ClientState:
         if len(self.board) > 0:
             return True
       
-    def initialize_debug(self):
-        self.debug = True
-
-        # debug buttons
-        self.buttons=[
-            Button(pr.Rectangle(750, 20, 40, 40), "blue_player", self.blue_player),
-            Button(pr.Rectangle(700, 20, 40, 40), "orange_player", self.orange_player), 
-            Button(pr.Rectangle(650, 20, 40, 40), "white_player", self.white_player), 
-            Button(pr.Rectangle(600, 20, 40, 40), "red_player", self.red_player),
-            Button(pr.Rectangle(550, 20, 40, 40), "robber")
-            # Button(pr.Rectangle(500, 20, 40, 40), "nil_player", self.nil_player),
-        ]
-
-# client user input
-def get_user_input(c_state):
-    c_state.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), c_state.camera)
-
-    if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
-        return pr.MouseButton.MOUSE_BUTTON_LEFT
-
-    # camera controls
-    # not sure how to capture mouse wheel, also currently using RAYLIB for these inputs
-    # state.camera.zoom += get_mouse_wheel_move() * 0.03
-
-    elif pr.is_key_down(pr.KeyboardKey.KEY_RIGHT_BRACKET):
-        return pr.KeyboardKey.KEY_RIGHT_BRACKET
-
-    elif pr.is_key_down(pr.KeyboardKey.KEY_LEFT_BRACKET):
-        return pr.KeyboardKey.KEY_LEFT_BRACKET
-
-    # camera and board reset (zoom and rotation)
-    elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
-        return pr.KeyboardKey.KEY_R
-
-    elif pr.is_key_pressed(pr.KeyboardKey.KEY_E):
-        return pr.KeyboardKey.KEY_E
-    
-    elif pr.is_key_pressed(pr.KeyboardKey.KEY_F):
-        return pr.KeyboardKey.KEY_F
-
-# client settings - camera
-def update_client_settings(user_input, c_state):
-    # camera controls
-
-    # not sure how to represent mouse wheel
-    # if state.user_input == mouse wheel
-    # state.camera.zoom += get_mouse_wheel_move() * 0.03
-
-    if user_input == pr.KeyboardKey.KEY_RIGHT_BRACKET:
-        c_state.camera.zoom += 0.03
-    elif user_input == pr.KeyboardKey.KEY_LEFT_BRACKET:
-        c_state.camera.zoom -= 0.03
-
-    # zoom boundary automatic reset
-    if c_state.camera.zoom > 3.0:
-        c_state.camera.zoom = 3.0
-    elif c_state.camera.zoom < 0.1:
-        c_state.camera.zoom = 0.1
-
-    if user_input == pr.KeyboardKey.KEY_F:
-        pr.toggle_fullscreen()
-
-    if user_input == pr.KeyboardKey.KEY_E:
-        c_state.debug = not c_state.debug # toggle
-
-    # camera and board reset (zoom and rotation)
-    if user_input == pr.KeyboardKey.KEY_R:
-        c_state.reset = True
-        c_state.camera.zoom = default_zoom
-        c_state.camera.rotation = 0.0
-
-    # DEBUG - buttons
-    if c_state.debug == True:
-        for button in c_state.buttons:
-            if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                if button.name == "ROBBER":
-                    c_state.move_robber = button.toggle(c_state.move_robber)
-                    c_state.current_player = None
-                else:
-                    c_state.current_player = button.toggle(c_state.current_player)
 
 
-def build_client_request(user_input, c_state):
-    # client_request = {"action": "build_town", "player": "PLAYER_NAME", "location": Node or Edge}
-    client_request = {}
-    if not c_state.does_board_exist():
-        return
+    # client user input
+    def get_user_input(self):
+        self.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), self.camera)
 
- 
-    # reset current hex, edge, node
-    c_state.current_hex = None
-    c_state.current_hex_2 = None
-    c_state.current_hex_3 = None
+        if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
+            return pr.MouseButton.MOUSE_BUTTON_LEFT
 
-    c_state.current_edge = None
-    c_state.current_node = None
-    
-    # check radius for current hex
-    for q, r, s in c_state.board["all_hexes"]:
-        hex = hh.set_hex(q, r, s)
-        if radius_check_v(c_state.world_position, hh.hex_to_pixel(pointy, hex), 60):
-            c_state.current_hex = hex
-            break
-    # 2nd loop for edges - current_hex_2
-    for q, r, s in c_state.board["all_hexes"]:
-        hex = hh.set_hex(q, r, s)
-        if c_state.current_hex != hex:
-            if radius_check_v(c_state.world_position, hh.hex_to_pixel(pointy, hex), 60):
-                c_state.current_hex_2 = hex
-                break
-    # 3rd loop for nodes - current_hex_3
-    for q, r, s in c_state.board["all_hexes"]:
-        hex = hh.set_hex(q, r, s)
-        if c_state.current_hex != hex and c_state.current_hex_2 != hex:
-            if radius_check_v(c_state.world_position, hh.hex_to_pixel(pointy, hex), 60):
-                c_state.current_hex_3 = hex
-                break
-    
-    # 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, 
+        # camera controls
+        # not sure how to capture mouse wheel, also currently using RAYLIB for these inputs
+        # state.camera.zoom += get_mouse_wheel_move() * 0.03
 
-    # defining current_node
-    if c_state.current_hex_3:
-        sorted_hexes = sorted((c_state.current_hex, c_state.current_hex_2, c_state.current_hex_3), key=attrgetter("q", "r", "s"))
-        for node in c_state.board.nodes:
-            if node.hex_a == sorted_hexes[0] and node.hex_b == sorted_hexes[1] and node.hex_c == sorted_hexes[2]:
-                c_state.current_node = node
-                break
-    
-    # defining current_edge
-    elif c_state.current_hex_2:
-        sorted_hexes = sorted((c_state.current_hex, c_state.current_hex_2), key=attrgetter("q", "r", "s"))
-        for edge in c_state.board.edges:
-            if edge.hex_a == sorted_hexes[0] and edge.hex_b == sorted_hexes[1]:
-                c_state.current_edge = edge
-                break
+        elif pr.is_key_down(pr.KeyboardKey.KEY_RIGHT_BRACKET):
+            return pr.KeyboardKey.KEY_RIGHT_BRACKET
 
+        elif pr.is_key_down(pr.KeyboardKey.KEY_LEFT_BRACKET):
+            return pr.KeyboardKey.KEY_LEFT_BRACKET
 
-    # selecting based on mouse button input from get_user_input()
-    if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-        if c_state.current_node:
-            c_state.selection = c_state.current_node
-            print(c_state.current_node)
-            # toggle between settlement, city, None
-                
-            if c_state.current_node.town == None and c_state.current_player != None:
-                if c_state.current_node.build_check_settlement(c_state):
-                    state.current_node.town = "settlement"
-                    state.current_node.player = state.current_player
-                    state.current_player.settlements.append(state.current_node)
-                    state.current_player.ports.append(state.current_node.port)
+        # camera and board reset (zoom and rotation)
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
+            return pr.KeyboardKey.KEY_R
 
-            elif state.current_node.town == "settlement":
-                current_owner = state.current_node.player
-                # owner is same as current_player, upgrade to city
-                if current_owner == state.current_player:
-                    # city build check
-                    if len(state.current_player.cities) == 4:
-                        print("no available cities")
-                    else:
-                        state.current_node.town = "city"
-                        state.current_player.settlements.remove(state.current_node)
-                        state.current_player.cities.append(state.current_node)
-                # owner is different as current_player, remove
-                elif current_owner != state.current_player:
-                    current_owner.settlements.remove(state.current_node)
-                    state.current_node.player = None
-                    state.current_node.town = None
-
-            # town is city and should be removed
-            elif state.current_node.town == "city":
-                state.current_node.player = None
-                state.current_node.town = None
-                state.current_player.cities.remove(state.current_node)
-
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_E):
+            return pr.KeyboardKey.KEY_E
         
-        elif state.current_edge:
-            state.selection = state.current_edge
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_F):
+            return pr.KeyboardKey.KEY_F
 
-            # place roads unowned edge
-            if state.current_edge.player == None and state.current_player != None:
-                if state.current_edge.build_check_road(state):
-                    state.current_edge.player = state.current_player
-                    if state.current_player:
-                        state.current_player.roads.append(state.current_edge)
+    # client settings - camera
+    def update_client_settings(user_input, self):
+        # camera controls
 
-            # remove roads
-            elif state.current_edge.player:
-                current_owner = state.current_edge.player
-                current_owner.roads.remove(state.current_edge)
-                state.current_edge.player = None
+        # not sure how to represent mouse wheel
+        # if state.user_input == mouse wheel
+        # state.camera.zoom += get_mouse_wheel_move() * 0.03
+
+        if user_input == pr.KeyboardKey.KEY_RIGHT_BRACKET:
+            self.camera.zoom += 0.03
+        elif user_input == pr.KeyboardKey.KEY_LEFT_BRACKET:
+            self.camera.zoom -= 0.03
+
+        # zoom boundary automatic reset
+        if self.camera.zoom > 3.0:
+            self.camera.zoom = 3.0
+        elif self.camera.zoom < 0.1:
+            self.camera.zoom = 0.1
+
+        if user_input == pr.KeyboardKey.KEY_F:
+            pr.toggle_fullscreen()
+
+        if user_input == pr.KeyboardKey.KEY_E:
+            self.debug = not self.debug # toggle
+
+        # camera and board reset (zoom and rotation)
+        if user_input == pr.KeyboardKey.KEY_R:
+            self.reset = True
+            self.camera.zoom = default_zoom
+            self.camera.rotation = 0.0
+
+        # DEBUG - buttons
+        if self.debug == True:
+            for button in self.buttons:
+                if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
+                    if button.name == "ROBBER":
+                        self.move_robber = button.toggle(self.move_robber)
+                        self.current_player = None
+                    else:
+                        self.current_player = button.toggle(self.current_player)
+
+
+    def build_client_request(user_input, self):
+        # client_request = {"action": "build_town", "player": "PLAYER_NAME", "location": Node or Edge}
+        client_request = {}
+        if not self.does_board_exist():
+            return
+
+
+        # reset current hex, edge, node
+        self.current_hex = None
+        self.current_hex_2 = None
+        self.current_hex_3 = None
+
+        self.current_edge = None
+        self.current_node = None
+        
+        all_hexes = self.board["land_hexes"] + self.board["ocean_hexes"]
+
+        # using HEXES
+        # check radius for current hex
+        for q, r, s in all_hexes:
+            if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hh.set_hex(q, r, s)), 60):
+                self.current_hex = [q, r, s]
+                break
+        # 2nd loop for edges - current_hex_2
+        for q, r, s in all_hexes:
+            if self.current_hex != hex:
+                if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hh.set_hex(q, r, s)), 60):
+                    self.current_hex_2 = [q, r, s]
+                    break
+        # 3rd loop for nodes - current_hex_3
+        for q, r, s in all_hexes:
+            if self.current_hex != hex and self.current_hex_2 != hex:
+                if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hh.set_hex(q, r, s)), 60):
+                    self.current_hex_3 = [q, r, s]
+                    break
+        
+        # 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, 
+
+        # defining current_node
+        if self.current_hex_3:
+            sorted_hexes = sorted((self.current_hex, self.current_hex_2, c_state.current_hex_3))
+            for node in c_state.board["nodes"]:
+                if node["hex_a"] == sorted_hexes[0] and node["hex_b"] == sorted_hexes[1] and node["hex_c"] == sorted_hexes[2]:
+                    c_state.current_node = node
+                    break
+        
+        # defining current_edge
+        elif c_state.current_hex_2:
+            sorted_hexes = sorted((c_state.current_hex, c_state.current_hex_2))
+            for edge in c_state.board["edges"]:
+                if edge["hex_a"] == sorted_hexes[0] and edge["hex_b"] == sorted_hexes[1]:
+                    c_state.current_edge = edge
+                    break
+
+
+        # selecting based on mouse button input from get_user_input()
+        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+            if c_state.current_node:
+                c_state.selection = c_state.current_node
+                print(c_state.current_node)
+                # toggle between settlement, city, None
+
+                        # client_request = {"action": "build_town", "player": "PLAYER_NAME", "location": Node or Edge}
+
+            
+            elif state.current_edge:
+                state.selection = state.current_edge
+
+                # place roads unowned edge
+                if state.current_edge.player == None and state.current_player != None:
+                    if state.current_edge.build_check_road(state):
+                        state.current_edge.player = state.current_player
+                        if state.current_player:
+                            state.current_player.roads.append(state.current_edge)
+
+                # remove roads
+                elif state.current_edge.player:
+                    current_owner = state.current_edge.player
+                    current_owner.roads.remove(state.current_edge)
+                    state.current_edge.player = None
 
 
 
-        # use to place robber, might have to adjust hex selection 
-            # circle overlap affects selection range
-        elif state.current_hex:
-            state.selection = state.current_hex
-            if state.move_robber == True:
-                for tile in state.board.land_tiles:
-                    if tile.robber == True:
-                        # find robber in tiles
-                        current_robber_tile = tile
-                        break
-                # used 2 identical loops here since calculating robber_tile on the fly
+            # use to place robber, might have to adjust hex selection 
+                # circle overlap affects selection range
+            elif state.current_hex:
+                state.selection = state.current_hex
+                if state.move_robber == True:
+                    for tile in state.board.land_tiles:
+                        if tile.robber == True:
+                            # find robber in tiles
+                            current_robber_tile = tile
+                            break
+                    # used 2 identical loops here since calculating robber_tile on the fly
+                    for tile in state.board.land_tiles:
+                        if tile.hex == state.current_hex:
+                            # remove robber from old tile, add to new tile
+                            current_robber_tile.robber = False
+                            tile.robber = True
+                            state.move_robber = False
+
+
+                # DEBUG PRINT STATEMENTS
+                print(f"hex: {state.current_hex}")
                 for tile in state.board.land_tiles:
                     if tile.hex == state.current_hex:
-                        # remove robber from old tile, add to new tile
-                        current_robber_tile.robber = False
-                        tile.robber = True
-                        state.move_robber = False
+                        print(f"tile terrain: {tile.terrain}")
+            else:
+                state.selection = None                    
+                        
+        # update player stats
+        # for player in state.players:
+        #     player.victory_points = len(player.settlements)+(len(player.cities)*2)
 
+        return client_request
 
-            # DEBUG PRINT STATEMENTS
-            print(f"hex: {state.current_hex}")
-            for tile in state.board.land_tiles:
-                if tile.hex == state.current_hex:
-                    print(f"tile terrain: {tile.terrain}")
+    def client_to_server(client_request, c_state, combined=False):
+
+        json_to_send = json.dumps(client_request)
+        msg_to_send = json_to_send.encode()
+        if combined == False:
+            c_state.socket.sendto(msg_to_send, (local_IP, local_port))
+            # receive message from server
+            msg_recv, address = c_state.socket.recvfrom(buffer_size)
         else:
-            state.selection = None                    
-                    
-    # update player stats
-    # for player in state.players:
-    #     player.victory_points = len(player.settlements)+(len(player.cities)*2)
-
-    return client_request
-
-def client_to_server(client_request, c_state, combined=False):
-
-    json_to_send = json.dumps(client_request)
-    msg_to_send = json_to_send.encode()
-    if combined == False:
-        c_state.socket.sendto(msg_to_send, (local_IP, local_port))
-        # receive message from server
-        msg_recv, address = c_state.socket.recvfrom(buffer_size)
-    else:
-        msg_recv = msg_to_send
-    
-    packet_recv = json.loads(msg_recv)
-    print(f"Received from server {packet_recv}")
-    return packet_recv
-
-
-
-def update_client(server_response, c_state):
-    # unpack server response and update state
-    pass
-
-def render_board(board):
-    # {'land_tiles': [{'robber': False, 'terrain': 'mountain', 'resource': 'ore', 'hex': [0, -2, 2], 'token': {'10': 3}, 'num': 10, 'dots': 3}, {'robber': False, 'terrain': 'pasture', 'resource': 
-
-    # hex details
-    # layout = type, size, origin
-    size = 50 # (radius)
-    pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
-
-    # draw land tiles, numbers, dots
-    for tile in board["land_tiles"]:
-        # draw resource hexes
-        hex = hh.set_hex(tile["hex"][0], tile["hex"][1], tile["hex"][2])
-        color = rf.game_color_dict[tile["terrain"]]
-        pr.draw_poly(hh.hex_to_pixel(pointy, hex), 6, size, 0, color)
-
-        # draw black outlines around hexes
-        pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, size, 0, 1, pr.BLACK)
-
-    
-        # draw numbers, dots on hexes
-        if tile["num"] != None:
-            # have to specify layout for hex calculations
-            rf.draw_num(hex, tile["num"], layout=pointy)
-            rf.draw_dots(hex, tile["dots"], layout=pointy)
+            msg_recv = msg_to_send
         
-        # drawing circles in hex centers to center text
-        # if state.debug == True:
-        #     draw_circle(int(hh.hex_to_pixel(pointy, tile.hex).x), int(hh.hex_to_pixel(pointy, tile.hex).y), 4, BLACK)
-    
-    # draw ocean tiles, ports
-    for tile in s_state.board.ocean_tiles:
-        pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, pr.BLACK)
-        if tile.port:
-            hex_center = hh.hex_to_pixel(pointy, tile.hex)
-            text_offset = pr.measure_text_ex(pr.gui_get_font(), tile.port_display, 16, 0)
-            text_location = pr.Vector2(hex_center.x-text_offset.x//2, hex_center.y-16)
-            pr.draw_text_ex(pr.gui_get_font(), tile.port_display, text_location, 16, 0, pr.BLACK)
+        packet_recv = json.loads(msg_recv)
+        print(f"Received from server {packet_recv}")
+        return packet_recv
+
+
+
+    def update_client(encoded_server_response, c_state):
+        # unpack server response and update state
+        # packet from server is in this format: {"response": None, "board": self.board, "players": self.players}
+        server_response = json.loads(encoded_server_response)
+
+        c_state.response = server_response["response"]
+        c_state.board = server_response["board"]
+        c_state.players = server_response["players"]
+
+    def render_board(board):
+        # {'land_tiles': [{'robber': False, 'terrain': 'mountain', 'resource': 'ore', 'hex': [0, -2, 2], 'token': {'10': 3}, 'num': 10, 'dots': 3}, {'robber': False, 'terrain': 'pasture', 'resource': 
+
+        # hex details
+        # layout = type, size, origin
+        size = 50 # (radius)
+        pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
+
+        # draw land tiles, numbers, dots
+        for tile in board["land_tiles"]:
+            # draw resource hexes
+            hex = hh.set_hex(tile["hex"][0], tile["hex"][1], tile["hex"][2])
+            color = rf.game_color_dict[tile["terrain"]]
+            pr.draw_poly(hh.hex_to_pixel(pointy, hex), 6, size, 0, color)
+            # draw black outlines around hexes
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, size, 0, 1, pr.BLACK)
+
+            # draw numbers, dots on hexes
+            if tile["num"] != None:
+                # have to specify layout for hex calculations
+                rf.draw_num(hex, tile["num"], layout=pointy)
+                rf.draw_dots(hex, tile["dots"], layout=pointy)
             
-            # draw active port corners
-            for i in range(6):
-                if i in tile.active_corners:
-                    corner = hh.hex_corners_list(pointy, tile.hex)[i]
-                    center = hh.hex_to_pixel(pointy, tile.hex)
-                    midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
-                    pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
-
-    # draw roads, settlements, cities
-    for edge in s_state.board.edges:
-        if edge.player != None:
-            rf.draw_road(edge, edge.player.color)
-
-    for node in s_state.board.nodes:
-        if node.player != None:
-            if node.town == "settlement":
-                rf.draw_settlement(node, node.player.color)
-            elif node.town == "city":
-                rf.draw_city(node, node.player.color)      
-
-    # draw robber
-    for tile in s_state.board.land_tiles:
-        if tile.robber == True:
-            hex_center = vector2_round(hh.hex_to_pixel(pointy, tile.hex))
-            rf.draw_robber(hex_center)
-            break
-
-
-
-def render_mouse_hover(c_state):
-    # outline up to 3 current hexes
-    if c_state.current_hex: # and not state.current_edge:
-        pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, c_state.current_hex), 6, 50, 0, 6, pr.BLACK)
-    if c_state.current_hex_2:
-        pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, c_state.current_hex_2), 6, 50, 0, 6, pr.BLACK)
-    if c_state.current_hex_3:
-        pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, c_state.current_hex_3), 6, 50, 0, 6, pr.BLACK)
+            # drawing circles in hex centers to center text
+            # if state.debug == True:
+            #     draw_circle(int(hh.hex_to_pixel(pointy, tile.hex).x), int(hh.hex_to_pixel(pointy, tile.hex).y), 4, BLACK)
         
-        
-    # highlight selected edge and node
-    if c_state.current_node:
-        pr.draw_circle_v(c_state.current_node.get_node_point(), 10, pr.BLACK)
+        # 'ocean_tiles':
+            # [{'terrain': 'ocean', 'resource': None, 'hex': [0, -3, 3], 'port': 'three', 'active_corners': [5, 0]},
+            # {'terrain': 'ocean', 'resource': None, 'hex': [1, -3, 2], 'port': None, 'active_corners': None}, 
+            # {'terrain': 'ocean', 'resource': None, 'hex': [2, -3, 1], 'port': 'wheat', 'active_corners': [4, 5]}]
 
-        # DEBUG - show adj_edges
-        # adj_edges = c_state.current_node.get_adj_edges(s_state.board.edges)
-        # for edge in adj_edges:
-        #     corners = edge.get_edge_points()
-        #     draw_line_ex(corners[0], corners[1], 12, BLUE)
-        
-        adj_nodes = c_state.current_node.get_adj_nodes_from_node(s_state.board.nodes)
-        for node in adj_nodes:
-            pr.draw_circle_v(node.get_node_point(), 10, pr.YELLOW)
+        # draw ocean tiles, ports
+        for tile in board["ocean_tiles"]:
+            hex = hh.set_hex(tile["hex"][0], tile["hex"][1], tile["hex"][2])
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, size, 0, 1, pr.BLACK)
+            if tile["port"]:
+                hex_center = hh.hex_to_pixel(pointy, hex)
+                display_text = rf.port_to_display[tile["port"]]
+                text_offset = pr.measure_text_ex(pr.gui_get_font(), display_text, 16, 0)
+                text_location = pr.Vector2(hex_center.x-text_offset.x//2, hex_center.y-16)
+                pr.draw_text_ex(pr.gui_get_font(), display_text, text_location, 16, 0, pr.BLACK)
+                
+                # draw active port corners
+                for i in range(6):
+                    if i in tile["active_corners"]:
+                        corner = hh.hex_corners_list(pointy, hex)[i]
+                        center = hh.hex_to_pixel(pointy, hex)
+                        midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
+                        pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
+
+        # 'edges': [{'hex_a': [0, -2, 2], 'hex_b': [1, -2, 1], 'player': None}, {'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'player': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'player': None}, {'hex_a': [0, -3, 3], 'hex_b': [0, -2, 2], 'player': None}, {'hex_a': [0, -2, 2], 
+
+        # draw roads, settlements, cities
+        for edge in board["edges"]:
+            if edge["player"] != None:
+                # took .get_edge_points() from Edge class
+                edge_endpoints = list(hh.hex_corners_set(pointy, edge["hex_a"]) & hh.hex_corners_set(pointy, edge["hex_b"]))
+                rf.draw_road(edge_endpoints, rf.game_color_dict[edge["player"]])
+
+        # 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -3, 3], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [1, -3, 
+
+        for node in board["nodes"]:
+            if node["player"] != None:
+                # taken from class Node .get_node_point()
+                node_list = list(hh.hex_corners_set(pointy, node["hex_a"]) & hh.hex_corners_set(pointy, node["hex_b"]) & hh.hex_corners_set(pointy, node["hex_c"]))
+                if len(node_list) != 0:
+                    node_point = node_list[0]
+
+                if node["town"] == "settlement":
+                    rf.draw_settlement(node_point, rf.game_color_dict[node["player"]])
+                elif node["town"] == "city":
+                    rf.draw_city(node_point, rf.game_color_dict[node["player"]])      
+
+        # draw robber
+        for tile in board["land_tiles"]:
+            if tile["robber"] == True:
+                hex = hh.set_hex(tile["hex"][0], tile["hex"][1], tile["hex"][2])
+                hex_center = vector2_round(hh.hex_to_pixel(pointy, hex))
+                rf.draw_robber(hex_center)
+                break
 
 
 
-    if c_state.current_edge and not c_state.current_node:
-        corners = c_state.current_edge.get_edge_points()
-        pr.draw_line_ex(corners[0], corners[1], 12, pr.BLACK)
-        
-        
-def render_client(c_state):
+    def render_mouse_hover(c_state):
+        # outline up to 3 current hexes
+        if c_state.current_hex: # and not state.current_edge:
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, c_state.current_hex), 6, 50, 0, 6, pr.BLACK)
+        if c_state.current_hex_2:
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, c_state.current_hex_2), 6, 50, 0, 6, pr.BLACK)
+        if c_state.current_hex_3:
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, c_state.current_hex_3), 6, 50, 0, 6, pr.BLACK)
+            
+            
+        # highlight selected edge and node
+        if c_state.current_node:
+            pr.draw_circle_v(c_state.current_node.get_node_point(), 10, pr.BLACK)
+
+        if c_state.current_edge and not c_state.current_node:
+            corners = c_state.current_edge.get_edge_points()
+            pr.draw_line_ex(corners[0], corners[1], 12, pr.BLACK)
+            
+            # DEBUG - show adj_edges - can't draw without additional functions
+            # adj_edges = c_state.current_node.get_adj_edges(s_state.board.edges)
+            # for edge in adj_edges:
+            #     corners = edge.get_edge_points()
+            #     draw_line_ex(corners[0], corners[1], 12, BLUE)
+            
+            # adj_nodes = c_state.current_node.get_adj_nodes_from_node(s_state.board.nodes)
+            # for node in adj_nodes:
+            #     pr.draw_circle_v(node.get_node_point(), 10, pr.YELLOW)
+
+            
+            
+    def render_client(c_state):
     
     pr.begin_drawing()
     pr.clear_background(pr.BLUE)
@@ -1294,21 +1287,19 @@ def run_combined():
 
     c_state = ClientState()
     print("starting client")
-    c_state.initialize_debug()
-
-    update_client(init_packet, c_state)
+    c_state.update_client(init_packet)
 
     while not pr.window_should_close():
         # get user input
-        user_input = get_user_input(c_state)
+        user_input = c_state.get_user_input()
         # update client-specific settings unrelated to server
-        update_client_settings(user_input, c_state)
+        c_state.update_client_settings(user_input)
 
         # encode msg based on user_input
-        client_request = build_client_request(user_input, c_state)
+        client_request = c_state.build_client_request(user_input)
         # normally sends message, server receives, server returns
         # if combined, just package client_request for sending and pass it into server_to_client
-        client_to_server(client_request, c_state, combined=True)
+        c_state.client_to_server(client_request, combined=True)
         # decode msg, update server state, return server_response for client
         server_response = server_to_client(s_state, client_request, combined=True)
 
@@ -1328,7 +1319,6 @@ def run_client():
     pr.set_target_fps(60)
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
     c_state = ClientState()
-    c_state.initialize_debug()
     # receive init message with board?
     server_response = client_to_server(client_request, c_state)
     update_client(server_response, c_state)
@@ -1341,7 +1331,7 @@ def run_client():
         server_response = client_to_server(client_request, c_state)
 
         update_client(server_response, c_state)
-        render(c_state)
+        render_client(c_state)
     pr.unload_font(pr.gui_get_font())
     pr.close_window()
 
@@ -1368,15 +1358,23 @@ def test():
     s_state = ServerState() # initialize board, players
     s_state.initialize_game()
 
-    packet = to_json(s_state.build_packet())
-
-    msg_encoded = packet.encode()
+    msg_encoded = s_state.build_msg_to_client()
     
     msg_decoded = json.loads(msg_encoded)
 
-    print(msg_decoded["players"])
+    data = msg_decoded["board"]
+    all_hexes = data["land_hexes"] + data["ocean_hexes"]
+    
 
 
 
 # run_combined()
 # test()
+
+hex1 = [-3, 3, 0]
+hex2 = [-2, 3, -1]
+hex3 = [-1, 3, -2]
+hex4 = [0, 3, -3]
+hexes = (hex2, hex4, hex3, hex1)
+print(f"real = {hexes}")
+print(f"sorted = {sorted(hexes)}")

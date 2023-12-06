@@ -26,12 +26,12 @@ game_color_dict = {
     }
 
 port_to_display = {
-    "THREE": " ? \n3:1",
-    "WHEAT": " 2:1 \nwheat",
-    "ORE": "2:1\nore",
-    "WOOD": " 2:1 \nwood",
-    "BRICK": " 2:1 \nbrick",
-    "SHEEP": " 2:1 \nsheep"
+    "three": " ? \n3:1",
+    "wheat": " 2:1 \nwheat",
+    "ore": "2:1\nore",
+    "wood": " 2:1 \nwood",
+    "brick": " 2:1 \nbrick",
+    "sheep": " 2:1 \nsheep"
 }
 
 
@@ -94,19 +94,18 @@ def draw_robber(hex_center):
     # draw_circle_lines(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, WHITE)
 
 
-def draw_road(edge, color):
-    edge_endpoints = edge.get_edge_points()
+def draw_road(edge_endpoints, color):
     # draw black outline
     pr.draw_line_ex(edge_endpoints[0], edge_endpoints[1], 10, pr.BLACK)
     # draw road in player color
     pr.draw_line_ex(edge_endpoints[0], edge_endpoints[1], 6, color)
 
 
-def draw_settlement(node, color):
+def draw_settlement(node_point, color):
     width = 25
     height = 18
-    node_x = node.get_node_point()[0]
-    node_y = node.get_node_point()[1]
+    node_x = node_point[0]
+    node_y = node_point[1]
     tri_rt = (node_x+width//2, node_y-height//2)
     tri_top = (node_x, node_y-7*height//6)
     tri_lt = (node_x-width//2, node_y-height//2)
