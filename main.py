@@ -692,11 +692,16 @@ class ServerState:
 
         
         # client_request = {"player": "PLAYER_NAME", "location": Hex, Node or Edge}
-        # if client_request["location"] = [q, r, s], hex, move robber
-        # if client_request["location"] = 
-        if client_request["action"] == "build_town":
+        if type(client_request["location"]) == list:
+            action = "move_robber"
+        elif "hex_c" in client_request["location"]:
+            action = "build_town"
+        elif "hex_b" in client_request["location"]:
+            action = "build_road"
+
+        if action == "build_town":
             # toggle between settlement, city, None
-            for node in s_state.nodes:
+            for node in self.board.nodes:
                 if node == client_request["location"]:
                     if node.town == None and s_state.current_player != None:
                         if node.build_check_settlement(s_state):
@@ -1300,6 +1305,8 @@ def test():
 
     msg_encoded = s_state.build_msg_to_client()
     msg_decoded = json.loads(msg_encoded)
+    for edge in msg_decoded["board"]["edges"]:
+        print(type(edge))
     
 
 
