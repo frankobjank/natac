@@ -35,7 +35,17 @@ def vector2_round(vector2):
 def point_round(point):
     return hh.Point(int(point.x), int(point.y))
 
-def get_node_point(hex_a, hex_b, hex_c):
+def get_edge_points(edge):
+    hex_a = hh.set_hex(edge["hex_a"][0], edge["hex_a"][1], edge["hex_a"][2])
+    hex_b = hh.set_hex(edge["hex_b"][0], edge["hex_b"][1], edge["hex_b"][2])
+    return list(hh.hex_corners_set(pointy, hex_a) & hh.hex_corners_set(pointy, hex_b))
+
+
+def get_node_point(node):
+    hex_a = hh.set_hex(node["hex_a"][0], node["hex_a"][1], node["hex_a"][2])
+    hex_b = hh.set_hex(node["hex_b"][0], node["hex_b"][1], node["hex_b"][2])
+    hex_c = hh.set_hex(node["hex_c"][0], node["hex_c"][1], node["hex_c"][2])
+
     node_list = list(hh.hex_corners_set(pointy, hex_a) & hh.hex_corners_set(pointy, hex_b) & hh.hex_corners_set(pointy, hex_c))
     if len(node_list) != 0:
         return node_list[0]
@@ -76,6 +86,243 @@ terrain_to_resource = {
     "mountain": "ore",
     "desert": None
     }
+
+
+class Edge:
+    def __init__(self, hex_a, hex_b):
+        assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
+        sorted_hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
+        self.hex_a = sorted_hexes[0]
+        self.hex_b = sorted_hexes[1]
+        self.player = None
+    
+    def __repr__(self):
+        return f"Edge({self.hex_a}, {self.hex_b})"
+    
+    def get_hexes(self):
+        return (self.hex_a, self.hex_b)
+    
+    def get_edge_points_set(self) -> set:
+        return hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b)
+
+    def get_edge_points(self) -> list:
+        return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
+    
+    # using points
+    def get_adj_nodes(self, nodes) -> list:
+        edge_points = self.get_edge_points()
+        adj_nodes = []
+        for point in edge_points:
+            for node in nodes:
+                if point == node.get_node_point():
+                    adj_nodes.append(node)
+        return adj_nodes
+    
+    # using hexes/radii instead of points
+    def get_adj_nodes_using_hexes(self, hexes, state) -> list:
+        adj_hexes = []
+        for hex in hexes:
+            # use self.hex_a and self.hex_b as circle comparisons
+            if radius_check_two_circles(hh.hex_to_pixel(pointy, self.hex_a), 60, hh.hex_to_pixel(pointy, hex), 60) and radius_check_two_circles(hh.hex_to_pixel(pointy, self.hex_b), 60, hh.hex_to_pixel(pointy, hex), 60):
+                adj_hexes.append(hex)
+        if len(adj_hexes) < 2:
+            return
+        
+        adj_nodes = []
+        self_nodes = [Node(self.hex_a, self.hex_b, h) for h in adj_hexes]
+        for self_node in self_nodes:
+            for node in state.board.nodes:
+                if self_node.get_hexes() == node.get_hexes():
+                    adj_nodes.append(node)
+        return adj_nodes
+    
+    def get_adj_node_edges(self, nodes, edges):
+        adj_nodes = self.get_adj_nodes(nodes)
+        if len(adj_nodes) < 2:
+            return
+        adj_edges_1 = adj_nodes[0].get_adj_edges_set(edges)
+        adj_edges_2 = adj_nodes[1].get_adj_edges_set(edges)
+
+        return list(adj_edges_1.symmetric_difference(adj_edges_2))
+
+
+    def build_check_road(self, s_state, current_player):
+        print("build_check_road")
+
+        # number roads left check
+        if current_player.num_roads == 15:
+            print("no available roads")
+            return False
+
+        # ocean check
+        if self.hex_a in s_state.board.ocean_hexes and self.hex_b in s_state.board.ocean_hexes:
+            print("can't build in ocean")
+            return False
+        
+        # home check. if adj node is a same-player town, return True
+        self_nodes = self.get_adj_nodes(s_state.board.nodes)
+        for node in self_nodes:
+            if node.player == current_player:
+                print("building next to settlement")
+                return True
+        
+        # contiguous check. if no edges are not owned by player, break
+        adj_edges = self.get_adj_node_edges(s_state.board.nodes, s_state.board.edges)
+        origin_edge = None # Edge
+        for edge in adj_edges:
+            if edge.player == current_player:
+                origin_edge = edge
+                break
+        if origin_edge == None: # non-contiguous
+            print("non-contiguous")
+            return False
+        # origin stops at first match of current player. this shows what direction road is going.
+        # check if origin node has opposing settlement blocking path
+        origin_nodes = origin_edge.get_adj_nodes(s_state.board.nodes)
+        # (commented out since already defined above)
+        # self_nodes = self.get_adj_nodes(state.nodes)
+        if self_nodes[0] in origin_nodes:
+            origin_node = self_nodes[0]
+            destination_node = self_nodes[1]
+        else:
+            origin_node = self_nodes[1]
+            destination_node = self_nodes[0]
+
+        # origin node blocked by another player
+        if origin_node.player != None and origin_node.player != current_player:
+            print("blocked by settlement")
+            return False
+        print("no conflicts")
+        return True
+        
+        # contiguous - connected to either settlement or road
+        # can't cross another player's road or settlement
+
+class Node:
+    def __init__(self, hex_a, hex_b, hex_c):
+        # could replace get_hexes() with sorted_hexes
+        sorted_hexes = sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s"))
+        self.hex_a = sorted_hexes[0]
+        self.hex_b = sorted_hexes[1]
+        self.hex_c = sorted_hexes[2]
+        self.player = None
+        self.town = None # city or settlement
+        self.port = None
+
+    def __repr__(self):
+        # return f"hh.set_hex{self.hex_a.q, self.hex_a.r, self.hex_a.s}, hh.set_hex{self.hex_b.q, self.hex_b.r, self.hex_b.s}, hh.set_hex{self.hex_c.q, self.hex_c.r, self.hex_c.s},"
+        # return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
+        return f"{self.get_hexes()}"
+    
+    # def __str__(self):
+    #     return f"Player: {self.player}, Town: {self.town}, Port: {self.port}"
+
+    def get_hexes(self):
+        return (self.hex_a, self.hex_b, self.hex_c)
+
+    def get_node_point(self):
+        node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
+        if len(node_list) != 0:
+            return node_list[0]
+    
+    def get_adj_edges(self, edges) -> list:
+        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
+        adj_edges = []
+        for self_edge in self_edges:
+            for edge in edges:
+                if self_edge.get_hexes() == edge.get_hexes():
+                    adj_edges.append(edge)
+        return adj_edges
+
+    def get_adj_edges_set(self, edges) -> set:
+        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
+        adj_edges = set()
+        for self_edge in self_edges:
+            for edge in edges:
+                if self_edge.get_hexes() == edge.get_hexes():
+                    adj_edges.add(edge)
+        return adj_edges
+            
+    def get_adj_nodes_from_node(self, nodes) -> list:
+        # ^ = symmetric_difference
+        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
+        node_points = self_edges[0].get_edge_points_set() ^ self_edges[1].get_edge_points_set() ^ self_edges[2].get_edge_points_set()
+        adj_nodes = []
+        for point in node_points:
+            for node in nodes:
+                if point == node.get_node_point():
+                    adj_nodes.append(node)
+                    
+        return adj_nodes
+
+        
+    def build_check_settlement(self, s_state, current_player):
+        print("build_check_settlement")
+        if current_player.num_settlements > 4:
+            print("no available settlements")
+            return False
+        
+        # ocean check
+        if self.hex_a in s_state.board.ocean_hexes and self.hex_b in s_state.board.ocean_hexes and self.hex_c in s_state.board.ocean_hexes:
+            print("can't build in ocean")
+            return False
+        
+        # get 3 adjacent nodes and make sure no town is built there
+        adj_nodes = self.get_adj_nodes_from_node(s_state.board.nodes)
+        for node in adj_nodes:
+            if node.town == "settlement":
+                print("too close to settlement")
+                return False
+            elif node.town == "city":
+                print("too close to city")
+                return False
+
+            
+        adj_edges = self.get_adj_edges(s_state.board.edges)
+        # is node adjacent to at least 1 same-colored road
+        if all(edge.player != current_player for edge in adj_edges):
+            print("no adjacent roads")
+            return False
+        
+        # if between opponent's road
+        adj_edge_players = [edge.player for edge in adj_edges]
+        if current_player in adj_edge_players:
+            adj_edge_players.remove(current_player)
+            if adj_edge_players[0] == adj_edge_players[1]:
+                if None not in adj_edge_players and current_player not in adj_edge_players:
+                    print("can't build in middle of road")
+                    return False
+                
+        return True
+
+
+
+
+# Currently both land and ocean (Tile class)
+class LandTile:
+    def __init__(self, terrain, hex, token):
+        self.robber = False
+        self.terrain = terrain
+        self.resource = terrain_to_resource[terrain]
+        self.hex = hex
+        self.token = token
+        for k, v in self.token.items():
+            self.num = k
+            self.dots = v
+
+    def __repr__(self):
+        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, robber: {self.robber})"
+    
+class OceanTile:
+    def __init__(self, terrain, hex, port, active_corners):
+        self.terrain = terrain
+        self.resource = None
+        self.hex = hex
+        self.port = port
+        self.active_corners = active_corners
+
+    def __repr__(self):
+        return f"OceanTile(hex: {self.hex}, port: {self.port})"
 
 
 
@@ -310,285 +557,48 @@ class Board:
         for node in self.nodes:
             for orange_node in orange_nodes:
                 if node.hex_a == orange_node.hex_a and node.hex_b == orange_node.hex_b and node.hex_c == orange_node.hex_c:
-                    s_state.orange_player.num_settlements += 1
-                    node.player = s_state.orange_player
+                    s_state.players["orange_player"].num_settlements += 1
+                    node.player = s_state.players["orange_player"]
                     node.town = "settlement"
 
             for blue_node in blue_nodes:
                 if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
-                    s_state.blue_player.num_settlements += 1
-                    node.player = s_state.blue_player
+                    s_state.players["blue_player"].num_settlements += 1
+                    node.player = s_state.players["blue_player"]
                     node.town = "settlement"
 
             for red_node in red_nodes:
                 if node.hex_a == red_node.hex_a and node.hex_b == red_node.hex_b and node.hex_c == red_node.hex_c:
-                    s_state.red_player.num_settlements += 1
-                    node.player = s_state.red_player
+                    s_state.players["red_player"].num_settlements += 1
+                    node.player = s_state.players["red_player"]
                     node.town = "settlement"
 
             for white_node in white_nodes:
                 if node.hex_a == white_node.hex_a and node.hex_b == white_node.hex_b and node.hex_c == white_node.hex_c:
-                    s_state.white_player.num_settlements += 1
-                    node.player = s_state.white_player
+                    s_state.players["white_player"].num_settlements += 1
+                    node.player = s_state.players["white_player"]
                     node.town = "settlement"
 
         for edge in self.edges:
             for orange_edge in orange_edges:
                 if edge.hex_a == orange_edge.hex_a and edge.hex_b == orange_edge.hex_b:
-                    s_state.orange_player.num_roads += 1
-                    edge.player = s_state.orange_player
+                    s_state.players["orange_player"].num_roads += 1
+                    edge.player = s_state.players["orange_player"]
 
             for blue_edge in blue_edges:
                 if edge.hex_a == blue_edge.hex_a and edge.hex_b == blue_edge.hex_b:
-                    s_state.blue_player.num_roads += 1
-                    edge.player = s_state.blue_player
+                    s_state.players["blue_player"].num_roads += 1
+                    edge.player = s_state.players["blue_player"]
 
             for red_edge in red_edges:
                 if edge.hex_a == red_edge.hex_a and edge.hex_b == red_edge.hex_b:
-                    s_state.red_player.num_roads += 1
-                    edge.player = s_state.red_player
+                    s_state.players["red_player"].num_roads += 1
+                    edge.player = s_state.players["red_player"]
 
             for white_edge in white_edges:
                 if edge.hex_a == white_edge.hex_a and edge.hex_b == white_edge.hex_b:
-                    s_state.white_player.num_roads += 1
-                    edge.player = s_state.white_player
-
-
-class Edge:
-    def __init__(self, hex_a, hex_b):
-        assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
-        sorted_hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
-        self.hex_a = sorted_hexes[0]
-        self.hex_b = sorted_hexes[1]
-        self.player = None
-    
-    def __repr__(self):
-        return f"Edge({self.hex_a}, {self.hex_b})"
-    
-    def get_hexes(self):
-        return (self.hex_a, self.hex_b)
-    
-    def get_edge_points_set(self) -> set:
-        return hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b)
-
-    def get_edge_points(self) -> list:
-        return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
-    
-    # using points
-    def get_adj_nodes(self, nodes) -> list:
-        edge_points = self.get_edge_points()
-        adj_nodes = []
-        for point in edge_points:
-            for node in nodes:
-                if point == node.get_node_point():
-                    adj_nodes.append(node)
-        return adj_nodes
-    
-    # using hexes/radii instead of points
-    def get_adj_nodes_using_hexes(self, hexes, state) -> list:
-        adj_hexes = []
-        for hex in hexes:
-            # use self.hex_a and self.hex_b as circle comparisons
-            if radius_check_two_circles(hh.hex_to_pixel(pointy, self.hex_a), 60, hh.hex_to_pixel(pointy, hex), 60) and radius_check_two_circles(hh.hex_to_pixel(pointy, self.hex_b), 60, hh.hex_to_pixel(pointy, hex), 60):
-                adj_hexes.append(hex)
-        if len(adj_hexes) < 2:
-            return
-        
-        adj_nodes = []
-        self_nodes = [Node(self.hex_a, self.hex_b, h) for h in adj_hexes]
-        for self_node in self_nodes:
-            for node in state.board.nodes:
-                if self_node.get_hexes() == node.get_hexes():
-                    adj_nodes.append(node)
-        return adj_nodes
-    
-    def get_adj_node_edges(self, nodes, edges):
-        adj_nodes = self.get_adj_nodes(nodes)
-        if len(adj_nodes) < 2:
-            return
-        adj_edges_1 = adj_nodes[0].get_adj_edges_set(edges)
-        adj_edges_2 = adj_nodes[1].get_adj_edges_set(edges)
-
-        return list(adj_edges_1.symmetric_difference(adj_edges_2))
-
-
-    def build_check_road(self, state):
-        print("build_check_road")
-
-        # number roads left check
-        if len(state.current_player.roads) == 15:
-            print("no available roads")
-            return False
-
-        # ocean check
-        if self.hex_a in state.board.ocean_hexes and self.hex_b in state.board.ocean_hexes:
-            print("can't build in ocean")
-            return False
-        
-        # home check. if adj node is a same-player town, return True
-        self_nodes = self.get_adj_nodes(state.board.nodes)
-        for node in self_nodes:
-            if node.player == state.current_player:
-                print("building next to settlement")
-                return True
-        
-        # contiguous check. if no edges are not owned by player, break
-        adj_edges = self.get_adj_node_edges(state.board.nodes, state.board.edges)
-        origin_edge = None # Edge
-        for edge in adj_edges:
-            if edge.player == state.current_player:
-                origin_edge = edge
-                break
-        if origin_edge == None: # non-contiguous
-            print("non-contiguous")
-            return False
-        # origin stops at first match of current player. this shows what direction road is going.
-        # check if origin node has opposing settlement blocking path
-        origin_nodes = origin_edge.get_adj_nodes(state.board.nodes)
-        # (commented out since already defined above)
-        # self_nodes = self.get_adj_nodes(state.nodes)
-        if self_nodes[0] in origin_nodes:
-            origin_node = self_nodes[0]
-            destination_node = self_nodes[1]
-        else:
-            origin_node = self_nodes[1]
-            destination_node = self_nodes[0]
-
-        # origin node blocked by another player
-        if origin_node.player != None and origin_node.player != state.current_player:
-            print("blocked by settlement")
-            return False
-        print("no conflicts")
-        return True
-        
-        # contiguous - connected to either settlement or road
-        # can't cross another player's road or settlement
-
-class Node:
-    def __init__(self, hex_a, hex_b, hex_c):
-        # could replace get_hexes() with sorted_hexes
-        sorted_hexes = sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s"))
-        self.hex_a = sorted_hexes[0]
-        self.hex_b = sorted_hexes[1]
-        self.hex_c = sorted_hexes[2]
-        self.player = None
-        self.town = None # city or settlement
-        self.port = None
-
-    def __repr__(self):
-        # return f"hh.set_hex{self.hex_a.q, self.hex_a.r, self.hex_a.s}, hh.set_hex{self.hex_b.q, self.hex_b.r, self.hex_b.s}, hh.set_hex{self.hex_c.q, self.hex_c.r, self.hex_c.s},"
-        # return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
-        return f"{self.get_hexes()}"
-    
-    # def __str__(self):
-    #     return f"Player: {self.player}, Town: {self.town}, Port: {self.port}"
-
-    def get_hexes(self):
-        return (self.hex_a, self.hex_b, self.hex_c)
-
-    def get_node_point(self):
-        node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
-        if len(node_list) != 0:
-            return node_list[0]
-    
-    def get_adj_edges(self, edges) -> list:
-        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
-        adj_edges = []
-        for self_edge in self_edges:
-            for edge in edges:
-                if self_edge.get_hexes() == edge.get_hexes():
-                    adj_edges.append(edge)
-        return adj_edges
-
-    def get_adj_edges_set(self, edges) -> set:
-        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
-        adj_edges = set()
-        for self_edge in self_edges:
-            for edge in edges:
-                if self_edge.get_hexes() == edge.get_hexes():
-                    adj_edges.add(edge)
-        return adj_edges
-            
-    def get_adj_nodes_from_node(self, nodes) -> list:
-        # ^ = symmetric_difference
-        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
-        node_points = self_edges[0].get_edge_points_set() ^ self_edges[1].get_edge_points_set() ^ self_edges[2].get_edge_points_set()
-        adj_nodes = []
-        for point in node_points:
-            for node in nodes:
-                if point == node.get_node_point():
-                    adj_nodes.append(node)
-                    
-        return adj_nodes
-
-        
-    def build_check_settlement(self, s_state, current_player):
-        print("build_check_settlement")
-        if current_player.num_settlements > 4:
-            print("no available settlements")
-            return False
-        
-        # ocean check
-        if self.hex_a in s_state.board.ocean_hexes and self.hex_b in s_state.board.ocean_hexes and self.hex_c in s_state.board.ocean_hexes:
-            print("can't build in ocean")
-            return False
-        
-        # get 3 adjacent nodes and make sure no town is built there
-        adj_nodes = self.get_adj_nodes_from_node(s_state.board.nodes)
-        for node in adj_nodes:
-            if node.town == "settlement":
-                print("too close to settlement")
-                return False
-            elif node.town == "city":
-                print("too close to city")
-                return False
-
-            
-        adj_edges = self.get_adj_edges(s_state.board.edges)
-        # is node adjacent to at least 1 same-colored road
-        if all(edge.player != current_player for edge in adj_edges):
-            print("no adjacent roads")
-            return False
-        
-        # if between opponent's road
-        adj_edge_players = [edge.player for edge in adj_edges]
-        if current_player in adj_edge_players:
-            adj_edge_players.remove(current_player)
-            if adj_edge_players[0] == adj_edge_players[1]:
-                if None not in adj_edge_players and current_player not in adj_edge_players:
-                    print("can't build in middle of road")
-                    return False
-                
-        return True
-
-
-
-
-# Currently both land and ocean (Tile class)
-class LandTile:
-    def __init__(self, terrain, hex, token):
-        self.robber = False
-        self.terrain = terrain
-        self.resource = terrain_to_resource[terrain]
-        self.hex = hex
-        self.token = token
-        for k, v in self.token.items():
-            self.num = k
-            self.dots = v
-
-    def __repr__(self):
-        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, hex: {self.hex}, token: {self.token}, num: {self.num}, dots: {self.dots}, robber: {self.robber})"
-    
-class OceanTile:
-    def __init__(self, terrain, hex, port, active_corners):
-        self.terrain = terrain
-        self.resource = None
-        self.hex = hex
-        self.port = port
-        self.active_corners = active_corners
-
-    def __repr__(self):
-        return f"OceanTile(hex: {self.hex}, port: {self.port})"
+                    s_state.players["white_player"].num_roads += 1
+                    edge.player = s_state.players["white_player"]
 
 
 
@@ -636,11 +646,11 @@ class ServerState:
 
         self.board = None
 
-        self.nil_player = None
-        self.red_player = None
-        self.blue_player = None
-        self.orange_player = None
-        self.white_player = None
+        # self.nil_player = None
+        # self.red_player = None
+        # self.blue_player = None
+        # self.orange_player = None
+        # self.white_player = None
 
         self.players = {}
 
@@ -670,13 +680,13 @@ class ServerState:
     # hardcoded players, can set up later to take different combos based on user input
     def initialize_players(self, red=False, blue=False, orange=False, white=False):
         self.players = {}
-        if red:
+        if red == True:
             self.players["red_player"] = Player("red_player")
-        if blue:
+        if blue == True:
             self.players["blue_player"] = Player("blue_player")
-        if orange:
+        if orange == True:
             self.players["orange_player"] = Player("orange_player")
-        if white:
+        if white == True:
             self.players["white_player"] = Player("white_player")
 
         # self.players = {"red_player": Player("red_player"), "blue_player": Player("blue_player"), "orange_player": Player("orange_player"), "white_player": Player("white_player")}
@@ -699,7 +709,8 @@ class ServerState:
     # server update (old update())
     def update_server(self, client_request):
         # 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, 
-
+        if len(client_request) == 0:
+            return
         current_player = self.players[client_request["player"]]
         # client_request = {"player": "PLAYER_NAME", "location": Hex, Node, or Edge}
         if type(client_request["location"]) == list: # list means location is hex
@@ -718,7 +729,10 @@ class ServerState:
                         if node.build_check_settlement(self, current_player):
                             node.town = "settlement"
                             node.player = current_player
-                            current_player.ports.append(node.port)
+                            current_player.num_settlements += 1
+                            if node.port:
+                                current_player.ports.append(node.port)
+
 
                     elif node.town == "settlement":
                         current_owner = node.player
@@ -729,53 +743,52 @@ class ServerState:
                                 print("no available cities")
                             else:
                                 node.town = "city"
-                                s_state.current_player.settlements.remove(node)
-                                s_state.current_player.cities.append(node)
+                                current_player.num_settlements -= 1
+                                current_player.num_cities += 1
                         # if owner is different from current_player, remove
-                        elif current_owner != s_state.current_player:
-                            current_owner.settlements.remove(node)
+                        elif current_owner != current_player:
+                            current_owner.num_settlements -= 1
                             node.player = None
                             node.town = None
+                            if node.port:
+                                current_player.ports.remove(node.port)
+
 
                     # town is city and should be removed
                     elif node.town == "city":
+                        current_owner = node.player
                         node.player = None
                         node.town = None
-                        s_state.current_player.cities.remove(node)
+                        current_owner.num_cities -= 1
+                        if node.port:
+                            current_owner.ports.remove(node.port)
 
             
-        elif client_request["action"] == "build_road":
-            for edge in s_state.edges:
-                if edge == client_request["location"]:
-                    
+        elif "action" == "build_road":
+            for edge in self.board.edges:
+                if edge.hex_a == client_request["location"]["hex_a"] and edge.hex_b == client_request["location"]["hex_b"]:
                     # place roads unowned edge
-                    if edge.player == None and s_state.current_player != None:
-                        if edge.build_check_road(s_state):
-                            edge.player = s_state.current_player
-                            s_state.current_player.roads.append(edge)
+                    if edge.player == None and current_player != None:
+                        if edge.build_check_road(self, current_player):
+                            edge.player = current_player
+                            current_player.num_roads += 1
 
                     # remove roads
                     elif edge.player:
                         current_owner = edge.player
-                        current_owner.roads.remove(edge)
+                        current_owner.num_roads -= 1
                         edge.player = None
 
 
-
-        # use to place robber, might have to adjust hex selection 
-            # circle overlap affects selection range
-        # USE TILE for robber location
-        elif client_request["action"] == "move_robber":
-
+        elif "action" == "move_robber":
             # find robber current location
-            for tile in s_state.land_tiles:
+            for tile in self.board.land_tiles:
                 if tile.robber == True:
                     current_robber_tile = tile
                     break
 
-            # objects will not be equal, so need to find an identifier that will be the same between client and server. maybe comparing the hex of each tile
-            for tile in s_state.land_tiles:
-                if tile != current_robber_tile and tile.hex == client_request["location"]["hex"]:
+            for tile in self.board.land_tiles:
+                if tile != current_robber_tile and [tile.hex.q, tile.hex.r, tile.hex.s] == client_request["location"]:
                     # remove robber from old tile, add to new tile
                     current_robber_tile.robber = False
                     tile.robber = True
@@ -810,27 +823,13 @@ class ServerState:
 
 
 class Button:
-    def __init__(self, rec:pr.Rectangle, name, set_var=None):
-        self.rec = rec
+    def __init__(self, rec:pr.Rectangle, name):
+        self.rec = rec 
         self.name = name
         self.color = rf.game_color_dict[self.name]
-        self.set_var = set_var
-        self.is_bool = False
-        if set_var == None:
-            self.is_bool = True
-        # ex: self.var_to_set=current_player, self.set_var=blue_player
-    
+
     def __repr__(self):
-        return f"Button({self.name} for {self.set_var}, is_bool = {self.is_bool})"
-    
-    def toggle(self, var_to_set):
-        if self.is_bool:
-            return not var_to_set
-        
-        if var_to_set != self.set_var:
-            return self.set_var
-        elif var_to_set == self.set_var:
-            return None
+        return f"Button({self.name}"
 
 
 
@@ -857,34 +856,21 @@ class ClientState:
         
         self.selection = None
         
-        self.debug = True
-
-        # debug buttons
-        self.buttons=[
-            Button(pr.Rectangle(750, 20, 40, 40), "blue_player", self.blue_player),
-            Button(pr.Rectangle(700, 20, 40, 40), "orange_player", self.orange_player), 
-            Button(pr.Rectangle(650, 20, 40, 40), "white_player", self.white_player), 
-            Button(pr.Rectangle(600, 20, 40, 40), "red_player", self.red_player),
-            Button(pr.Rectangle(550, 20, 40, 40), "robber")
-            # Button(pr.Rectangle(500, 20, 40, 40), "nil_player", self.nil_player),
-        ]
-
-
-
-        # hardcoded players, can set up later to take different combos based on user input
-        # PLAYERS
-        self.nil_player = None
-        self.red_player = None
-        self.blue_player = None
-        self.orange_player = None
-        self.white_player = None
-
-        self.players = [self.nil_player, self.red_player, self.blue_player, self.orange_player, self.white_player]
-
         self.current_player = None
 
         # turn rules
         self.move_robber = False
+
+        self.debug = True
+
+        # debug buttons
+        self.buttons=[
+            Button(pr.Rectangle(750, 20, 40, 40), "blue_player"),
+            Button(pr.Rectangle(700, 20, 40, 40), "orange_player"), 
+            Button(pr.Rectangle(650, 20, 40, 40), "white_player"), 
+            Button(pr.Rectangle(600, 20, 40, 40), "red_player"),
+            Button(pr.Rectangle(550, 20, 40, 40), "robber")
+        ]
 
         # camera controls
         self.camera = pr.Camera2D()
@@ -1021,7 +1007,7 @@ class ClientState:
                     break
 
 
-        # client_request = {"action": "build_town", "player": "PLAYER_NAME", "location": Node or Edge}
+        # client_request = {"player": "PLAYER_NAME", "location": Node or Edge}
         # selecting based on mouse button input from get_user_input()
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             # defining player
@@ -1069,11 +1055,8 @@ class ClientState:
         self.players = server_response["players"]
 
     def render_board(self):
-        # {'land_tiles': [{'robber': False, 'terrain': 'mountain', 'resource': 'ore', 'hex': [0, -2, 2], 'token': {'10': 3}, 'num': 10, 'dots': 3}, {'robber': False, 'terrain': 'pasture', 'resource': 
-
-        # hex details
-        # layout = type, size, origin
-        size = 50 # (radius)
+        # hex details - layout = type, size, origin
+        size = 50
         pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
         # draw land tiles, numbers, dots
@@ -1089,16 +1072,7 @@ class ClientState:
             if tile["num"] != None:
                 # have to specify layout for hex calculations
                 rf.draw_num(hex, tile["num"], layout=pointy)
-                rf.draw_dots(hex, tile["dots"], layout=pointy)
-            
-            # drawing circles in hex centers to center text
-            # if state.debug == True:
-            #     draw_circle(int(hh.hex_to_pixel(pointy, tile.hex).x), int(hh.hex_to_pixel(pointy, tile.hex).y), 4, BLACK)
-        
-        # 'ocean_tiles':
-            # [{'terrain': 'ocean', 'resource': None, 'hex': [0, -3, 3], 'port': 'three', 'active_corners': [5, 0]},
-            # {'terrain': 'ocean', 'resource': None, 'hex': [1, -3, 2], 'port': None, 'active_corners': None}, 
-            # {'terrain': 'ocean', 'resource': None, 'hex': [2, -3, 1], 'port': 'wheat', 'active_corners': [4, 5]}]
+                rf.draw_dots(hex, tile["dots"], layout=pointy)        
 
         # draw ocean tiles, ports
         for tile in self.board["ocean_tiles"]:
@@ -1119,28 +1093,21 @@ class ClientState:
                         midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
                         pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
-        # 'edges': [{'hex_a': [0, -2, 2], 'hex_b': [1, -2, 1], 'player': None}, {'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'player': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'player': None}, {'hex_a': [0, -3, 3], 'hex_b': [0, -2, 2], 'player': None}, {'hex_a': [0, -2, 2], 
 
         # draw roads, settlements, cities
         for edge in self.board["edges"]:
             if edge["player"] != None:
-                # took .get_edge_points() from Edge class
-                edge_endpoints = list(hh.hex_corners_set(pointy, edge["hex_a"]) & hh.hex_corners_set(pointy, edge["hex_b"]))
-                rf.draw_road(edge_endpoints, rf.game_color_dict[edge["player"]])
+                edge_endpoints = get_edge_points(edge)
+                rf.draw_road(edge_endpoints, rf.game_color_dict[edge["player"]["name"]])
 
-        # 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -3, 3], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [1, -3, 
 
         for node in self.board["nodes"]:
             if node["player"] != None:
-                # taken from class Node .get_node_point()
-                node_list = list(hh.hex_corners_set(pointy, node["hex_a"]) & hh.hex_corners_set(pointy, node["hex_b"]) & hh.hex_corners_set(pointy, node["hex_c"]))
-                if len(node_list) != 0:
-                    node_point = node_list[0]
-
+                node_point = get_node_point(node)
                 if node["town"] == "settlement":
-                    rf.draw_settlement(node_point, rf.game_color_dict[node["player"]])
+                    rf.draw_settlement(node_point, rf.game_color_dict[node["player"]["name"]])
                 elif node["town"] == "city":
-                    rf.draw_city(node_point, rf.game_color_dict[node["player"]])      
+                    rf.draw_city(node_point, rf.game_color_dict[node["player"]["name"]])      
 
         # draw robber
         for tile in self.board["land_tiles"]:
@@ -1165,29 +1132,13 @@ class ClientState:
             
         # highlight selected edge and node
         if self.current_node:
-            # took .get_node_point() from Node class
-            node_list = list(hh.hex_corners_set(pointy, self.current_node["hex_a"]) & hh.hex_corners_set(pointy, self.current_node["hex_b"]) & hh.hex_corners_set(pointy, self.current_node["hex_c"]))
-            if len(node_list) != 0:
-                node_point = node_list[0]
-
+            node_point = get_node_point(self.current_node)
             pr.draw_circle_v(node_point, 10, pr.BLACK)
 
         if self.current_edge and not self.current_node:
-            # took .get_edge_points() from Edge class
-            edge_endpoints = list(hh.hex_corners_set(pointy, self.current_edge["hex_a"]) & hh.hex_corners_set(pointy, self.current_edge["hex_b"]))
-
+            edge_endpoints = get_edge_points(self.current_edge)
             pr.draw_line_ex(edge_endpoints[0], edge_endpoints[1], 12, pr.BLACK)
             
-            # DEBUG - show adj_edges - can't draw without additional functions
-            # adj_edges = self.current_node.get_adj_edges(s_state.board.edges)
-            # for edge in adj_edges:
-            #     corners = edge.get_edge_points()
-            #     draw_line_ex(corners[0], corners[1], 12, BLUE)
-            
-            # adj_nodes = self.current_node.get_adj_nodes_from_node(s_state.board.nodes)
-            # for node in adj_nodes:
-            #     pr.draw_circle_v(node.get_node_point(), 10, pr.YELLOW)
-       
     def render_client(self):
     
         pr.begin_drawing()
@@ -1214,15 +1165,6 @@ class ClientState:
                 pr.draw_text_ex(pr.gui_get_font(), debug_3, pr.Vector2(5, 45), 15, 0, pr.BLACK)
             if self.current_node:
                 pr.draw_text_ex(pr.gui_get_font(), debug_4, pr.Vector2(5, 65), 15, 0, pr.BLACK)
-
-
-
-            # display victory points
-            # i = 0
-            # for player in self.players:
-            #     draw_text_ex(gui_get_font(), f"Player {player.name} VP: {player.victory_points}", Vector2(5, 105+i*20), 15, 0, BLACK)
-            #     i += 1
-
 
             for button in self.buttons:
                 pr.draw_rectangle_rec(button.rec, button.color)
@@ -1312,17 +1254,16 @@ def run_server():
 def test():
     s_state = ServerState()
     s_state.initialize_game() # initialize board, players
-
     msg_encoded = s_state.build_msg_to_client()
     msg_decoded = json.loads(msg_encoded)
-    for edge in msg_decoded["board"]["players"]:
-        print(type(edge))
+    for item in msg_decoded["board"]["edges"]:
+        print(item)
     
 
 
 
-# run_combined()
-test()
+run_combined()
+# test()
 
 
 # 3 ways to play:
