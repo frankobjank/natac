@@ -642,21 +642,11 @@ class ServerState:
     def __init__(self):
         # NETWORKING
         self.packet = {}
-        self.client_request = {}
 
         self.board = None
-
-        # self.nil_player = None
-        # self.red_player = None
-        # self.blue_player = None
-        # self.orange_player = None
-        # self.white_player = None
-
         self.players = {}
 
-
-        # self.selection = None
-        # self.current_player = None
+        self.debug = True
 
     def start_server(self, combined=False):
         print("starting server")
@@ -804,20 +794,23 @@ class ServerState:
             msg_recv = encoded_client_request
 
         # if msg_recv is none, json.loads and .decode() will throw error
-        if len(msg_recv) > 0:
+        if len(msg_recv) > 2:
             print(f"Message from client: {msg_recv.decode()}")
             packet_recv = json.loads(msg_recv) # loads directly from bytes
             self.update_server(packet_recv)
 
         # respond to client
+        msg_to_send = self.build_msg_to_client()
+        if self.debug == True:
+            if len(msg_recv) > 2:
+                print(f"server returning {msg_to_send}")
+
         if combined == False:
             # use socket to respond
-            print(f"returning: {self.build_packet()}")    
-            msg_to_send = self.build_msg_to_client()
             self.socket.sendto(msg_to_send, address)
         else:
             # or just return
-            return self.build_msg_to_client()
+            return msg_to_send
 
 
 
@@ -853,8 +846,6 @@ class ClientState:
         # for debugging
         self.current_edge_node = None
         self.current_edge_node_2 = None
-        
-        self.selection = None
         
         self.current_player = None
 
@@ -941,14 +932,15 @@ class ClientState:
             self.camera.rotation = 0.0
 
         # DEBUG - buttons
-        if self.debug == True:
-            for button in self.buttons:
-                if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                    if button.name == "robber":
-                        self.move_robber = button.toggle(self.move_robber)
-                        self.current_player = None
-                    else:
-                        self.current_player = button.toggle(self.current_player)
+        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+            if self.debug == True:
+                for button in self.buttons:
+                    if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
+                        if button.name == "robber":
+                            self.move_robber = not self.move_robber
+                            self.current_player = None
+                        else:
+                            self.current_player = button.name
 
 
     def build_client_request(self, user_input):
@@ -988,8 +980,6 @@ class ClientState:
                     self.current_hex_3 = [q, r, s]
                     break
         
-        # 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, 
-
         # defining current_node
         if self.current_hex_3:
             sorted_hexes = sorted((self.current_hex, self.current_hex_2, self.current_hex_3))
@@ -1006,12 +996,13 @@ class ClientState:
                     self.current_edge = edge
                     break
 
-
+        if not self.current_player:
+            return client_request
+        
         # client_request = {"player": "PLAYER_NAME", "location": Node or Edge}
         # selecting based on mouse button input from get_user_input()
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-            # defining player
-            client_request["player"] = self.current_player
+            selection = None
             if self.current_node:
                 selection = self.current_node
             
@@ -1021,14 +1012,15 @@ class ClientState:
             elif self.current_hex:
                 selection = self.current_hex
 
+            if not selection:
+                return client_request
+
+            client_request["player"] = self.current_player
             client_request["location"] = selection # can be node, edge, or hex. 
             # since choices are unary, server can determine the action depending on how many hexes there are
             
                         
-        # update player stats
-        # write function that runs through nodes and totals which players own which nodes and what type of town is there
-
-        if client_request != None:
+        if len(client_request) > 0:
             print(f"client request = {client_request}")
         return client_request
 
@@ -1053,6 +1045,8 @@ class ClientState:
         self.response = server_response["response"]
         self.board = server_response["board"]
         self.players = server_response["players"]
+        if self.current_player:
+            self.current_player = self.players[self.current_player]
 
     def render_board(self):
         # hex details - layout = type, size, origin
@@ -1093,6 +1087,8 @@ class ClientState:
                         midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
                         pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
+        if self.debug == True:
+            self.render_mouse_hover()
 
         # draw roads, settlements, cities
         for edge in self.board["edges"]:
@@ -1147,16 +1143,16 @@ class ClientState:
         if self.does_board_exist():
             pr.begin_mode_2d(self.camera)
             self.render_board()
-            self.render_mouse_hover()
             pr.end_mode_2d()
 
         if self.debug == True:        
             debug_1 = f"World mouse at: ({int(self.world_position.x)}, {int(self.world_position.y)})"
-            debug_2 = f"Current player = {self.current_player}"
+            debug_2 = "Current player = None"
             if self.current_player:
-                debug_3 = f"Current player ports = {self.current_player.ports}"
+                debug_2 = f"Current player = {self.current_player['name']}"
+                debug_3 = f"Current player ports = {self.current_player['ports']}"
             if self.current_node:
-                debug_4 = f"Current node port = {self.current_node.port}"
+                debug_4 = f"Current node port = {self.current_node['port']}"
             debug_5 = None
             
             pr.draw_text_ex(pr.gui_get_font(), debug_1, pr.Vector2(5, 5), 15, 0, pr.BLACK)
@@ -1176,7 +1172,6 @@ class ClientState:
 
 
 def run_combined():
-    print("starting server")
     s_state = ServerState() # initialize board, players
     s_state.initialize_game()
     init_packet = s_state.start_server(combined=True)
@@ -1238,7 +1233,6 @@ def run_client():
 
 
 def run_server():
-    print("starting server")
     s_state = ServerState() # initialize board, players
     s_state.start_server()
     s_state.initialize_game()
