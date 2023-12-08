@@ -118,13 +118,13 @@ def draw_settlement(node_point, color):
     pr.draw_rectangle_rec(stmt_rec, color)
     pr.draw_triangle(tri_lt, tri_rt, tri_top, color)
 
-def draw_city(node, color):
+def draw_city(node_point, color):
     # settlement on top of city
     city_st_width = 20
     city_st_height = 14
     city_offset = 5
-    node_x = node.get_node_point()[0]+city_offset
-    node_y = node.get_node_point()[1]-city_offset
+    node_x = node_point[0]+city_offset
+    node_y = node_point[1]-city_offset
     city_st_x = node_x-city_st_width//2
     city_st_y = node_y-city_st_height//2
     city_tri_rt = (city_st_x+city_st_width//2, city_st_y-city_st_height//2)

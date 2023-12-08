@@ -27,6 +27,15 @@ def set_hex(q, r, s):
     assert not (round(q + r + s) != 0), "q + r + s must be 0"
     return Hex(q, r, s)
 
+def hex_from_coords(coords):
+    assert len(coords) == 3, "can only take 3 coords"
+    return Hex(coords[0], coords[1], coords[2])
+
+def hex_to_coords(Hex):
+    return [Hex.q, Hex.r, Hex.s]
+
+
+
 def hex_add(a, b):
     return set_hex(a.q + b.q, a.r + b.r, a.s + b.s)
 def hex_subtract(a, b):

@@ -34,18 +34,18 @@ def vector2_round(vector2):
 def point_round(point):
     return hh.Point(int(point.x), int(point.y))
 
-def get_edge_points(edge):
+def get_edge_points(layout, edge):
     hex_a = hh.set_hex(edge["hex_a"][0], edge["hex_a"][1], edge["hex_a"][2])
     hex_b = hh.set_hex(edge["hex_b"][0], edge["hex_b"][1], edge["hex_b"][2])
-    return list(hh.hex_corners_set(pointy, hex_a) & hh.hex_corners_set(pointy, hex_b))
+    return list(hh.hex_corners_set(layout, hex_a) & hh.hex_corners_set(layout, hex_b))
 
 
-def get_node_point(node):
+def get_node_point(layout, node):
     hex_a = hh.set_hex(node["hex_a"][0], node["hex_a"][1], node["hex_a"][2])
     hex_b = hh.set_hex(node["hex_b"][0], node["hex_b"][1], node["hex_b"][2])
     hex_c = hh.set_hex(node["hex_c"][0], node["hex_c"][1], node["hex_c"][2])
 
-    node_list = list(hh.hex_corners_set(pointy, hex_a) & hh.hex_corners_set(pointy, hex_b) & hh.hex_corners_set(pointy, hex_c))
+    node_list = list(hh.hex_corners_set(layout, hex_a) & hh.hex_corners_set(layout, hex_b) & hh.hex_corners_set(layout, hex_c))
     if len(node_list) != 0:
         return node_list[0]
 
@@ -711,7 +711,7 @@ class ServerState:
             # client_request["location"] is a node in form of dict
             # toggle between settlement, city, None
             for node in self.board.nodes:
-                if node.hex_a == client_request["location"]["hex_a"] and node.hex_b == client_request["location"]["hex_b"] and node.hex_c == client_request["location"]["hex_c"]:
+                if hh.hex_to_coords(node.hex_a) == client_request["location"]["hex_a"] and hh.hex_to_coords(node.hex_b) == client_request["location"]["hex_b"] and hh.hex_to_coords(node.hex_c) == client_request["location"]["hex_c"]:
                     if node.town == None and current_player_object != None:
                         if node.build_check_settlement(self, current_player_object):
                             node.town = "settlement"
@@ -753,7 +753,7 @@ class ServerState:
             
         elif client_request["action"] == "build_road":
             for edge in self.board.edges:
-                if edge.hex_a == client_request["location"]["hex_a"] and edge.hex_b == client_request["location"]["hex_b"]:
+                if hh.hex_to_coords(edge.hex_a) == client_request["location"]["hex_a"] and hh.hex_to_coords(edge.hex_b) == client_request["location"]["hex_b"]:
                     # place roads unowned edge
                     if edge.player == None and current_player_object != None:
                         if edge.build_check_road(self, current_player_object):
@@ -775,7 +775,7 @@ class ServerState:
                     break
 
             for tile in self.board.land_tiles:
-                if tile != current_robber_tile and [tile.hex.q, tile.hex.r, tile.hex.s] == client_request["location"]:
+                if tile != current_robber_tile and hh.hex_to_coords(tile.hex) == client_request["location"]:
                     # remove robber from old tile, add to new tile
                     current_robber_tile.robber = False
                     tile.robber = True
@@ -964,23 +964,14 @@ class ClientState:
         # defining current_node
         if self.current_hex_3:
             sorted_hexes = sorted((self.current_hex, self.current_hex_2, self.current_hex_3))
-            self.current_node = {"hex_a": sorted_hexes[0], "hex_b": sorted_hexes[1], "hex_c": sorted_hexes[2]}
-            # for node in self.board["nodes"]:
-            #     if node["hex_a"] == sorted_hexes[0] and node["hex_b"] == sorted_hexes[1] and node["hex_c"] == sorted_hexes[2]:
-            #         self.current_node = node
-            #         break
-            
+            self.current_node = {"hex_a": sorted_hexes[0], "hex_b": sorted_hexes[1], "hex_c": sorted_hexes[2]}            
         
         # defining current_edge
         elif self.current_hex_2:
             sorted_hexes = sorted((self.current_hex, self.current_hex_2))
             self.current_edge = {"hex_a": sorted_hexes[0], "hex_b": sorted_hexes[1]}
-            # for edge in self.board["edges"]:
-            #     if edge["hex_a"] == sorted_hexes[0] and edge["hex_b"] == sorted_hexes[1]:
-            #         self.current_edge = edge
-            #         break
 
-        # client_request = {"player": "PLAYER_NAME", "location": Node or Edge or Hex, "action": "build_road", "debug": True}
+
         # selecting based on mouse button input from get_user_input()]
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             # DEBUG - buttons
@@ -1088,13 +1079,13 @@ class ClientState:
         # draw roads, settlements, cities
         for edge in self.board["edges"]:
             if edge["player"] != None:
-                edge_endpoints = get_edge_points(edge)
+                edge_endpoints = get_edge_points(pointy, edge)
                 rf.draw_road(edge_endpoints, rf.game_color_dict[edge["player"]["name"]])
 
 
         for node in self.board["nodes"]:
             if node["player"] != None:
-                node_point = get_node_point(node)
+                node_point = get_node_point(pointy, node)
                 if node["town"] == "settlement":
                     rf.draw_settlement(node_point, rf.game_color_dict[node["player"]["name"]])
                 elif node["town"] == "city":
@@ -1123,11 +1114,11 @@ class ClientState:
             
         # highlight selected edge and node
         if self.current_node:
-            node_point = get_node_point(self.current_node)
+            node_point = get_node_point(pointy, self.current_node)
             pr.draw_circle_v(node_point, 10, pr.BLACK)
 
         if self.current_edge and not self.current_node:
-            edge_endpoints = get_edge_points(self.current_edge)
+            edge_endpoints = get_edge_points(pointy, self.current_edge)
             pr.draw_line_ex(edge_endpoints[0], edge_endpoints[1], 12, pr.BLACK)
             
     def render_client(self):
