@@ -933,12 +933,12 @@ class ClientState:
             return
 
         # reset current hex, edge, node
-        self.current_hex = None
-        self.current_hex_2 = None
-        self.current_hex_3 = None
+        self.current_hex = []
+        self.current_hex_2 = []
+        self.current_hex_3 = []
 
-        self.current_edge = None
-        self.current_node = None
+        self.current_edge = {}
+        self.current_node = {}
         
         all_hexes = self.board["land_hexes"] + self.board["ocean_hexes"]
 
@@ -964,20 +964,22 @@ class ClientState:
         # defining current_node
         if self.current_hex_3:
             sorted_hexes = sorted((self.current_hex, self.current_hex_2, self.current_hex_3))
-            for node in self.board["nodes"]:
-                if node["hex_a"] == sorted_hexes[0] and node["hex_b"] == sorted_hexes[1] and node["hex_c"] == sorted_hexes[2]:
-                    self.current_node = node
-                    break
+            self.current_node = {"hex_a": sorted_hexes[0], "hex_b": sorted_hexes[1], "hex_c": sorted_hexes[2]}
+            # for node in self.board["nodes"]:
+            #     if node["hex_a"] == sorted_hexes[0] and node["hex_b"] == sorted_hexes[1] and node["hex_c"] == sorted_hexes[2]:
+            #         self.current_node = node
+            #         break
+            
         
         # defining current_edge
         elif self.current_hex_2:
             sorted_hexes = sorted((self.current_hex, self.current_hex_2))
-            for edge in self.board["edges"]:
-                if edge["hex_a"] == sorted_hexes[0] and edge["hex_b"] == sorted_hexes[1]:
-                    self.current_edge = edge
-                    break
+            self.current_edge = {"hex_a": sorted_hexes[0], "hex_b": sorted_hexes[1]}
+            # for edge in self.board["edges"]:
+            #     if edge["hex_a"] == sorted_hexes[0] and edge["hex_b"] == sorted_hexes[1]:
+            #         self.current_edge = edge
+            #         break
 
-        print(self.current_node)
         # client_request = {"player": "PLAYER_NAME", "location": Node or Edge or Hex, "action": "build_road", "debug": True}
         # selecting based on mouse button input from get_user_input()]
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
@@ -1007,7 +1009,7 @@ class ClientState:
                 if move_robber == True:
                     action = "move_robber"
         
-
+            print(action)
 
             client_request["player"] = self.current_player_name
             client_request["action"] = action
