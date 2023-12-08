@@ -644,6 +644,7 @@ class ServerState:
         self.players = {}
 
         self.debug = True
+        self.debug_msgs = []
 
     def start_server(self, combined=False):
         print("starting server")
@@ -680,9 +681,8 @@ class ServerState:
     # have to send back updated dicts to client. maybe even just the thing that changed, tbd
     def build_packet(self):
         return  {
-                    "response": None,
                     "board": self.board,
-                    "players": self.players
+                    "debug_msgs": self.debug_msgs
                 }
     
     def build_msg_to_client(self):
@@ -692,50 +692,53 @@ class ServerState:
 
 
     def update_server(self, client_request):
-        # 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, 
         if len(client_request) == 0:
             return
-        current_player = self.players[client_request["player"]]
-        # client_request = {"player": "PLAYER_NAME", "location": Hex, Node, or Edge}
-        if type(client_request["location"]) == list: # list means location is hex
-            action = "move_robber"
-        elif "hex_c" in client_request["location"]: # hex_c means node
-            action = "build_town"
-        elif "hex_b" in client_request["location"]: # hex_b and not hex_c means edge
-            action = "build_road"
 
-        if action == "build_town":
+        # client_request["player"] = self.current_player_name
+        # client_request["action"] = action
+        # client_request["location"] = selection
+        # client_request["debug"] = self.debug
+
+        client_request["debug"] = self.debug
+
+        if len(client_request["action"]) == 0 or len(client_request["player"]) == 0:
+            return
+
+        current_player_object = self.players[client_request["player"]]
+
+        if client_request["action"] == "build_town":
             # client_request["location"] is a node in form of dict
             # toggle between settlement, city, None
             for node in self.board.nodes:
                 if node.hex_a == client_request["location"]["hex_a"] and node.hex_b == client_request["location"]["hex_b"] and node.hex_c == client_request["location"]["hex_c"]:
-                    if node.town == None and current_player != None:
-                        if node.build_check_settlement(self, current_player):
+                    if node.town == None and current_player_object != None:
+                        if node.build_check_settlement(self, current_player_object):
                             node.town = "settlement"
-                            node.player = current_player
-                            current_player.num_settlements += 1
+                            node.player = current_player_object
+                            current_player_object.num_settlements += 1
                             if node.port:
-                                current_player.ports.append(node.port)
+                                current_player_object.ports.append(node.port)
 
 
                     elif node.town == "settlement":
                         current_owner = node.player
                         # if owner is same as current_player, upgrade to city
-                        if current_owner == current_player:
+                        if current_owner == current_player_object:
                             # city build check
-                            if current_player.num_cities > 3:
+                            if current_player_object.num_cities > 3:
                                 print("no available cities")
                             else:
                                 node.town = "city"
-                                current_player.num_settlements -= 1
-                                current_player.num_cities += 1
+                                current_player_object.num_settlements -= 1
+                                current_player_object.num_cities += 1
                         # if owner is different from current_player, remove
-                        elif current_owner != current_player:
+                        elif current_owner != current_player_object:
                             current_owner.num_settlements -= 1
                             node.player = None
                             node.town = None
                             if node.port:
-                                current_player.ports.remove(node.port)
+                                current_player_object.ports.remove(node.port)
 
 
                     # town is city and should be removed
@@ -748,14 +751,14 @@ class ServerState:
                             current_owner.ports.remove(node.port)
 
             
-        elif "action" == "build_road":
+        elif client_request["action"] == "build_road":
             for edge in self.board.edges:
                 if edge.hex_a == client_request["location"]["hex_a"] and edge.hex_b == client_request["location"]["hex_b"]:
                     # place roads unowned edge
-                    if edge.player == None and current_player != None:
-                        if edge.build_check_road(self, current_player):
-                            edge.player = current_player
-                            current_player.num_roads += 1
+                    if edge.player == None and current_player_object != None:
+                        if edge.build_check_road(self, current_player_object):
+                            edge.player = current_player_object
+                            current_player_object.num_roads += 1
 
                     # remove roads
                     elif edge.player:
@@ -764,7 +767,7 @@ class ServerState:
                         edge.player = None
 
 
-        elif "action" == "move_robber":
+        elif client_request["action"] == "move_robber":
             # find robber current location
             for tile in self.board.land_tiles:
                 if tile.robber == True:
@@ -776,6 +779,8 @@ class ServerState:
                     # remove robber from old tile, add to new tile
                     current_robber_tile.robber = False
                     tile.robber = True
+
+        # set debug msg here?
             
 
     def server_to_client(self, encoded_client_request=None, combined=False):
@@ -795,9 +800,9 @@ class ServerState:
 
         # respond to client
         msg_to_send = self.build_msg_to_client()
-        if self.debug == True:
-            if len(msg_recv) > 2:
-                print(f"server returning {msg_to_send}")
+        # if self.debug == True:
+        #     if len(msg_recv) > 2:
+        #         print(f"server returning {msg_to_send}")
 
         if combined == False:
             # use socket to respond
@@ -824,7 +829,6 @@ class ClientState:
     def __init__(self):
         # Networking
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.response = None
 
         self.board = {}
 
@@ -840,10 +844,8 @@ class ClientState:
         
         self.current_player_name = ""
 
-        # turn rules
-        self.move_robber = False
-
         self.debug = True
+        self.debug_msgs = []
 
         # debug buttons
         self.buttons=[
@@ -865,7 +867,6 @@ class ClientState:
         if len(self.board) > 0:
             return True
       
-
     def get_user_input(self):
         self.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), self.camera)
 
@@ -922,25 +923,14 @@ class ClientState:
             self.camera.zoom = default_zoom
             self.camera.rotation = 0.0
 
-        # DEBUG - buttons
-        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-            if self.debug == True:
-                for button in self.buttons:
-                    if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                        if button.name == "robber":
-                            self.move_robber = not self.move_robber
-                            self.current_player_name = ""
-                        else:
-                            self.current_player_name = button.name
-
 
     def build_client_request(self, user_input):
-        # client_request = {"player": "PLAYER_NAME", "location": Hex, Node or Edge}
+        # client_request = {"player": "PLAYER_NAME", "location": Hex, Node or Edge, "debug": bool}
         client_request = {}
+        move_robber = False
         if not self.does_board_exist():
             print("board does not exist yet")
             return
-
 
         # reset current hex, edge, node
         self.current_hex = None
@@ -960,13 +950,13 @@ class ClientState:
                 break
         # 2nd loop for edges - current_hex_2
         for q, r, s in all_hexes:
-            if self.current_hex != hex:
+            if self.current_hex != [q, r, s]:
                 if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hh.set_hex(q, r, s)), 60):
                     self.current_hex_2 = [q, r, s]
                     break
         # 3rd loop for nodes - current_hex_3
         for q, r, s in all_hexes:
-            if self.current_hex != hex and self.current_hex_2 != hex:
+            if self.current_hex != [q, r, s] and self.current_hex_2 != [q, r, s]:
                 if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hh.set_hex(q, r, s)), 60):
                     self.current_hex_3 = [q, r, s]
                     break
@@ -987,31 +977,44 @@ class ClientState:
                     self.current_edge = edge
                     break
 
-        if not self.current_player:
-            return client_request
-        
-        # client_request = {"player": "PLAYER_NAME", "location": Node or Edge}
-        # selecting based on mouse button input from get_user_input()
+        print(self.current_node)
+        # client_request = {"player": "PLAYER_NAME", "location": Node or Edge or Hex, "action": "build_road", "debug": True}
+        # selecting based on mouse button input from get_user_input()]
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+            # DEBUG - buttons
+            if self.debug == True:
+                for button in self.buttons:
+                    if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
+                        if button.name == "robber":
+                            move_robber = True
+                            self.current_player_name = ""
+                        else:
+                            self.current_player_name = button.name
+            
+            # selecting hex, node, edge
             selection = None
+            action = ""
             if self.current_node:
                 selection = self.current_node
+                action = "build_town"
             
             elif self.current_edge:
                 selection = self.current_edge
+                action = "build_road"
 
             elif self.current_hex:
                 selection = self.current_hex
+                if move_robber == True:
+                    action = "move_robber"
+        
 
-            if not selection:
-                return client_request
 
-            client_request["player"] = self.current_player
-            client_request["location"] = selection # can be node, edge, or hex. 
-            # since choices are unary, server can determine the action depending on how many hexes there are
-            
+            client_request["player"] = self.current_player_name
+            client_request["action"] = action
+            client_request["location"] = selection
+            client_request["debug"] = self.debug
                         
-        if len(client_request) > 0:
+        if len(client_request) > 0 and self.debug == True:
             print(f"client request = {client_request}")
         return client_request
 
@@ -1023,7 +1026,9 @@ class ClientState:
             
             # receive message from server
             msg_recv, address = self.socket.recvfrom(buffer_size)
-            print(f"Received from server {msg_recv}")
+                    
+            if self.debug == True:
+                print(f"Received from server {msg_recv}")
             
         else:
             return msg_to_send
@@ -1033,10 +1038,8 @@ class ClientState:
         # packet from server is in this format: {"response": None, "board": self.board, "players": self.players}
         server_response = json.loads(encoded_server_response)
 
-        self.response = server_response["response"]
         self.board = server_response["board"]
-        self.debug_msgs = server_response["debug"]
-        # self.players = server_response["players"]
+        self.debug_msgs = server_response["debug_msgs"]
 
     def render_board(self):
         # hex details - layout = type, size, origin
@@ -1137,20 +1140,18 @@ class ClientState:
 
         if self.debug == True:        
             debug_1 = f"World mouse at: ({int(self.world_position.x)}, {int(self.world_position.y)})"
-            debug_2 = "Current player = None"
-            if self.current_player:
-                debug_2 = f"Current player = {self.current_player['name']}"
-                debug_3 = f"Current player ports = {self.current_player['ports']}"
-            if self.current_node:
-                debug_4 = f"Current node port = {self.current_node['port']}"
-            debug_5 = None
-            
             pr.draw_text_ex(pr.gui_get_font(), debug_1, pr.Vector2(5, 5), 15, 0, pr.BLACK)
+            if self.current_player_name:
+                debug_2 = f"Current player = {self.current_player_name}"
+            else:
+                debug_2 = "Current player = None"
             pr.draw_text_ex(pr.gui_get_font(), debug_2, pr.Vector2(5, 25), 15, 0, pr.BLACK)
-            if self.current_player:
-                pr.draw_text_ex(pr.gui_get_font(), debug_3, pr.Vector2(5, 45), 15, 0, pr.BLACK)
-            if self.current_node:
-                pr.draw_text_ex(pr.gui_get_font(), debug_4, pr.Vector2(5, 65), 15, 0, pr.BLACK)
+
+            i = 0
+            for msg in self.debug_msgs:
+                i += 20 
+                if msg != None:
+                    pr.draw_text_ex(pr.gui_get_font(), debug_2, pr.Vector2(5, 45+i), 15, 0, pr.BLACK)
 
             for button in self.buttons:
                 pr.draw_rectangle_rec(button.rec, button.color)
