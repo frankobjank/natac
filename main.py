@@ -3,8 +3,7 @@ import math
 import socket
 import json
 from collections import namedtuple
-from operator import itemgetter, attrgetter
-from enum import Enum
+from operator import attrgetter
 import pyray as pr
 import hex_helper as hh
 import rendering_functions as rf
@@ -605,10 +604,8 @@ class Board:
 class Player:
     def __init__(self, name):
         self.name = name
-        self.hand = {}
-        # self.hand = {"brick": 4, "wood": 2}
-        self.development_cards = {}
-        # self.development_cards = {"soldier": 4, "victory_point": 1}
+        self.hand = {} # {"brick": 4, "wood": 2}
+        self.development_cards = {} # {"soldier": 4, "victory_point": 1}
         self.victory_points = 0
         self.num_cities = 0
         self.num_settlements = 0
@@ -669,7 +666,6 @@ class ServerState:
     
     # hardcoded players, can set up later to take different combos based on user input
     def initialize_players(self, red=False, blue=False, orange=False, white=False):
-        self.players = {}
         if red == True:
             self.players["red_player"] = Player("red_player")
         if blue == True:
@@ -695,8 +691,6 @@ class ServerState:
         return msg_encoded
 
 
-
-    # server update (old update())
     def update_server(self, client_request):
         # 'nodes': [{'hex_a': [-1, -1, 2], 'hex_b': [0, -2, 2], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, {'hex_a': [0, -2, 2], 'hex_b': [0, -1, 1], 'hex_c': [1, -2, 1], 'player': None, 'town': None, 'port': None}, 
         if len(client_request) == 0:
@@ -843,11 +837,8 @@ class ClientState:
         # can calculate on the fly, though if rendering this it will have to be passed to render
         self.current_hex_2 = None
         self.current_hex_3 = None
-        # for debugging
-        self.current_edge_node = None
-        self.current_edge_node_2 = None
         
-        self.current_player = None
+        self.current_player_name = ""
 
         # turn rules
         self.move_robber = False
@@ -938,9 +929,9 @@ class ClientState:
                     if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
                         if button.name == "robber":
                             self.move_robber = not self.move_robber
-                            self.current_player = None
+                            self.current_player_name = ""
                         else:
-                            self.current_player = button.name
+                            self.current_player_name = button.name
 
 
     def build_client_request(self, user_input):
@@ -1044,9 +1035,8 @@ class ClientState:
 
         self.response = server_response["response"]
         self.board = server_response["board"]
-        self.players = server_response["players"]
-        if self.current_player:
-            self.current_player = self.players[self.current_player]
+        self.debug_msgs = server_response["debug"]
+        # self.players = server_response["players"]
 
     def render_board(self):
         # hex details - layout = type, size, origin
