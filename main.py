@@ -21,8 +21,7 @@ screen_height=600
 
 default_zoom = .9
 
-# should I be separating my update code from Raylib? 
-# wrote my own:
+# Raylib functions I replaced with my own for use on server side:
     # check_collision_circles -> radius_check_two_circles()
     # check_collision_point_circle -> radius_check_v()
 
@@ -179,7 +178,10 @@ class Edge:
         # origin shows what direction road is going
         # if multiple origins, check if origin node has opposing settlement blocking path
 
+        block_found = False
+        blocked_count = 0
         for i in range(len(origin_edges)):
+            
             origin_nodes = origin_edges[i].get_adj_nodes(s_state.board.nodes)
             # (commented out since already defined above)
             # self_nodes = self.get_adj_nodes(state.nodes)
@@ -196,9 +198,12 @@ class Edge:
             # origin node blocked by another player
             elif origin_node.player != None and origin_node.player != current_player_object:
                 print("adjacent node blocked by settlement, checking others")
-            if i == len(origin_edges):
-                print("road blocked by settlement")
+                blocked_count += 1
+                
+            if blocked_count == len(origin_edges):
+                print("all routes blocked")
                 return False
+            
         print("no conflicts")
         return True
         
@@ -717,6 +722,8 @@ class ServerState:
         # define player if given (not for all actions e.g. move_robber)
         if len(client_request["player"]) > 0:
             current_player_object = self.players[client_request["player"]]
+        else:
+            current_player_object = None
 
         if client_request["action"] == "build_town":
             # client_request["location"] is a node in form of dict
