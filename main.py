@@ -145,11 +145,11 @@ class Edge:
         return list(adj_edges_1.symmetric_difference(adj_edges_2))
 
 
-    def build_check_road(self, s_state, current_player):
+    def build_check_road(self, s_state, current_player_object):
         print("build_check_road")
 
         # number roads left check
-        if current_player.num_roads == 15:
+        if current_player_object.num_roads == 15:
             print("no available roads")
             return False
 
@@ -161,36 +161,44 @@ class Edge:
         # home check. if adj node is a same-player town, return True
         self_nodes = self.get_adj_nodes(s_state.board.nodes)
         for node in self_nodes:
-            if node.player == current_player:
+            if node.player == current_player_object:
                 print("building next to settlement")
                 return True
         
         # contiguous check. if no edges are not owned by player, break
         adj_edges = self.get_adj_node_edges(s_state.board.nodes, s_state.board.edges)
-        origin_edge = None # Edge
+        # origin_edge = None
+        origin_edges = []
         for edge in adj_edges:
-            if edge.player == current_player:
-                origin_edge = edge
-                break
-        if origin_edge == None: # non-contiguous
+            if edge.player == current_player_object:
+                origin_edges.append(edge)
+
+        if len(origin_edges) == 0: # non-contiguous
             print("non-contiguous")
             return False
-        # origin stops at first match of current player. this shows what direction road is going.
-        # check if origin node has opposing settlement blocking path
-        origin_nodes = origin_edge.get_adj_nodes(s_state.board.nodes)
-        # (commented out since already defined above)
-        # self_nodes = self.get_adj_nodes(state.nodes)
-        if self_nodes[0] in origin_nodes:
-            origin_node = self_nodes[0]
-            destination_node = self_nodes[1]
-        else:
-            origin_node = self_nodes[1]
-            destination_node = self_nodes[0]
+        # origin shows what direction road is going
+        # if multiple origins, check if origin node has opposing settlement blocking path
 
-        # origin node blocked by another player
-        if origin_node.player != None and origin_node.player != current_player:
-            print("blocked by settlement")
-            return False
+        for i in range(len(origin_edges)):
+            origin_nodes = origin_edges[i].get_adj_nodes(s_state.board.nodes)
+            # (commented out since already defined above)
+            # self_nodes = self.get_adj_nodes(state.nodes)
+            if self_nodes[0] in origin_nodes:
+                origin_node = self_nodes[0]
+                destination_node = self_nodes[1]
+            else:
+                origin_node = self_nodes[1]
+                destination_node = self_nodes[0]
+
+            # match with adj edge, build is ok
+            if origin_node.player != None and origin_node.player == current_player_object:
+                break
+            # origin node blocked by another player
+            elif origin_node.player != None and origin_node.player != current_player_object:
+                print("adjacent node blocked by settlement, checking others")
+            if i == len(origin_edges):
+                print("road blocked by settlement")
+                return False
         print("no conflicts")
         return True
         
