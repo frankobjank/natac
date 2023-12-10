@@ -415,9 +415,7 @@ class Board:
     def get_port_to_nodes(self, ports):
         port_order_for_nodes_random = []
         for port in ports:
-            if port == None:
-                continue
-            else:
+            if port != None:
                 port_order_for_nodes_random.append(port)
                 port_order_for_nodes_random.append(port)
         return port_order_for_nodes_random
@@ -520,7 +518,7 @@ class Board:
 
         # start robber in desert
         for tile in self.land_tiles:
-            if tile.terrain == "DESERT":
+            if tile.terrain == "desert":
                 tile.robber = True
                 break
 
@@ -843,6 +841,7 @@ class ClientState:
         self.current_hex_3 = None
         
         self.current_player_name = ""
+        self.move_robber = False
 
         self.debug = True
         self.debug_msgs = []
@@ -927,7 +926,6 @@ class ClientState:
     def build_client_request(self, user_input):
         # client_request = {"player": "PLAYER_NAME", "location": Hex, Node or Edge, "debug": bool}
         client_request = {}
-        move_robber = False
         if not self.does_board_exist():
             print("board does not exist yet")
             return
@@ -979,7 +977,7 @@ class ClientState:
                 for button in self.buttons:
                     if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
                         if button.name == "robber":
-                            move_robber = True
+                            self.move_robber = True
                             self.current_player_name = ""
                         else:
                             self.current_player_name = button.name
@@ -997,15 +995,15 @@ class ClientState:
 
             elif self.current_hex:
                 selection = self.current_hex
-                if move_robber == True:
+                if self.move_robber == True:
                     action = "move_robber"
-        
-            print(action)
+                    self.move_robber = False
 
             client_request["player"] = self.current_player_name
             client_request["action"] = action
             client_request["location"] = selection
             client_request["debug"] = self.debug
+
                         
         if len(client_request) > 0 and self.debug == True:
             print(f"client request = {client_request}")
@@ -1234,14 +1232,14 @@ def test():
     s_state.initialize_game() # initialize board, players
     msg_encoded = s_state.build_msg_to_client()
     msg_decoded = json.loads(msg_encoded)
-    for item in msg_decoded["board"]["edges"]:
+    for item in msg_decoded["board"]["land_tiles"]:
         print(item)
     
 
 
 
-run_combined()
-# test()
+# run_combined()
+test()
 
 
 # 3 ways to play:
