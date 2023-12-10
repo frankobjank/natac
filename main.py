@@ -637,6 +637,7 @@ class ServerState:
     def __init__(self):
         # NETWORKING
         self.packet = {}
+        self.msg_number = 0
 
         self.board = None
         self.players = {}
@@ -680,7 +681,8 @@ class ServerState:
     def build_packet(self):
         return  {
                     "board": self.board,
-                    "debug_msgs": self.debug_msgs
+                    "debug_msgs": self.debug_msgs 
+                    # maybe rename to display messages to cover more than just debug
                 }
     
     def build_msg_to_client(self):
@@ -700,10 +702,13 @@ class ServerState:
 
         client_request["debug"] = self.debug
 
-        if len(client_request["action"]) == 0 or len(client_request["player"]) == 0:
+        # can't take action if action is not given
+        if len(client_request["action"]) == 0:
             return
 
-        current_player_object = self.players[client_request["player"]]
+        # define player if given (not for all actions e.g. move_robber)
+        if len(client_request["player"]) > 0:
+            current_player_object = self.players[client_request["player"]]
 
         if client_request["action"] == "build_town":
             # client_request["location"] is a node in form of dict
@@ -778,10 +783,12 @@ class ServerState:
                     current_robber_tile.robber = False
                     tile.robber = True
 
-        # set debug msg here?
+        # set debug/display msg here
+        # self.debug_msgs.append()
             
 
     def server_to_client(self, encoded_client_request=None, combined=False):
+        self.msg_number += 1
         msg_recv = ""
         if combined == False:
             # use socket
@@ -790,9 +797,9 @@ class ServerState:
             # or just pass in variable
             msg_recv = encoded_client_request
 
-        # if msg_recv is none, json.loads and .decode() will throw error
+        # update server if msg_recv is not 0b'' (empty)
         if len(msg_recv) > 2:
-            print(f"Message from client: {msg_recv.decode()}")
+            # print(f"Message from client: {msg_recv.decode()}")
             packet_recv = json.loads(msg_recv) # loads directly from bytes
             self.update_server(packet_recv)
 
@@ -827,6 +834,7 @@ class ClientState:
     def __init__(self):
         # Networking
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.msg_number = 0
 
         self.board = {}
 
@@ -925,6 +933,7 @@ class ClientState:
 
     def build_client_request(self, user_input):
         # client_request = {"player": "PLAYER_NAME", "location": Hex, Node or Edge, "debug": bool}
+        self.msg_number += 1
         client_request = {}
         if not self.does_board_exist():
             print("board does not exist yet")
@@ -1006,7 +1015,7 @@ class ClientState:
 
                         
         if len(client_request) > 0 and self.debug == True:
-            print(f"client request = {client_request}")
+            print(f"client request = {client_request}. Msg {self.msg_number}")
         return client_request
 
     def client_to_server(self, client_request, combined=False):
@@ -1020,13 +1029,12 @@ class ClientState:
                     
             if self.debug == True:
                 print(f"Received from server {msg_recv}")
-            
         else:
             return msg_to_send
 
     def update_client(self, encoded_server_response):
         # unpack server response and update state
-        # packet from server is in this format: {"response": None, "board": self.board, "players": self.players}
+        # packet from server: {"board": self.board, "debug_msgs": self.debug_msgs}
         server_response = json.loads(encoded_server_response)
 
         self.board = server_response["board"]
@@ -1238,8 +1246,8 @@ def test():
 
 
 
-# run_combined()
-test()
+run_combined()
+# test()
 
 
 # 3 ways to play:
