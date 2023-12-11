@@ -10,7 +10,7 @@ import rendering_functions as rf
 
 local_IP = '127.0.0.1'
 local_port = 12345
-buffer_size = 1024
+buffer_size = 100000
 
 def to_json(obj):
     return json.dumps(obj, default=lambda o: o.__dict__)
@@ -705,7 +705,7 @@ class ServerState:
 
 
     def update_server(self, client_request):
-        if len(client_request) == 0:
+        if client_request == None or len(client_request) == 0:
             return
 
         # client_request["player"] = self.current_player_name
@@ -825,6 +825,7 @@ class ServerState:
         #         print(f"server returning {msg_to_send}")
 
         if combined == False:
+            print(msg_to_send)
             # use socket to respond
             self.socket.sendto(msg_to_send, address)
         else:
@@ -1221,6 +1222,7 @@ def run_client():
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
     c_state = ClientState()
     # receive init message with board?
+    client_request = c_state.build_client_request(None)
     server_response = c_state.client_to_server(client_request)
     c_state.update_client(server_response)
     while not pr.window_should_close():
@@ -1260,7 +1262,8 @@ def test():
     
 
 
-
+# run_server()
+# run_client()
 run_combined()
 # test()
 
