@@ -35,6 +35,7 @@ port_to_display = {
 }
 
 
+
 # have to specify layout for hex calculations
 def draw_num(hex, num, layout):
     pr.draw_circle(int(hh.hex_to_pixel(layout, hex).x), int(hh.hex_to_pixel(layout, hex).y), 18, pr.RAYWHITE)

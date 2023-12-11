@@ -7,6 +7,15 @@ from operator import attrgetter
 import pyray as pr
 import hex_helper as hh
 import rendering_functions as rf
+import sys
+
+# command line arguments - main.py run_client
+if __name__ == "__main__":
+    args = sys.argv
+    # args[0] = current file
+    # args[1] = function name
+    # args[2:] = function args : (*unpacked)
+    globals()[args[1]](*args[2:])
 
 local_IP = '127.0.0.1'
 local_port = 12345
@@ -1264,7 +1273,7 @@ def test():
 
 # run_server()
 # run_client()
-run_combined()
+# run_combined()
 # test()
 
 
@@ -1274,3 +1283,4 @@ run_combined()
 # "client" to "server" encoding and decoding within same program
 
 # once board is initiated, all server has to send back is update on whatever has been updated 
+
