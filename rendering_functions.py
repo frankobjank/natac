@@ -35,43 +35,40 @@ port_to_display = {
 }
 
 default_tile_tokens_dict = {2:1, 3:2, 4:3, 5:4, 6:5, 8:5, 9:4, 10:3, 11:2, 12:1}
-[{10: 3}, {2: 1}, {9: 4}, {12: 1}, {6: 5}, {4: 3}, {10: 3}, {9: 4}, {11: 2}, {None: None}, {3: 2}, {8: 5}, {8: 5}, {3: 2}, {4: 3}, {5: 4}, {5: 4}, {6: 5}, {11: 2}]
-
-
 
 # have to specify layout for hex calculations
-def draw_num(hex, num, layout):
+def draw_tokens(hex, token, layout):
     pr.draw_circle(int(hh.hex_to_pixel(layout, hex).x), int(hh.hex_to_pixel(layout, hex).y), 18, pr.RAYWHITE)
-    text_size = pr.measure_text_ex(pr.gui_get_font(), f"{num}", 20, 0)
+    text_size = pr.measure_text_ex(pr.gui_get_font(), f"{token}", 20, 0)
     center_numbers_offset = pr.Vector2(int(hh.hex_to_pixel(layout, hex).x-text_size.x/2+2), int(hh.hex_to_pixel(layout, hex).y-text_size.y/2-1))
-    if num == 8 or num == 6:
-        pr.draw_text_ex(pr.gui_get_font(), str(num), center_numbers_offset, 22, 0, pr.BLACK)
-        pr.draw_text_ex(pr.gui_get_font(), str(num), center_numbers_offset, 20, 0, pr.RED)
+    if token == 8 or token == 6:
+        pr.draw_text_ex(pr.gui_get_font(), str(token), center_numbers_offset, 22, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), str(token), center_numbers_offset, 20, 0, pr.RED)
     else:
-        pr.draw_text_ex(pr.gui_get_font(), str(num), center_numbers_offset, 20, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), str(token), center_numbers_offset, 20, 0, pr.BLACK)
 
+    num_dots = default_tile_tokens_dict[token]
 
-def draw_dots(hex, dots, layout):
     # draw dots, wrote out all possibilities
     dot_x_offset = 4
     dot_size = 2.8
     dot_x = int(hh.hex_to_pixel(layout, hex).x)
     dot_y = int(hh.hex_to_pixel(layout, hex).y)+25
-    if dots == 1:
+    if num_dots == 1:
         pr.draw_circle(dot_x, dot_y, dot_size, pr.BLACK)
-    elif dots == 2:
+    elif num_dots == 2:
         pr.draw_circle(dot_x-dot_x_offset, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x+dot_x_offset, dot_y, dot_size, pr.BLACK)
-    elif dots == 3:
+    elif num_dots == 3:
         pr.draw_circle(dot_x-dot_x_offset*2, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x+dot_x_offset*2, dot_y, dot_size, pr.BLACK)
-    elif dots == 4:
+    elif num_dots == 4:
         pr.draw_circle(dot_x-dot_x_offset*3, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x-dot_x_offset, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x+dot_x_offset, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x+dot_x_offset*3, dot_y, dot_size, pr.BLACK)
-    elif dots == 5:
+    elif num_dots == 5:
         pr.draw_circle(dot_x-dot_x_offset*4, dot_y, dot_size, pr.RED)
         pr.draw_circle_lines(dot_x-dot_x_offset*4, dot_y, dot_size, pr.BLACK)
         pr.draw_circle(dot_x-dot_x_offset*2, dot_y, dot_size, pr.RED)
