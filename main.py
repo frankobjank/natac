@@ -219,8 +219,6 @@ class Node:
         self.port = None
 
     def __repr__(self):
-        # return f"hh.set_hex{self.hex_a.q, self.hex_a.r, self.hex_a.s}, hh.set_hex{self.hex_b.q, self.hex_b.r, self.hex_b.s}, hh.set_hex{self.hex_c.q, self.hex_c.r, self.hex_c.s},"
-        # return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
         return f"{self.get_hexes()}"
     
     # def __str__(self):
@@ -307,18 +305,15 @@ class Node:
 # Currently both land and ocean (Tile class)
 class LandTile:
     def __init__(self, terrain, hex, token):
-        self.robber = False
         self.terrain = terrain
-        self.resource = terrain_to_resource[terrain]
         self.hex = hex
         self.token = token
 
     def __repr__(self):
-        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, hex: {self.hex}, token: {self.token}, robber: {self.robber})"
+        return f"Tile(terrain: {self.terrain}, hex: {self.hex}, token: {self.token})"
     
 class OceanTile:
-    def __init__(self, terrain, hex, port, port_corners):
-        self.terrain = terrain
+    def __init__(self, hex, port, port_corners):
         self.hex = hex
         self.port = port
         self.port_corners = port_corners
@@ -334,61 +329,15 @@ class Board:
         self.ocean_tiles = []
         self.edges = []
         self.nodes = []
+        self.robber_hex = None
+
         # might be useful to have these lists for future gameplay implementation
-        self.settlements = []
-        self.cities = []
-        self.roads = []
+        # self.town_nodes = []
+        # self.cities = []
+        # self.roads = []
+        # self.robber = None # (Hex)
 
-        self.land_hexes = [
-            hh.set_hex(0, -2, 2),
-            hh.set_hex(1, -2, 1),
-            hh.set_hex(2, -2, 0),
 
-            hh.set_hex(-1, -1, 2),
-            hh.set_hex(0, -1, 1),
-            hh.set_hex(1, -1, 0),
-            hh.set_hex(2, -1, -1),
-
-            hh.set_hex(-2, 0, 2),
-            hh.set_hex(-1, 0, 1),
-            hh.set_hex(0, 0, 0),
-            hh.set_hex(1, 0, -1),
-            hh.set_hex(2, 0, -2),
-
-            hh.set_hex(-2, 1, 1),
-            hh.set_hex(-1, 1, 0),
-            hh.set_hex(0, 1, -1),
-            hh.set_hex(1, 1, -2),
-
-            hh.set_hex(-2, 2, 0),
-            hh.set_hex(-1, 2, -1),
-            hh.set_hex(0, 2, -2)]
-        self.ocean_hexes = [
-            hh.set_hex(0, -3, 3), # port
-            hh.set_hex(1, -3, 2),
-            hh.set_hex(2, -3, 1), # port
-            hh.set_hex(3, -3, 0),
-
-            hh.set_hex(-1, -2, 3),
-            hh.set_hex(3, -2, -1), # port
-
-            hh.set_hex(-2, -1, 3), # port
-            hh.set_hex(3, -1, -2),
-
-            hh.set_hex(-3, 0, 3),
-            hh.set_hex(3, 0, -3), # port
-
-            hh.set_hex(-3, 1, 2), # port
-            hh.set_hex(2, 1, -3),
-
-            hh.set_hex(-3, 2, 1),
-            hh.set_hex(1, 2, -3), # port
-
-            hh.set_hex(-3, 3, 0), # port
-            hh.set_hex(-2, 3, -1),
-            hh.set_hex(-1, 3, -2), # port
-            hh.set_hex(0, 3, -3)]
-        
     # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
     def get_random_terrain(self):
         # if desert, skip token
@@ -434,6 +383,59 @@ class Board:
         # comment/uncomment for random vs default
         # terrain_tiles, ports, ports_to_nodes = self.randomize_tiles()
 
+        land_hexes = [
+            hh.set_hex(0, -2, 2),
+            hh.set_hex(1, -2, 1),
+            hh.set_hex(2, -2, 0),
+
+            hh.set_hex(-1, -1, 2),
+            hh.set_hex(0, -1, 1),
+            hh.set_hex(1, -1, 0),
+            hh.set_hex(2, -1, -1),
+
+            hh.set_hex(-2, 0, 2),
+            hh.set_hex(-1, 0, 1),
+            hh.set_hex(0, 0, 0),
+            hh.set_hex(1, 0, -1),
+            hh.set_hex(2, 0, -2),
+
+            hh.set_hex(-2, 1, 1),
+            hh.set_hex(-1, 1, 0),
+            hh.set_hex(0, 1, -1),
+            hh.set_hex(1, 1, -2),
+
+            hh.set_hex(-2, 2, 0),
+            hh.set_hex(-1, 2, -1),
+            hh.set_hex(0, 2, -2)]
+        
+        ocean_hexes = [
+            hh.set_hex(0, -3, 3), # port
+            hh.set_hex(1, -3, 2),
+            hh.set_hex(2, -3, 1), # port
+            hh.set_hex(3, -3, 0),
+
+            hh.set_hex(-1, -2, 3),
+            hh.set_hex(3, -2, -1), # port
+
+            hh.set_hex(-2, -1, 3), # port
+            hh.set_hex(3, -1, -2),
+
+            hh.set_hex(-3, 0, 3),
+            hh.set_hex(3, 0, -3), # port
+
+            hh.set_hex(-3, 1, 2), # port
+            hh.set_hex(2, 1, -3),
+
+            hh.set_hex(-3, 2, 1),
+            hh.set_hex(1, 2, -3), # port
+
+            hh.set_hex(-3, 3, 0), # port
+            hh.set_hex(-2, 3, -1),
+            hh.set_hex(-1, 3, -2), # port
+            hh.set_hex(0, 3, -3)]
+
+
+
         default_terrains = ["mountain", "pasture", "forest",
                             "field", "hill", "pasture", "hill",
                             "field", "forest", "desert", "forest", "mountain",
@@ -475,12 +477,12 @@ class Board:
 
 
         # defining land tiles
-        for i in range(len(self.land_hexes)):
-            self.land_tiles.append(LandTile(terrain_tiles[i], self.land_hexes[i], tokens[i]))
+        for i in range(len(land_hexes)):
+            self.land_tiles.append(LandTile(terrain_tiles[i], land_hexes[i], tokens[i]))
 
         # defining ocean tiles
-        for i in range(len(self.ocean_hexes)):
-            self.ocean_tiles.append(OceanTile("ocean", self.ocean_hexes[i], ports[i], port_corners[i]))
+        for i in range(len(ocean_hexes)):
+            self.ocean_tiles.append(OceanTile("ocean", ocean_hexes[i], ports[i], port_corners[i]))
         # is there a better way to format this - a way to zip up info that will be associated
         # with other info without using a dictionary or class
 
@@ -507,7 +509,7 @@ class Board:
 
         # triple 'for' loop to fill s_state.edges and s_state.nodes lists
         # replaced raylib func with my own for radius check
-        all_hexes = self.land_hexes + self.ocean_hexes
+        all_hexes = land_hexes + ocean_hexes
         for i in range(len(all_hexes)):
             for j in range(i+1, len(all_hexes)):
                 # first two loops create Edges
@@ -677,21 +679,31 @@ class ServerState:
             self.players["white_player"] = Player("white_player")
 
         # self.players = {"red_player": Player("red_player"), "blue_player": Player("blue_player"), "orange_player": Player("orange_player"), "white_player": Player("white_player")}
-
-    # unneccesary as long as board is only thing passed
-    # def build_packet(self):
-    #     return  {
-    #                 "board": self.board,
-    #                 # "debug_msgs": self.debug_msgs 
-    #                 # maybe rename to display messages to cover more than just debug
-    #             }
     
-    def build_msg_to_client(self):
-        # packet = to_json(self.build_packet())
-        packet = to_json(self.board)
-        msg_encoded = packet.encode()
-        return msg_encoded
+    def build_msg_to_client(self) -> bytes:
+        town_nodes = []
+        road_edges = []
+        robber_hex = None
+        for node in self.board.nodes:
+            if node.player != None:
+                town_nodes.append(node)
 
+        for edge in self.board.edges:
+            if edge.player != None:
+                road_edges.append(edge)
+
+        for tile in self.board.land_tiles:
+            if tile.hex == self.board.robber_hex:
+                robber_hex = tile.hex
+        packet = {
+            "land_tiles": self.board.land_tiles,
+            "ocean_tiles": self.board.ocean_tiles,
+            "town_nodes": town_nodes,
+            "road_edges": road_edges,
+            "robber_hex": robber_hex
+        }
+        print(to_json(packet).encode())
+        return to_json(packet).encode()
 
     def update_server(self, client_request):
         if client_request == None or len(client_request) == 0:
@@ -826,7 +838,8 @@ class ServerState:
             self.update_server(packet_recv)
 
         # respond to client
-        msg_to_send = self.build_msg_to_client()
+        msg_to_send = self.build_msg_to_client(self.board)
+        print(msg_to_send)
         # if self.debug == True:
         #     if len(msg_recv) > 2:
         #         print(f"server returning {msg_to_send}")
@@ -1274,7 +1287,6 @@ def test():
 # run_client()
 run_combined()
 # test()
-
 
 # 3 ways to play:
 # computer to computer
