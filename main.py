@@ -74,7 +74,7 @@ pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
 # turned these into Enum classes, might be useful for random functions later
 all_game_pieces = ["settlement", "city", "road", "robber", "longest_road", "largest_army"]
-all_terrain_terrains = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
+all_terrains = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
 all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
 all_ports = ["three", "wood", "brick", "sheep", "wheat", "ore"]
 all_development_cards = ["victory_point", "knight", "monopoly", "year_of_plenty", "road_building"]
@@ -463,8 +463,8 @@ class Board:
 
 
         # defining land tiles
-        for i in range(len(self.land_hexes)):
-            self.land_tiles.append(LandTile(terrain_tiles[i], self.land_hexes[i], tokens[i]))
+        # for i in range(len(self.land_hexes)):
+        #     self.land_tiles.append(LandTile(terrain_tiles[i], self.land_hexes[i], tokens[i]))
 
 
 
@@ -504,10 +504,13 @@ class Board:
 
 
         # start robber in desert
-        for tile in self.land_tiles:
-            if tile.terrain == "desert":
-                tile.robber = True
-                break
+        # using lists instead of Tile objects
+        desert_index = self.terrains.index("desert")
+        self.robber_hex = self.land_hexes[desert_index]
+        # for tile in self.land_tiles:
+        #     if tile.terrain == "desert":
+        #         self.robber_hex = tile.hex
+        #         break
 
         # activating certain port nodes
         i = 0
@@ -515,7 +518,7 @@ class Board:
             # if ocean_tile.hex in port_node_hexes:
         for hexes in port_node_hexes:
             for node in self.nodes:
-                if hexes[0] == node.hexes[0] and hexes[1] == node.hexes[1] and hexes[2] == node.hexes[2]:
+                if hexes == node.hexes:
                     node.port = ports_to_nodes[i]
                     i += 1
 
@@ -665,7 +668,7 @@ class ServerState:
     def build_msg_to_client(self) -> bytes:
         town_nodes = []
         road_edges = []
-        robber_hex = None
+
         for node in self.board.nodes:
             if node.player != None:
                 town_nodes.append(node)
@@ -674,15 +677,14 @@ class ServerState:
             if edge.player != None:
                 road_edges.append(edge)
 
-        for tile in self.board.land_tiles:
-            if tile.hex == self.board.robber_hex:
-                robber_hex = tile.hex
         packet = {
-            "land_tiles": self.board.land_tiles,
-            "ocean_hexes": self.board.ocean_hexes,
+            "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
+            "land_hexes": [hex[:2] for hex in self.board.land_hexes],
+            "terrains": self.board.terrains,
+            "tokens": self.board.tokens,
             "town_nodes": town_nodes,
             "road_edges": road_edges,
-            "robber_hex": robber_hex
+            "robber_hex": self.board.robber_hex
         }
         print(to_json(packet).encode())
         return to_json(packet).encode()
