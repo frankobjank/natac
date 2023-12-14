@@ -469,7 +469,7 @@ def main():
     unload_font(gui_get_font())
     close_window()
 
-# main()
+main()
 
 def main_test():
     init_window(screen_width, screen_height, "natac")

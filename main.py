@@ -74,7 +74,7 @@ pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
 # turned these into Enum classes, might be useful for random functions later
 all_game_pieces = ["settlement", "city", "road", "robber", "longest_road", "largest_army"]
-all_terrains = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
+all_terrain_terrains = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
 all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
 all_ports = ["three", "wood", "brick", "sheep", "wheat", "ore"]
 all_development_cards = ["victory_point", "knight", "monopoly", "year_of_plenty", "road_building"]
@@ -93,21 +93,16 @@ class Edge:
     def __init__(self, hex_a, hex_b):
         assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
         self.hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
-        # self.hex_a = self.sorted_hexes[0]
-        # self.hex_b = self.sorted_hexes[1]
         self.player = None
     
     def __repr__(self):
-        return f"Edge({self.hex_a}, {self.hex_b})"
-    
-    def get_hexes(self):
-        return (self.hex_a, self.hex_b)
+        return f"Edge({self.hexes})"
     
     def get_edge_points_set(self) -> set:
-        return hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b)
+        return hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1])
 
     def get_edge_points(self) -> list:
-        return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
+        return list(hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1]))
     
     # using points
     def get_adj_nodes(self, nodes) -> list:
@@ -123,17 +118,17 @@ class Edge:
     def get_adj_nodes_using_hexes(self, hexes, state) -> list:
         adj_hexes = []
         for hex in hexes:
-            # use self.hex_a and self.hex_b as circle comparisons
-            if radius_check_two_circles(hh.hex_to_pixel(pointy, self.hex_a), 60, hh.hex_to_pixel(pointy, hex), 60) and radius_check_two_circles(hh.hex_to_pixel(pointy, self.hex_b), 60, hh.hex_to_pixel(pointy, hex), 60):
+            # use self.hexes[0] and self.hexes[1] as circle comparisons
+            if radius_check_two_circles(hh.hex_to_pixel(pointy, self.hexes[0]), 60, hh.hex_to_pixel(pointy, hex), 60) and radius_check_two_circles(hh.hex_to_pixel(pointy, self.hexes[1]), 60, hh.hex_to_pixel(pointy, hex), 60):
                 adj_hexes.append(hex)
         if len(adj_hexes) < 2:
             return
         
         adj_nodes = []
-        self_nodes = [Node(self.hex_a, self.hex_b, h) for h in adj_hexes]
+        self_nodes = [Node(self.hexes[0], self.hexes[1], h) for h in adj_hexes]
         for self_node in self_nodes:
             for node in state.board.nodes:
-                if self_node.get_hexes() == node.get_hexes():
+                if self_node.hexes == node.hexes:
                     adj_nodes.append(node)
         return adj_nodes
     
@@ -151,7 +146,7 @@ class Edge:
         print("build_check_road")
 
         # ocean check
-        if self.hex_a in s_state.board.ocean_hexes and self.hex_b in s_state.board.ocean_hexes:
+        if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes:
             print("can't build in ocean")
             return False
         
@@ -209,7 +204,6 @@ class Edge:
 
 class Node:
     def __init__(self, hex_a, hex_b, hex_c):
-        # could replace get_hexes() with sorted_hexes
         self.hexes = sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s"))
         self.player = None
         self.town = None # city or settlement
@@ -222,31 +216,31 @@ class Node:
     #     return f"Player: {self.player}, Town: {self.town}, Port: {self.port}"
 
     def get_node_point(self):
-        node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
+        node_list = list(hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1]) & hh.hex_corners_set(pointy, self.hexes[2]))
         if len(node_list) != 0:
             return node_list[0]
     
     def get_adj_edges(self, edges) -> list:
-        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
+        self_edges = [Edge(self.hexes[0], self.hexes[1]), Edge(self.hexes[0], self.hexes[2]), Edge(self.hexes[1], self.hexes[2])]
         adj_edges = []
         for self_edge in self_edges:
             for edge in edges:
-                if self_edge.get_hexes() == edge.get_hexes():
+                if self_edge.hexes == edge.hexes:
                     adj_edges.append(edge)
         return adj_edges
 
     def get_adj_edges_set(self, edges) -> set:
-        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
+        self_edges = [Edge(self.hexes[0], self.hexes[1]), Edge(self.hexes[0], self.hexes[2]), Edge(self.hexes[1], self.hexes[2])]
         adj_edges = set()
         for self_edge in self_edges:
             for edge in edges:
-                if self_edge.get_hexes() == edge.get_hexes():
+                if self_edge.hexes == edge.hexes:
                     adj_edges.add(edge)
         return adj_edges
             
     def get_adj_nodes_from_node(self, nodes) -> list:
         # ^ = symmetric_difference
-        self_edges = [Edge(self.hex_a, self.hex_b), Edge(self.hex_a, self.hex_c), Edge(self.hex_b, self.hex_c)]
+        self_edges = [Edge(self.hexes[0], self.hexes[1]), Edge(self.hexes[0], self.hexes[2]), Edge(self.hexes[1], self.hexes[2])]
         node_points = self_edges[0].get_edge_points_set() ^ self_edges[1].get_edge_points_set() ^ self_edges[2].get_edge_points_set()
         adj_nodes = []
         for point in node_points:
@@ -261,7 +255,7 @@ class Node:
         print("build_check_settlement")
         
         # ocean check
-        if self.hex_a in s_state.board.ocean_hexes and self.hex_b in s_state.board.ocean_hexes and self.hex_c in s_state.board.ocean_hexes:
+        if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes and self.hexes[2] in s_state.board.ocean_hexes:
             print("can't build in ocean")
             return False
         
@@ -306,31 +300,29 @@ class LandTile:
     def __repr__(self):
         return f"Tile(terrain: {self.terrain}, hex: {self.hex}, token: {self.token})"
     
-class OceanTile:
-    def __init__(self, hex, port, port_corners):
-        self.hex = hex
-        self.port = port
-        self.port_corners = port_corners
+# class OceanTile:
+#     def __init__(self, hex, port, port_corners):
+#         self.hex = hex
+#         self.port = port
+#         self.port_corners = port_corners
 
-    def __repr__(self):
-        return f"OceanTile(hex: {self.hex}, port: {self.port})"
+#     def __repr__(self):
+#         return f"OceanTile(hex: {self.hex}, port: {self.port})"
 
 
 
 class Board:
     def __init__(self):
-        self.land_tiles = []
-        self.ocean_tiles = []
+        # self.land_tiles = []
+        self.land_hexes = []
+        self.terrains = []
+        self.tokens = []
+
+        self.ocean_hexes = []
+
         self.edges = []
         self.nodes = []
         self.robber_hex = None
-
-        # might be useful to have these lists for future gameplay implementation
-        # self.town_nodes = []
-        # self.cities = []
-        # self.roads = []
-        # self.robber = None # (Hex)
-
 
     # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
     def get_random_terrain(self):
@@ -377,7 +369,7 @@ class Board:
         # comment/uncomment for random vs default
         # terrain_tiles, ports, ports_to_nodes = self.randomize_tiles()
 
-        land_hexes = [
+        self.land_hexes = [
             hh.set_hex(0, -2, 2),
             hh.set_hex(1, -2, 1),
             hh.set_hex(2, -2, 0),
@@ -402,7 +394,7 @@ class Board:
             hh.set_hex(-1, 2, -1),
             hh.set_hex(0, 2, -2)]
         
-        ocean_hexes = [
+        self.ocean_hexes = [
             hh.set_hex(0, -3, 3), # port
             hh.set_hex(1, -3, 2),
             hh.set_hex(2, -3, 1), # port
@@ -429,16 +421,16 @@ class Board:
             hh.set_hex(0, 3, -3)]
 
 
-
-        default_terrains = ["mountain", "pasture", "forest",
+        # default terrains
+        self.terrains = ["mountain", "pasture", "forest",
                             "field", "hill", "pasture", "hill",
                             "field", "forest", "desert", "forest", "mountain",
                             "forest", "mountain", "field", "pasture",
                             "hill", "field", "pasture"
                             ]
 
-        # this needs to be randomized too
-        default_tile_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
+        # this is default order, can make to be randomized too
+        self.tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
 
 
 
@@ -464,21 +456,17 @@ class Board:
         ports_to_nodes = ["three", "three", "wheat", "wheat", "ore", "ore", "wood", "wood", "three", "three", "brick", "brick", "sheep", "sheep", "three", "three", "three", "three"]
 
         # defined as defaults, can be randomized though
-        terrain_tiles = default_terrains
-        tokens = default_tile_tokens
-        ports = default_ports
+        # terrain_tiles = default_terrains
+        # tokens = default_tile_tokens
+        # ports = default_ports
 
 
 
         # defining land tiles
-        for i in range(len(land_hexes)):
-            self.land_tiles.append(LandTile(terrain_tiles[i], land_hexes[i], tokens[i]))
+        for i in range(len(self.land_hexes)):
+            self.land_tiles.append(LandTile(terrain_tiles[i], self.land_hexes[i], tokens[i]))
 
-        # defining ocean tiles
-        for i in range(len(ocean_hexes)):
-            self.ocean_tiles.append(OceanTile(ocean_hexes[i], ports[i], port_corners[i]))
-        # is there a better way to format this - a way to zip up info that will be associated
-        # with other info without using a dictionary or class
+
 
         port_node_hexes = [
             sort_hexes((hh.set_hex(-1, -2, 3), hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2))),
@@ -503,7 +491,7 @@ class Board:
 
         # triple 'for' loop to fill s_state.edges and s_state.nodes lists
         # replaced raylib func with my own for radius check
-        all_hexes = land_hexes + ocean_hexes
+        all_hexes = self.land_hexes + self.ocean_hexes
         for i in range(len(all_hexes)):
             for j in range(i+1, len(all_hexes)):
                 # first two loops create Edges
@@ -527,7 +515,7 @@ class Board:
             # if ocean_tile.hex in port_node_hexes:
         for hexes in port_node_hexes:
             for node in self.nodes:
-                if hexes[0] == node.hex_a and hexes[1] == node.hex_b and hexes[2] == node.hex_c:
+                if hexes[0] == node.hexes[0] and hexes[1] == node.hexes[1] and hexes[2] == node.hexes[2]:
                     node.port = ports_to_nodes[i]
                     i += 1
 
@@ -552,49 +540,49 @@ class Board:
 
         for node in self.nodes:
             for orange_node in orange_nodes:
-                if node.hex_a == orange_node.hex_a and node.hex_b == orange_node.hex_b and node.hex_c == orange_node.hex_c:
-                    s_state.players["orange_player"].num_settlements += 1
-                    node.player = "orange_player"
+                if node.hexes[0] == orange_node.hexes[0] and node.hexes[1] == orange_node.hexes[1] and node.hexes[2] == orange_node.hexes[2]:
+                    s_state.players["orange"].num_settlements += 1
+                    node.player = "orange"
                     node.town = "settlement"
 
             for blue_node in blue_nodes:
-                if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
-                    s_state.players["blue_player"].num_settlements += 1
-                    node.player = "blue_player"
+                if node.hexes[0] == blue_node.hexes[0] and node.hexes[1] == blue_node.hexes[1] and node.hexes[2] == blue_node.hexes[2]:
+                    s_state.players["blue"].num_settlements += 1
+                    node.player = "blue"
                     node.town = "settlement"
 
             for red_node in red_nodes:
-                if node.hex_a == red_node.hex_a and node.hex_b == red_node.hex_b and node.hex_c == red_node.hex_c:
-                    s_state.players["red_player"].num_settlements += 1
-                    node.player = "red_player"
+                if node.hexes[0] == red_node.hexes[0] and node.hexes[1] == red_node.hexes[1] and node.hexes[2] == red_node.hexes[2]:
+                    s_state.players["red"].num_settlements += 1
+                    node.player = "red"
                     node.town = "settlement"
 
             for white_node in white_nodes:
-                if node.hex_a == white_node.hex_a and node.hex_b == white_node.hex_b and node.hex_c == white_node.hex_c:
-                    s_state.players["white_player"].num_settlements += 1
-                    node.player = "white_player"
+                if node.hexes[0] == white_node.hexes[0] and node.hexes[1] == white_node.hexes[1] and node.hexes[2] == white_node.hexes[2]:
+                    s_state.players["white"].num_settlements += 1
+                    node.player = "white"
                     node.town = "settlement"
 
         for edge in self.edges:
             for orange_edge in orange_edges:
-                if edge.hex_a == orange_edge.hex_a and edge.hex_b == orange_edge.hex_b:
-                    s_state.players["orange_player"].num_roads += 1
-                    edge.player = "orange_player"
+                if edge.hexes[0] == orange_edge.hexes[0] and edge.hexes[1] == orange_edge.hexes[1]:
+                    s_state.players["orange"].num_roads += 1
+                    edge.player = "orange"
 
             for blue_edge in blue_edges:
-                if edge.hex_a == blue_edge.hex_a and edge.hex_b == blue_edge.hex_b:
-                    s_state.players["blue_player"].num_roads += 1
-                    edge.player = "blue_player"
+                if edge.hexes[0] == blue_edge.hexes[0] and edge.hexes[1] == blue_edge.hexes[1]:
+                    s_state.players["blue"].num_roads += 1
+                    edge.player = "blue"
 
             for red_edge in red_edges:
-                if edge.hex_a == red_edge.hex_a and edge.hex_b == red_edge.hex_b:
-                    s_state.players["red_player"].num_roads += 1
-                    edge.player = "red_player"
+                if edge.hexes[0] == red_edge.hexes[0] and edge.hexes[1] == red_edge.hexes[1]:
+                    s_state.players["red"].num_roads += 1
+                    edge.player = "red"
 
             for white_edge in white_edges:
-                if edge.hex_a == white_edge.hex_a and edge.hex_b == white_edge.hex_b:
-                    s_state.players["white_player"].num_roads += 1
-                    edge.player = "white_player"
+                if edge.hexes[0] == white_edge.hexes[0] and edge.hexes[1] == white_edge.hexes[1]:
+                    s_state.players["white"].num_roads += 1
+                    edge.player = "white"
 
 
 
@@ -607,7 +595,7 @@ class Player:
         self.num_cities = 0
         self.num_settlements = 0
         self.num_roads = 0
-        self.ports = [] # string so no circular reference
+        self.ports = []
 
     
     def __repr__(self):
@@ -664,15 +652,15 @@ class ServerState:
     # hardcoded players, can set up later to take different combos based on user input
     def initialize_players(self, red=False, blue=False, orange=False, white=False):
         if red == True:
-            self.players["red_player"] = Player("red_player")
+            self.players["red"] = Player("red")
         if blue == True:
-            self.players["blue_player"] = Player("blue_player")
+            self.players["blue"] = Player("blue")
         if orange == True:
-            self.players["orange_player"] = Player("orange_player")
+            self.players["orange"] = Player("orange")
         if white == True:
-            self.players["white_player"] = Player("white_player")
+            self.players["white"] = Player("white")
 
-        # self.players = {"red_player": Player("red_player"), "blue_player": Player("blue_player"), "orange_player": Player("orange_player"), "white_player": Player("white_player")}
+        # self.players = {"red": Player("red"), "blue": Player("blue"), "orange": Player("orange"), "white": Player("white")}
     
     def build_msg_to_client(self) -> bytes:
         town_nodes = []
@@ -691,7 +679,7 @@ class ServerState:
                 robber_hex = tile.hex
         packet = {
             "land_tiles": self.board.land_tiles,
-            "ocean_tiles": self.board.ocean_tiles,
+            "ocean_hexes": self.board.ocean_hexes,
             "town_nodes": town_nodes,
             "road_edges": road_edges,
             "robber_hex": robber_hex
@@ -725,7 +713,8 @@ class ServerState:
             # client_request["location"] is a node in form of dict
             # function to find node? find_node(nodes, node)
             for node in self.board.nodes:
-                if hh.hex_to_coords(node.hex_a) == client_request["location"]["hex_a"] and hh.hex_to_coords(node.hex_b) == client_request["location"]["hex_b"] and hh.hex_to_coords(node.hex_c) == client_request["location"]["hex_c"]:
+                # come back to this - if all hexes are combined could potentially combine this
+                if hh.hex_to_coords(node.hexes[0]) == client_request["location"]["hex_a"] and hh.hex_to_coords(node.hexes[1]) == client_request["location"]["hex_b"] and hh.hex_to_coords(node.hexes[2]) == client_request["location"]["hex_c"]:
                     if node.town == None and current_player_object != None:
                         # settlement build check
                         if current_player_object.num_settlements < 5:
@@ -779,7 +768,7 @@ class ServerState:
             for edge in self.board.edges:
                 # find edge (break built in). edge check.
                 # find edge - could create function for this
-                if hh.hex_to_coords(edge.hex_a) == client_request["location"]["hex_a"] and hh.hex_to_coords(edge.hex_b) == client_request["location"]["hex_b"]:
+                if hh.hex_to_coords(edge.hexes[0]) == client_request["location"]["hex_a"] and hh.hex_to_coords(edge.hexes[1]) == client_request["location"]["hex_b"]:
                     # place roads unowned edge
                     if edge.player == None and current_player_object != None:
                         if current_player_object.num_roads < 15:
@@ -887,10 +876,10 @@ class ClientState:
 
         # debug buttons
         self.buttons=[
-            Button(pr.Rectangle(750, 20, 40, 40), "blue_player"),
-            Button(pr.Rectangle(700, 20, 40, 40), "orange_player"), 
-            Button(pr.Rectangle(650, 20, 40, 40), "white_player"), 
-            Button(pr.Rectangle(600, 20, 40, 40), "red_player"),
+            Button(pr.Rectangle(750, 20, 40, 40), "blue"),
+            Button(pr.Rectangle(700, 20, 40, 40), "orange"), 
+            Button(pr.Rectangle(650, 20, 40, 40), "white"), 
+            Button(pr.Rectangle(600, 20, 40, 40), "red"),
             Button(pr.Rectangle(550, 20, 40, 40), "robber")
         ]
 
@@ -967,7 +956,7 @@ class ClientState:
         self.msg_number += 1
         client_request = {}
         if not self.does_board_exist():
-            print("board does not exist yet")
+            print("board does not exist")
             return
 
         # reset current hex, edge, node
@@ -1272,15 +1261,15 @@ def test():
     s_state.initialize_game() # initialize board, players
     msg_encoded = s_state.build_msg_to_client()
     msg_decoded = json.loads(msg_encoded)
-    for item in msg_decoded["board"]["land_tiles"]:
+    for item in msg_decoded["board"]:
         print(item)
     
 
 
 # run_server()
 # run_client()
-run_combined()
-# test()
+# run_combined()
+test()
 
 # 3 ways to play:
 # computer to computer

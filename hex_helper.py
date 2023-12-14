@@ -27,14 +27,13 @@ def set_hex(q, r, s):
     assert not (round(q + r + s) != 0), "q + r + s must be 0"
     return Hex(q, r, s)
 
-def hex_from_coords(coords: list) -> Hex:
+def set_hex_from_coords(coords: list) -> Hex:
     assert len(coords) == 3, "must take 3 coords"
     return set_hex(coords[0], coords[1], coords[2])
 
-def hex_from_2_coords(coords: list) -> Hex:
+def set_hex_from_2_coords(coords: list) -> Hex:
     assert len(coords) == 2, "must take 2 coords"
-    s = -coords[0]-coords[1]
-    return set_hex(coords[0], coords[1], s)
+    return set_hex(coords[0], coords[1], -coords[0]-coords[1])
 
 
 def hex_to_coords(Hex: Hex) -> list:

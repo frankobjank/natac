@@ -6,16 +6,16 @@ import hex_helper as hh
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
 game_color_dict = {
     # players
-    "nil_player": pr.GRAY,
-    "red_player": pr.get_color(0xe1282fff),
-    "blue_player": pr.get_color(0x2974b8ff),
-    "orange_player": pr.get_color(0xd46a24ff),
-    "white_player": pr.get_color(0xd6d6d6ff),
+    "nil": pr.GRAY,
+    "red": pr.get_color(0xe1282fff),
+    "blue": pr.get_color(0x2974b8ff),
+    "orange": pr.get_color(0xd46a24ff),
+    "white": pr.get_color(0xd6d6d6ff),
 
     # other pieces
     "robber": pr.BLACK,
     # buttons
-    # put terrain colors here
+    # put terrain (tile kind) colors here
     "forest": pr.get_color(0x517d19ff),
     "hill": pr.get_color(0x9c4300ff),
     "pasture": pr.get_color(0x17b97fff),
