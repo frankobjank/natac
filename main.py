@@ -92,9 +92,9 @@ terrain_to_resource = {
 class Edge:
     def __init__(self, hex_a, hex_b):
         assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
-        sorted_hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
-        self.hex_a = sorted_hexes[0]
-        self.hex_b = sorted_hexes[1]
+        self.hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
+        # self.hex_a = self.sorted_hexes[0]
+        # self.hex_b = self.sorted_hexes[1]
         self.player = None
     
     def __repr__(self):
@@ -210,22 +210,16 @@ class Edge:
 class Node:
     def __init__(self, hex_a, hex_b, hex_c):
         # could replace get_hexes() with sorted_hexes
-        sorted_hexes = sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s"))
-        self.hex_a = sorted_hexes[0]
-        self.hex_b = sorted_hexes[1]
-        self.hex_c = sorted_hexes[2]
+        self.hexes = sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s"))
         self.player = None
         self.town = None # city or settlement
         self.port = None
 
     def __repr__(self):
-        return f"{self.get_hexes()}"
+        return f"{self.hexes}"
     
     # def __str__(self):
     #     return f"Player: {self.player}, Town: {self.town}, Port: {self.port}"
-
-    def get_hexes(self):
-        return (self.hex_a, self.hex_b, self.hex_c)
 
     def get_node_point(self):
         node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
@@ -482,7 +476,7 @@ class Board:
 
         # defining ocean tiles
         for i in range(len(ocean_hexes)):
-            self.ocean_tiles.append(OceanTile("ocean", ocean_hexes[i], ports[i], port_corners[i]))
+            self.ocean_tiles.append(OceanTile(ocean_hexes[i], ports[i], port_corners[i]))
         # is there a better way to format this - a way to zip up info that will be associated
         # with other info without using a dictionary or class
 
