@@ -507,20 +507,12 @@ class Board:
         # using lists instead of Tile objects
         desert_index = self.terrains.index("desert")
         self.robber_hex = self.land_hexes[desert_index]
-        # for tile in self.land_tiles:
-        #     if tile.terrain == "desert":
-        #         self.robber_hex = tile.hex
-        #         break
 
-        # activating certain port nodes
-        i = 0
-        # for ocean_tile in self.ocean_tiles:
-            # if ocean_tile.hex in port_node_hexes:
-        for hexes in port_node_hexes:
+        # activating port nodes
+        for i in range(len(port_node_hexes)):
             for node in self.nodes:
-                if hexes == node.hexes:
+                if port_node_hexes[i] == node.hexes:
                     node.port = ports_to_nodes[i]
-                    i += 1
 
 
     def set_demo_settlements(self, s_state):
