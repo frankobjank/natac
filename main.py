@@ -96,7 +96,8 @@ class Edge:
         self.player = None
     
     def __repr__(self):
-        return f"Edge({self.hexes})"
+        return f"'hexes': {self.hexes}, 'player': {self.player}"
+        # return f"Edge({self.hexes})"
     
     def get_edge_points_set(self) -> set:
         return hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1])
@@ -210,10 +211,8 @@ class Node:
         self.port = None
 
     def __repr__(self):
-        return f"{self.hexes}"
-    
-    # def __str__(self):
-    #     return f"Player: {self.player}, Town: {self.town}, Port: {self.port}"
+        return f"'hexes': {self.hexes}, 'player': {self.player}, 'town': {self.town}, 'port': {self.port}"
+        # return f"{self.hexes}"
 
     def get_node_point(self):
         node_list = list(hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1]) & hh.hex_corners_set(pointy, self.hexes[2]))
@@ -299,16 +298,6 @@ class LandTile:
 
     def __repr__(self):
         return f"Tile(terrain: {self.terrain}, hex: {self.hex}, token: {self.token})"
-    
-# class OceanTile:
-#     def __init__(self, hex, port, port_corners):
-#         self.hex = hex
-#         self.port = port
-#         self.port_corners = port_corners
-
-#     def __repr__(self):
-#         return f"OceanTile(hex: {self.hex}, port: {self.port})"
-
 
 
 class Board:
@@ -442,15 +431,6 @@ class Board:
                         None, "sheep", 
                         "three", None, "three", None]
         
-        port_corners = [
-                (5, 0), None, (4, 5), None,
-                None, (4, 5),
-                (1, 0), None,
-                None, (3, 4),
-                (1, 0), None,
-                None, (2, 3),
-                (2, 1), None, (2, 3), None
-            ] 
 
         # can be generalized by iterating over ports and repeating if not None 
         ports_to_nodes = ["three", "three", "wheat", "wheat", "ore", "ore", "wood", "wood", "three", "three", "brick", "brick", "sheep", "sheep", "three", "three", "three", "three"]
@@ -459,12 +439,6 @@ class Board:
         # terrain_tiles = default_terrains
         # tokens = default_tile_tokens
         # ports = default_ports
-
-
-
-        # defining land tiles
-        # for i in range(len(self.land_hexes)):
-        #     self.land_tiles.append(LandTile(terrain_tiles[i], self.land_hexes[i], tokens[i]))
 
 
 
@@ -668,17 +642,21 @@ class ServerState:
         for edge in self.board.edges:
             if edge.player != None:
                 road_edges.append(edge)
+        
 
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
             "land_hexes": [hex[:2] for hex in self.board.land_hexes],
-            "terrains": self.board.terrains,
+            "terrains": self.board.terrains, #ordered from left-right, top-down
             "tokens": self.board.tokens,
             "town_nodes": town_nodes,
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex
         }
-        print(to_json(packet).encode())
+
+        for v in packet.values():
+            print(v)
+        # print(to_json(packet))
         return to_json(packet).encode()
 
     def update_server(self, client_request):
