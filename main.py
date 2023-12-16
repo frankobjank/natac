@@ -633,24 +633,31 @@ class ServerState:
     
     def build_msg_to_client(self) -> bytes:
         town_nodes = []
+        port_nodes = []
         road_edges = []
 
-        # add all nodes/edge owned by players, abridge hexes
+        # add all nodes/edge owned by players and port nodes, abridge hexes
         for node in self.board.nodes:
             if node.player != None:
                 node_dict = node.__dict__
                 node_dict["hexes"] = [hex[:2] for hex in node_dict["hexes"]]
                 town_nodes.append(node_dict)
+
+            if node.port != None:
+                custom_dict = {}
+                custom_dict["hexes"] = [hex[:2] for hex in node.hexes]
+                custom_dict["port"] = node.port
+                port_nodes.append(custom_dict)
                 
         for edge in self.board.edges:
             if edge.player != None:
                 edge_dict = edge.__dict__
                 edge_dict["hexes"] = [hex[:2] for hex in edge_dict["hexes"]]
-                road_edges.append(edge_dict)                
-
+                road_edges.append(edge_dict)
 
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
+            "port_nodes": port_nodes,
             "land_hexes": [hex[:2] for hex in self.board.land_hexes],
             "terrains": self.board.terrains, #ordered from left-right, top-down
             "tokens": self.board.tokens,
@@ -658,6 +665,10 @@ class ServerState:
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex[:2]
         }
+        print(to_json(packet))
+        for k,v in json.loads(to_json(packet)).items():
+            print(str(k)+ " : " +str(v))
+
         return to_json(packet).encode()
 
     def update_server(self, client_request):
@@ -1051,9 +1062,6 @@ class ClientState:
         self.board["land_tiles"]
         self.board["land_tiles"] = self.board["land_hexes"]
 
-
-        
-        print(self.board)
 
     def render_board(self):
         # hex details - layout = type, size, origin
