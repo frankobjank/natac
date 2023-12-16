@@ -211,8 +211,8 @@ class Node:
         self.port = None
 
     def __repr__(self):
-        return f"'hexes': {self.hexes}, 'player': {self.player}, 'town': {self.town}, 'port': {self.port}"
-        # return f"{self.hexes}"
+        # return f"'hexes': {self.hexes}, 'player': {self.player}, 'town': {self.town}, 'port': {self.port}"
+        return f"{self.hexes}"
 
     def get_node_point(self):
         node_list = list(hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1]) & hh.hex_corners_set(pointy, self.hexes[2]))
@@ -635,14 +635,19 @@ class ServerState:
         town_nodes = []
         road_edges = []
 
+        # add all nodes/edge owned by players, abridge hexes
         for node in self.board.nodes:
             if node.player != None:
-                town_nodes.append(node)
-
+                node_dict = node.__dict__
+                node_dict["hexes"] = [hex[:2] for hex in node_dict["hexes"]]
+                town_nodes.append(node_dict)
+                
         for edge in self.board.edges:
             if edge.player != None:
-                road_edges.append(edge)
-        
+                edge_dict = edge.__dict__
+                edge_dict["hexes"] = [hex[:2] for hex in edge_dict["hexes"]]
+                road_edges.append(edge_dict)                
+
 
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
@@ -651,12 +656,9 @@ class ServerState:
             "tokens": self.board.tokens,
             "town_nodes": town_nodes,
             "road_edges": road_edges,
-            "robber_hex": self.board.robber_hex
+            "robber_hex": self.board.robber_hex[:2]
         }
 
-        for v in packet.values():
-            print(v)
-        # print(to_json(packet))
         return to_json(packet).encode()
 
     def update_server(self, client_request):
