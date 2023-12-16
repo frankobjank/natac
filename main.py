@@ -658,7 +658,6 @@ class ServerState:
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex[:2]
         }
-
         return to_json(packet).encode()
 
     def update_server(self, client_request):
@@ -1015,6 +1014,7 @@ class ClientState:
     def client_to_server(self, client_request, combined=False):
         json_to_send = json.dumps(client_request)
         msg_to_send = json_to_send.encode()
+
         if combined == False:
             self.socket.sendto(msg_to_send, (local_IP, local_port))
             
@@ -1023,17 +1023,25 @@ class ClientState:
                     
             if self.debug == True:
                 print(f"Received from server {msg_recv}")
-        else:
+
+        elif combined == True:
             return msg_to_send
 
+    # unpack server response and update state
     def update_client(self, encoded_server_response):
-        # unpack server response and update state
-        # packet from server: {"board": self.board, "debug_msgs": self.debug_msgs}
-        self.board = json.loads(encoded_server_response)
-
-        # server_response = json.loads(encoded_server_response)
-        # self.board = server_response["board"]
-        # self.debug_msgs = server_response["debug_msgs"]
+        # {"ocean_hexes": [[0, -3], [1, -3], 
+        # "land_hexes": [[0, -2], [1, -2], [2, -2], 
+        # "terrains": ["mountain", "pasture", 
+        # "tokens": [10, 2, 
+        # "town_nodes": [{"hexes": [[0, -2], [0, -1], [1, -2]], "player": "red", "town": "settlement", "port": null}, {"hexes": [[1, -1], [2, -2], [2, -1]], 
+        # "road_edges": [{"hexes": [[0, -1], [1, -2]], "player": "red"}, {"hexes": [[1, -1], [2, -2]], "player": "orange"}}
+        server_response = json.loads(encoded_server_response)
+        
+        # construct board
+        for h in server_response["ocean_hexes"]:
+            self.board["ocean_hexes"] = hh.set_hex(h[0], h[1], -h[0]-h[1])
+        
+        print(self.board)
 
     def render_board(self):
         # hex details - layout = type, size, origin
@@ -1233,10 +1241,11 @@ def run_combined():
 def test():
     s_state = ServerState()
     s_state.initialize_game() # initialize board, players
-    msg_encoded = s_state.build_msg_to_client()
-    msg_decoded = json.loads(msg_encoded)
-    for item in msg_decoded["board"]:
-        print(item)
+    c_state = ClientState()
+
+    server_response = s_state.build_msg_to_client()
+    c_state.update_client(server_response)
+
     
 
 
