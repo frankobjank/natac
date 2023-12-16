@@ -30,6 +30,8 @@ default_zoom = .9
 
 Point = namedtuple("Point", ["x", "y"])
 
+LandTile = namedtuple("LandTile", ["hex", "terrain", "token"])
+
 def vector2_round(vector2):
     return pr.Vector2(int(vector2.x), int(vector2.y))
 
@@ -288,16 +290,14 @@ class Node:
 
 
 
+# class LandTile:
+#     def __init__(self, hex, terrain, token):
+#         self.hex = hex
+#         self.terrain = terrain
+#         self.token = token
 
-# Currently both land and ocean (Tile class)
-class LandTile:
-    def __init__(self, terrain, hex, token):
-        self.terrain = terrain
-        self.hex = hex
-        self.token = token
-
-    def __repr__(self):
-        return f"Tile(terrain: {self.terrain}, hex: {self.hex}, token: {self.token})"
+#     def __repr__(self):
+#         return f"Tile(terrain: {self.terrain}, hex: {self.hex}, token: {self.token})"
 
 
 class Board:
@@ -823,6 +823,7 @@ class Button:
 
 
 
+
 class ClientState:
     def __init__(self):
         # Networking
@@ -1038,8 +1039,19 @@ class ClientState:
         server_response = json.loads(encoded_server_response)
         
         # construct board
+        # expand hexes
         for h in server_response["ocean_hexes"]:
             self.board["ocean_hexes"] = hh.set_hex(h[0], h[1], -h[0]-h[1])
+        for h in server_response["land_hexes"]:
+            self.board["land_hexes"] = hh.set_hex(h[0], h[1], -h[0]-h[1])
+
+        # create LandTile namedtuple with hex, terrain, token
+        for i in range(len(self.board["land_hexes"])):
+            LandTile(self.board["land_hexes"][i], server_response["terrains"][i], server_response["tokens"][i])
+        self.board["land_tiles"]
+        self.board["land_tiles"] = self.board["land_hexes"]
+
+
         
         print(self.board)
 
