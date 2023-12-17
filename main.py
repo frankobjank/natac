@@ -654,6 +654,13 @@ class ServerState:
                 edge_dict = edge.__dict__
                 edge_dict["hexes"] = [hex[:2] for hex in edge_dict["hexes"]]
                 road_edges.append(edge_dict)
+        
+        total_num_towns = 0
+        total_num_roads = 0
+        for player_object in self.players.values():
+            total_num_towns += player_object.num_cities + player_object.num_settlements
+            total_num_roads += player_object.num_roads
+
 
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
@@ -663,11 +670,10 @@ class ServerState:
             "tokens": self.board.tokens,
             "town_nodes": town_nodes,
             "road_edges": road_edges,
-            "robber_hex": self.board.robber_hex[:2]
+            "robber_hex": self.board.robber_hex[:2],
+            "num_towns": total_num_towns,
+            "num_roads": total_num_roads
         }
-        print(to_json(packet))
-        for k,v in json.loads(to_json(packet)).items():
-            print(str(k)+ " : " +str(v))
 
         return to_json(packet).encode()
 
@@ -1041,26 +1047,72 @@ class ClientState:
 
     # unpack server response and update state
     def update_client(self, encoded_server_response):
-        # {"ocean_hexes": [[0, -3], [1, -3], 
-        # "land_hexes": [[0, -2], [1, -2], [2, -2], 
-        # "terrains": ["mountain", "pasture", 
-        # "tokens": [10, 2, 
-        # "town_nodes": [{"hexes": [[0, -2], [0, -1], [1, -2]], "player": "red", "town": "settlement", "port": null}, {"hexes": [[1, -1], [2, -2], [2, -1]], 
-        # "road_edges": [{"hexes": [[0, -1], [1, -2]], "player": "red"}, {"hexes": [[1, -1], [2, -2]], "player": "orange"}}
+        # ocean_hexes : [[0, -3], [1, -3],
+        # land_hexes : [[0, -2], [1, -2],
+        # terrains : ['mountain', 'pasture',
+        # tokens : [10, 2,
+        # port_nodes : [{'hexes': [[0, -3], [0, -2], [1, -3]], 'port': 'three'},
+        # town_nodes : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None},
+        # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
+        # robber_hex : [0, 0]
+        # num_roads : 8 
+        # num_towns : 8
+
         server_response = json.loads(encoded_server_response)
-        
+
+        # data verification
+        lens_for_verification = {"ocean_hexes": 18, "land_hexes": 19, "terrains": 19, "tokens": 19, "town_nodes": server_response["num_towns"], "port_nodes": 18, "road_edges": server_response["num_roads"], "robber_hex": 2}
+
+        for key, length in lens_for_verification.items():
+            assert len(server_response[key]) == length, f"incorrect number of {key}, actual number = {len(server_response[key])}"
+
         # construct board
-        # expand hexes
+        # set up empty lists for certain keys
+        skip_keys = ["terrains", "tokens", "robber_hex", "num_roads", "num_towns"]
+        for key in server_response.keys():
+            if key not in skip_keys:
+                self.board[key] = []
+        
+        for k,v in self.board.items():
+            print(k, v)
+
+        # unpack ocean hexes, land hexes
         for h in server_response["ocean_hexes"]:
-            self.board["ocean_hexes"] = hh.set_hex(h[0], h[1], -h[0]-h[1])
+            self.board["ocean_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
         for h in server_response["land_hexes"]:
-            self.board["land_hexes"] = hh.set_hex(h[0], h[1], -h[0]-h[1])
+            self.board["land_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
 
         # create LandTile namedtuple with hex, terrain, token
+        self.board["land_tiles"] = []
         for i in range(len(self.board["land_hexes"])):
-            LandTile(self.board["land_hexes"][i], server_response["terrains"][i], server_response["tokens"][i])
-        self.board["land_tiles"]
-        self.board["land_tiles"] = self.board["land_hexes"]
+            tile = LandTile(self.board["land_hexes"][i], server_response["terrains"][i], server_response["tokens"][i])
+            self.board["land_tiles"].append(tile)
+
+        # port_nodes : [{'hexes': [[0, -3], [0, -2], [1, -3]], 'port': 'three'},
+        for node in server_response["port_nodes"]:
+            node_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in node["hexes"]]
+            node_object = Node(node_hexes[0], node_hexes[1], node_hexes[2])
+            node_object.port = node["port"]
+            self.board["port_nodes"].append(node_object)
+
+        # town_nodes : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None},
+        for node in server_response["town_nodes"]:
+            node_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in node["hexes"]]
+            node_object = Node(node_hexes[0], node_hexes[1], node_hexes[2])
+            node_object.player = node["player"]
+            node_object.town = node["town"]
+            node_object.port = node["port"]
+            self.board["town_nodes"].append(node_object)
+
+        # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
+        for edge in server_response["road_edges"]:
+            edge_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in edge["hexes"]]
+            edge_object = Edge(edge_hexes[0], edge_hexes[1])
+            edge_object.player = edge["player"]
+        
+        # robber_hex : [0, 0]
+        q, r = server_response["robber_hex"]
+        self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
 
 
     def render_board(self):
