@@ -31,6 +31,7 @@ default_zoom = .9
 Point = namedtuple("Point", ["x", "y"])
 
 LandTile = namedtuple("LandTile", ["hex", "terrain", "token"])
+OceanTile = namedtuple("OceanTile", ["hex", "port"])
 
 def vector2_round(vector2):
     return pr.Vector2(int(vector2.x), int(vector2.y))
@@ -1068,7 +1069,7 @@ class ClientState:
 
         # construct board
         # set up empty lists for certain keys
-        skip_keys = ["terrains", "tokens", "robber_hex", "num_roads", "num_towns"]
+        skip_keys = ["ocean_hexes", "land_hexes", "terrains", "tokens", "robber_hex", "num_roads", "num_towns"]
         for key in server_response.keys():
             if key not in skip_keys:
                 self.board[key] = []
@@ -1076,19 +1077,17 @@ class ClientState:
         for k,v in self.board.items():
             print(k, v)
 
-        # unpack ocean hexes, land hexes
-        for h in server_response["ocean_hexes"]:
-            self.board["ocean_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
-        for h in server_response["land_hexes"]:
-            self.board["land_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
 
         # create LandTile namedtuple with hex, terrain, token
         self.board["land_tiles"] = []
-        for i in range(len(self.board["land_hexes"])):
-            tile = LandTile(self.board["land_hexes"][i], server_response["terrains"][i], server_response["tokens"][i])
+        for i in range(len(server_response["land_hexes"])):
+            q, r = server_response["land_hexes"][i]
+            hex = (hh.set_hex(q, r, -q-r))
+            tile = LandTile(hex, server_response["terrains"][i], server_response["tokens"][i])
             self.board["land_tiles"].append(tile)
-
-        # port_nodes : [{'hexes': [[0, -3], [0, -2], [1, -3]], 'port': 'three'},
+        
+        # create OceanTile namedtuple with hex, port
+        self.board["ocean_tiles"] = []
         for node in server_response["port_nodes"]:
             node_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in node["hexes"]]
             node_object = Node(node_hexes[0], node_hexes[1], node_hexes[2])
@@ -1134,11 +1133,12 @@ class ClientState:
                 # have to specify hex layout for hex calculations
                 rf.draw_tokens(tile.hex, tile.token, layout=pointy)      
 
-        # draw ocean hexes, ports
+        # draw ocean hexes
         for hex in self.board["ocean_hexes"]:
             pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, size, 0, 1, pr.BLACK)
         
-        if tile["port"]:
+        # draw ports
+        for node in self.board["port_nodes"]:
             hex_center = hh.hex_to_pixel(pointy, hex)
             display_text = rf.port_to_display[tile["port"]]
             text_offset = pr.measure_text_ex(pr.gui_get_font(), display_text, 16, 0)
