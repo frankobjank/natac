@@ -77,6 +77,21 @@ terrain_to_resource = {
     "desert": None
     }
 
+def find_hex(all_hexes, hex_to_find):
+    for hex in all_hexes:
+        if hex == hex_to_find:
+            return hex
+
+def find_edge(all_edges, edge_hexes):
+    for edge in all_edges:
+        if edge.hexes == edge_hexes:
+            return edge
+
+def find_node(all_nodes, node_hexes):
+    for node in all_nodes:
+        if node.hexes == node_hexes:
+            return node     
+
 
 class Edge:
     def __init__(self, hex_a, hex_b):
@@ -469,7 +484,6 @@ class Board:
                 if port_node_hexes[i] == node.hexes:
                     node.port = ports_to_nodes[i]
 
-
     def set_demo_settlements(self, s_state):
         # for demo, initiate default roads and settlements
         # Red
@@ -652,13 +666,13 @@ class ServerState:
 
         return to_json(packet).encode()
 
-    def update_server(self, client_request):
+    def update_server(self, client_request) -> None:
         if client_request == None or len(client_request) == 0:
             return
 
         # client_request["player"] = current_player_name
         # client_request["action"] = action
-        # client_request["location"] = selection
+        # client_request["location"] = selection - list of hexes
         # client_request["debug"] = self.debug
 
         client_request["debug"] = self.debug
@@ -673,83 +687,84 @@ class ServerState:
         else:
             current_player_object = None
 
+        location_hexes = []
+        if len(client_request["location"]) > 0:
+            print(f"client_request[location] = {location_hexes}")
+            for hex_coords in client_request["location"]:
+                location_hexes.append(hh.set_hex_from_coords(hex_coords))
+        
+        print(f"location hexes {location_hexes}")
+        
+        if len(client_request["action"]) == "move_robber":
+            location_hexes = location_hexes[0]
+
         # toggle between settlement, city, None
         if client_request["action"] == "build_town":
-            # client_request["location"] is a node in form of dict
-            # function to find node? find_node(nodes, node)
-            for node in self.board.nodes:
-                # come back to this - if all hexes are combined could potentially combine this
-                if hh.hex_to_coords(node.hexes[0]) == client_request["location"]["hex_a"] and hh.hex_to_coords(node.hexes[1]) == client_request["location"]["hex_b"] and hh.hex_to_coords(node.hexes[2]) == client_request["location"]["hex_c"]:
-                    if node.town == None and current_player_object != None:
-                        # settlement build check
-                        if current_player_object.num_settlements < 5:
-                            if node.build_check_settlement(self, client_request["player"]):
-                                node.town = "settlement"
-                                node.player = client_request["player"]
-                                current_player_object.num_settlements += 1
-                                if node.port:
-                                    current_player_object.ports.append(node.port)
-                            else:
-                                break
-                        else:
-                            print("no available settlements")
-                            break
+            node = find_node(self.board.nodes, location_hexes)
+            if node.town == None and current_player_object != None:
+                # check num_settlements
+                if current_player_object.num_settlements >= 5:
+                    print("no available settlements")
+                    return
+                # settlement build_check
+                if node.build_check_settlement(self, client_request["player"]):
+                    node.town = "settlement"
+                    node.player = client_request["player"]
+                    current_player_object.num_settlements += 1
+                    if node.port:
+                        current_player_object.ports.append(node.port)
 
 
-                    elif node.town == "settlement":
-                        # current_owner is player_object type
-                        current_owner = self.players[node.player]
-                        # if owner is same as current_player, upgrade to city
-                        if current_owner == current_player_object:
-                            # city build check
-                            if current_player_object.num_cities < 4:
-                                node.town = "city"
-                                current_player_object.num_settlements -= 1
-                                current_player_object.num_cities += 1
-                            else:
-                                print("no available cities")
-                                break
-                        # if owner is different from current_player, remove
-                        elif current_owner != current_player_object:
-                            current_owner.num_settlements -= 1
-                            node.player = None
-                            node.town = None
-                            if node.port:
-                                current_owner.ports.remove(node.port)
-                            break
+            elif node.town == "settlement":
+                # current_owner is player_object type
+                current_owner = self.players[node.player]
+                # if owner is same as current_player, upgrade to city
+                if current_owner == current_player_object:
+                    # city build check
+                    if current_player_object.num_cities >= 4:
+                        print("no available cities")
+                        return
+                    node.town = "city"
+                    current_player_object.num_settlements -= 1
+                    current_player_object.num_cities += 1
+
+                # if owner is different from current_player, remove
+                elif current_owner != current_player_object:
+                    current_owner.num_settlements -= 1
+                    node.player = None
+                    node.town = None
+                    if node.port:
+                        current_owner.ports.remove(node.port)
 
 
-                    # town is city and should be removed
-                    elif node.town == "city":
-                        current_owner = self.players[node.player]
-                        node.player = None
-                        node.town = None
-                        current_owner.num_cities -= 1
-                        if node.port:
-                            current_owner.ports.remove(node.port)
+            # town is city and should be removed
+            elif node.town == "city":
+                current_owner = self.players[node.player]
+                node.player = None
+                node.town = None
+                current_owner.num_cities -= 1
+                if node.port:
+                    current_owner.ports.remove(node.port)
 
             
         elif client_request["action"] == "build_road":
-            for edge in self.board.edges:
-                # find edge (break built in). edge check.
-                # find edge - could create function for this
-                if hh.hex_to_coords(edge.hexes[0]) == client_request["location"]["hex_a"] and hh.hex_to_coords(edge.hexes[1]) == client_request["location"]["hex_b"]:
-                    # place roads unowned edge
-                    if edge.player == None and current_player_object != None:
-                        if current_player_object.num_roads < 15:
-                            if edge.build_check_road(self, client_request["player"]):
-                                edge.player = client_request["player"]
-                                current_player_object.num_roads += 1
-                                break
-                        else:
-                            print("no available roads")
-                            break
+            edge = find_edge(self.board.edges, location_hexes)
+            # place roads unowned edge
+            if edge.player == None and current_player_object != None:
+                # check num_roads
+                if current_player_object.num_roads >= 15:
+                    print("no available roads")
+                    return
+                # build_check_road
+                if edge.build_check_road(self, client_request["player"]):
+                    edge.player = client_request["player"]
+                    current_player_object.num_roads += 1
 
-                    # remove roads
-                    elif edge.player:
-                        current_owner = self.players[edge.player]
-                        current_owner.num_roads -= 1
-                        edge.player = None
+            # remove roads
+            elif edge.player:
+                current_owner = self.players[edge.player]
+                current_owner.num_roads -= 1
+                edge.player = None
 
 
         elif client_request["action"] == "move_robber":
@@ -760,7 +775,7 @@ class ServerState:
                     break
 
             for tile in self.board.land_tiles:
-                if tile != current_robber_tile and hh.hex_to_coords(tile.hex) == client_request["location"]:
+                if tile != current_robber_tile and hh.hex_to_coords(tile.hex) == location_hexes:
                     # remove robber from old tile, add to new tile
                     current_robber_tile.robber = False
                     tile.robber = True
@@ -786,11 +801,7 @@ class ServerState:
             self.update_server(packet_recv)
 
         # respond to client
-        msg_to_send = self.build_msg_to_client(self.board)
-        print(msg_to_send)
-        # if self.debug == True:
-        #     if len(msg_recv) > 2:
-        #         print(f"server returning {msg_to_send}")
+        msg_to_send = self.build_msg_to_client()
 
         if combined == False:
             print(msg_to_send)
@@ -953,11 +964,11 @@ class ClientState:
         
         # defining current_node
         if current_hex_3:
-            self.current_node_hexes = sort_hexes(self.current_hex, current_hex_2, current_hex_3)
+            self.current_node_hexes = sort_hexes([self.current_hex, current_hex_2, current_hex_3])
         
         # defining current_edge
         elif current_hex_2:
-            self.current_edge_hexes = sort_hexes(self.current_hex, current_hex_2)
+            self.current_edge_hexes = sort_hexes([self.current_hex, current_hex_2])
 
 
         # selecting based on mouse button input from get_user_input()]
@@ -1122,8 +1133,8 @@ class ClientState:
                 # draw active port corners
                 for i in range(6):
                     if i in tile.port_corners:
-                        corner = hh.hex_corners_list(pointy, hex)[i]
-                        center = hh.hex_to_pixel(pointy, hex)
+                        corner = hh.hex_corners_list(pointy, tile.hex)[i]
+                        center = hh.hex_to_pixel(pointy, tile.hex)
                         midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
                         pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
@@ -1133,56 +1144,38 @@ class ClientState:
         # draw roads, settlements, cities
         for edge in self.board["road_edges"]:
             rf.draw_road(edge.get_edge_points(), rf.game_color_dict[edge.player])
-            
-            # if edge["player"] != None:
-                # edge_endpoints = get_edge_points(pointy, edge)
-                # rf.draw_road(edge_endpoints, rf.game_color_dict[edge["player"]])
-
 
         for node in self.board["town_nodes"]:
             if node.town == "settlement":
                 rf.draw_settlement(node.get_node_point(), rf.game_color_dict[node.player])
             elif node.town == "city":
                 rf.draw_city(node.get_node_point(), rf.game_color_dict[node.player])
-            # if node["player"] != None:
-            #     node_point = get_node_point(pointy, node)
-            #     if node["town"] == "settlement":
-            #         rf.draw_settlement(node_point, rf.game_color_dict[node["player"]])
-            #     elif node["town"] == "city":
-            #         rf.draw_city(node_point, rf.game_color_dict[node["player"]])      
 
         # draw robber
         robber_hex_center = vector2_round(hh.hex_to_pixel(pointy, self.board["robber_hex"]))
         rf.draw_robber(robber_hex_center)
 
-        # for tile in self.board["land_tiles"]:
-        #     if tile["robber"] == True:
-        #         hex = hh.set_hex(tile["hex"][0], tile["hex"][1], tile["hex"][2])
-        #         hex_center = vector2_round(hh.hex_to_pixel(pointy, hex))
-        #         rf.draw_robber(hex_center)
-        #         break
-
     def render_mouse_hover(self):
-        # outline up to 3 current hexes
-        if self.current_hex: # and not state.current_edge:
-            q, r, s = self.current_hex
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hh.set_hex(q, r, s)), 6, 50, 0, 6, pr.BLACK)
-        if self.current_hex_2:
-            q, r, s = self.current_hex_2
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hh.set_hex(q, r, s)), 6, 50, 0, 6, pr.BLACK)
-        if self.current_hex_3:
-            q, r, s, = self.current_hex_3
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hh.set_hex(q, r, s)), 6, 50, 0, 6, pr.BLACK)
-            
-            
-        # highlight selected edge and node
-        if self.current_node:
-            node_point = get_node_point(pointy, self.current_node)
-            pr.draw_circle_v(node_point, 10, pr.BLACK)
+        # highlight current node
+        if self.current_node_hexes:
+            node_object = Node(self.current_node_hexes[0], self.current_node_hexes[1], self.current_node_hexes[2])
+            pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
+            # highlight node hexes
+            for hex in self.current_node_hexes:
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, 50, 0, 6, pr.BLACK)
 
-        if self.current_edge and not self.current_node:
-            edge_endpoints = get_edge_points(pointy, self.current_edge)
-            pr.draw_line_ex(edge_endpoints[0], edge_endpoints[1], 12, pr.BLACK)
+        # highlight current edge
+        elif self.current_edge_hexes:
+            edge_object = Edge(self.current_edge_hexes[0], self.current_edge_hexes[1])
+            pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
+            # highlight edge hexes
+            for hex in self.current_edge_hexes:
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, 50, 0, 6, pr.BLACK)
+
+        # highlight current hex
+        elif self.current_hex:
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 0, 6, pr.BLACK)
+
             
     def render_client(self):
     
@@ -1306,8 +1299,8 @@ def test():
 
 # run_server()
 # run_client()
-# run_combined()
-test()
+run_combined()
+# test()
 
 # 3 ways to play:
 # computer to computer
