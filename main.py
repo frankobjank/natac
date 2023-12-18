@@ -309,6 +309,7 @@ class Board:
         self.tokens = []
 
         self.ocean_hexes = []
+        self.port_corners = []
 
         self.edges = []
         self.nodes = []
@@ -423,23 +424,27 @@ class Board:
         self.tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
 
 
-
-        default_ports = ["three", None, "wheat", None, 
-                        None, "ore",
-                        "wood", None,
-                        None, "three",
-                        "brick", None,
-                        None, "sheep", 
-                        "three", None, "three", None]
+        self.port_corners = [
+            (5, 0), None, (4, 5), None,
+            None, (4, 5),
+            (1, 0), None,
+            None, (3, 4),
+            (1, 0), None,
+            None, (2, 3),
+            (2, 1), None, (2, 3), None
+            ]
+        
+        # default_ports = ["three", None, "wheat", None, 
+        #                 None, "ore",
+        #                 "wood", None,
+        #                 None, "three",
+        #                 "brick", None,
+        #                 None, "sheep", 
+        #                 "three", None, "three", None]
         
 
         # can be generalized by iterating over ports and repeating if not None 
         ports_to_nodes = ["three", "three", "wheat", "wheat", "ore", "ore", "wood", "wood", "three", "three", "brick", "brick", "sheep", "sheep", "three", "three", "three", "three"]
-
-        # defined as defaults, can be randomized though
-        # terrain_tiles = default_terrains
-        # tokens = default_tile_tokens
-        # ports = default_ports
 
 
 
@@ -634,7 +639,6 @@ class ServerState:
     
     def build_msg_to_client(self) -> bytes:
         town_nodes = []
-        port_nodes = []
         road_edges = []
 
         # add all nodes/edge owned by players and port nodes, abridge hexes
@@ -643,12 +647,6 @@ class ServerState:
                 node_dict = node.__dict__
                 node_dict["hexes"] = [hex[:2] for hex in node_dict["hexes"]]
                 town_nodes.append(node_dict)
-
-            if node.port != None:
-                custom_dict = {}
-                custom_dict["hexes"] = [hex[:2] for hex in node.hexes]
-                custom_dict["port"] = node.port
-                port_nodes.append(custom_dict)
                 
         for edge in self.board.edges:
             if edge.player != None:
@@ -665,16 +663,17 @@ class ServerState:
 
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
-            "port_nodes": port_nodes,
+            "port_corners": self.board.port_corners,
             "land_hexes": [hex[:2] for hex in self.board.land_hexes],
-            "terrains": self.board.terrains, #ordered from left-right, top-down
-            "tokens": self.board.tokens,
+            "terrains": self.board.terrains, # ordered from left-right, top-down
+            "tokens": self.board.tokens, # shares order with land_hexes and terrains
             "town_nodes": town_nodes,
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex[:2],
             "num_towns": total_num_towns,
             "num_roads": total_num_roads
         }
+        print(to_json(packet).encode())
 
         return to_json(packet).encode()
 
@@ -1049,10 +1048,10 @@ class ClientState:
     # unpack server response and update state
     def update_client(self, encoded_server_response):
         # ocean_hexes : [[0, -3], [1, -3],
+        # port_corners : [(5, 0), None, 
         # land_hexes : [[0, -2], [1, -2],
         # terrains : ['mountain', 'pasture',
         # tokens : [10, 2,
-        # port_nodes : [{'hexes': [[0, -3], [0, -2], [1, -3]], 'port': 'three'},
         # town_nodes : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None},
         # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
         # robber_hex : [0, 0]
@@ -1062,21 +1061,19 @@ class ClientState:
         server_response = json.loads(encoded_server_response)
 
         # data verification
-        lens_for_verification = {"ocean_hexes": 18, "land_hexes": 19, "terrains": 19, "tokens": 19, "town_nodes": server_response["num_towns"], "port_nodes": 18, "road_edges": server_response["num_roads"], "robber_hex": 2}
+        lens_for_verification = {"ocean_hexes": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19, "town_nodes": server_response["num_towns"], "road_edges": server_response["num_roads"], "robber_hex": 2}
 
         for key, length in lens_for_verification.items():
             assert len(server_response[key]) == length, f"incorrect number of {key}, actual number = {len(server_response[key])}"
 
-        # construct board
-        # set up empty lists for certain keys
-        skip_keys = ["ocean_hexes", "land_hexes", "terrains", "tokens", "robber_hex", "num_roads", "num_towns"]
-        for key in server_response.keys():
-            if key not in skip_keys:
-                self.board[key] = []
-        
-        for k,v in self.board.items():
-            print(k, v)
 
+        # create OceanTile namedtuple with hex, port
+        self.board["ocean_tiles"] = []
+        for i in len(server_response["ocean_hexes"]):
+            q, r = server_response["ocean_hexes"][i]
+            hex = (hh.set_hex(q, r, -q-r))
+            tile = OceanTile(hex, server_response["port_corners"][i])
+            self.board["ocean_tiles"].append(tile)
 
         # create LandTile namedtuple with hex, terrain, token
         self.board["land_tiles"] = []
@@ -1086,15 +1083,9 @@ class ClientState:
             tile = LandTile(hex, server_response["terrains"][i], server_response["tokens"][i])
             self.board["land_tiles"].append(tile)
         
-        # create OceanTile namedtuple with hex, port
-        self.board["ocean_tiles"] = []
-        for node in server_response["port_nodes"]:
-            node_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in node["hexes"]]
-            node_object = Node(node_hexes[0], node_hexes[1], node_hexes[2])
-            node_object.port = node["port"]
-            self.board["port_nodes"].append(node_object)
 
         # town_nodes : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None},
+        self.board["town_nodes"] = []
         for node in server_response["town_nodes"]:
             node_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in node["hexes"]]
             node_object = Node(node_hexes[0], node_hexes[1], node_hexes[2])
@@ -1104,6 +1095,7 @@ class ClientState:
             self.board["town_nodes"].append(node_object)
 
         # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
+        self.board["road_edges"] = []
         for edge in server_response["road_edges"]:
             edge_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in edge["hexes"]]
             edge_object = Edge(edge_hexes[0], edge_hexes[1])
