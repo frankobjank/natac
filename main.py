@@ -289,16 +289,6 @@ class Node:
 
 
 
-# class LandTile:
-#     def __init__(self, hex, terrain, token):
-#         self.hex = hex
-#         self.terrain = terrain
-#         self.token = token
-
-#     def __repr__(self):
-#         return f"Tile(terrain: {self.terrain}, hex: {self.hex}, token: {self.token})"
-
-
 class Board:
     def __init__(self):
         self.land_hexes = []
