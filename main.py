@@ -1120,38 +1120,38 @@ class ClientState:
         size = 50
         pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
+        # LandTile = namedtuple("LandTile", ["hex", "terrain", "token"])
         # draw land tiles, numbers, dots
         for tile in self.board["land_tiles"]:
             # draw resource hexes
-            hex = hh.set_hex(tile["hex"][0], tile["hex"][1], tile["hex"][2])
-            color = rf.game_color_dict[tile["terrain"]]
-            pr.draw_poly(hh.hex_to_pixel(pointy, hex), 6, size, 0, color)
+            color = rf.game_color_dict[tile.terrain]
+            pr.draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, color)
             # draw black outlines around hexes
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, size, 0, 1, pr.BLACK)
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, pr.BLACK)
 
             # draw numbers, dots on hexes
-            if tile["token"] != None:
-                # have to specify layout for hex calculations
-                rf.draw_tokens(hex, tile["token"], layout=pointy)      
+            if tile.token != None:
+                # have to specify hex layout for hex calculations
+                rf.draw_tokens(tile.hex, tile.token, layout=pointy)      
 
-        # draw ocean tiles, ports
-        for tile in self.board["ocean_tiles"]:
-            hex = hh.set_hex(tile["hex"][0], tile["hex"][1], tile["hex"][2])
+        # draw ocean hexes, ports
+        for hex in self.board["ocean_hexes"]:
             pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, size, 0, 1, pr.BLACK)
-            if tile["port"]:
-                hex_center = hh.hex_to_pixel(pointy, hex)
-                display_text = rf.port_to_display[tile["port"]]
-                text_offset = pr.measure_text_ex(pr.gui_get_font(), display_text, 16, 0)
-                text_location = pr.Vector2(hex_center.x-text_offset.x//2, hex_center.y-16)
-                pr.draw_text_ex(pr.gui_get_font(), display_text, text_location, 16, 0, pr.BLACK)
-                
-                # draw active port corners
-                for i in range(6):
-                    if i in tile["port_corners"]:
-                        corner = hh.hex_corners_list(pointy, hex)[i]
-                        center = hh.hex_to_pixel(pointy, hex)
-                        midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
-                        pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
+        
+        if tile["port"]:
+            hex_center = hh.hex_to_pixel(pointy, hex)
+            display_text = rf.port_to_display[tile["port"]]
+            text_offset = pr.measure_text_ex(pr.gui_get_font(), display_text, 16, 0)
+            text_location = pr.Vector2(hex_center.x-text_offset.x//2, hex_center.y-16)
+            pr.draw_text_ex(pr.gui_get_font(), display_text, text_location, 16, 0, pr.BLACK)
+            
+            # draw active port corners
+            for i in range(6):
+                if i in tile["port_corners"]:
+                    corner = hh.hex_corners_list(pointy, hex)[i]
+                    center = hh.hex_to_pixel(pointy, hex)
+                    midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
+                    pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
         if self.debug == True:
             self.render_mouse_hover()
