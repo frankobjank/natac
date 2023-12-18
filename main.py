@@ -99,8 +99,7 @@ class Edge:
         self.player = None
     
     def __repr__(self):
-        return f"'hexes': {self.hexes}, 'player': {self.player}"
-        # return f"Edge({self.hexes})"
+        return f"Edge('hexes': {self.hexes}, 'player': {self.player})"
     
     def get_edge_points_set(self) -> set:
         return hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1])
@@ -214,8 +213,7 @@ class Node:
         self.port = None
 
     def __repr__(self):
-        # return f"'hexes': {self.hexes}, 'player': {self.player}, 'town': {self.town}, 'port': {self.port}"
-        return f"{self.hexes}"
+        return f"Node('hexes': {self.hexes}, 'player': {self.player}, 'town': {self.town}, 'port': {self.port})"
 
     def get_node_point(self):
         node_list = list(hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1]) & hh.hex_corners_set(pointy, self.hexes[2]))
@@ -303,7 +301,6 @@ class Node:
 
 class Board:
     def __init__(self):
-        # self.land_tiles = []
         self.land_hexes = []
         self.terrains = []
         self.tokens = []
@@ -673,7 +670,6 @@ class ServerState:
             "num_towns": total_num_towns,
             "num_roads": total_num_roads
         }
-        print(to_json(packet).encode())
 
         return to_json(packet).encode()
 
@@ -1069,7 +1065,7 @@ class ClientState:
 
         # create OceanTile namedtuple with hex, port
         self.board["ocean_tiles"] = []
-        for i in len(server_response["ocean_hexes"]):
+        for i in range(len(server_response["ocean_hexes"])):
             q, r = server_response["ocean_hexes"][i]
             hex = (hh.set_hex(q, r, -q-r))
             tile = OceanTile(hex, server_response["port_corners"][i])
@@ -1100,10 +1096,13 @@ class ClientState:
             edge_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in edge["hexes"]]
             edge_object = Edge(edge_hexes[0], edge_hexes[1])
             edge_object.player = edge["player"]
+            self.board["road_edges"].append(edge_object)
         
         # robber_hex : [0, 0]
         q, r = server_response["robber_hex"]
         self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
+
+        print(self.board)
 
 
     def render_board(self):
