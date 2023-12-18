@@ -39,21 +39,6 @@ def vector2_round(vector2):
 def point_round(point):
     return hh.Point(int(point.x), int(point.y))
 
-# don't need this anymore since implemented Edges and Nodes in client
-# def get_edge_points(layout, edge):
-#     hex_a = hh.set_hex(edge["hex_a"][0], edge["hex_a"][1], edge["hex_a"][2])
-#     hex_b = hh.set_hex(edge["hex_b"][0], edge["hex_b"][1], edge["hex_b"][2])
-#     return list(hh.hex_corners_set(layout, hex_a) & hh.hex_corners_set(layout, hex_b))
-
-
-# def get_node_point(layout, node):
-#     hex_a = hh.set_hex(node["hex_a"][0], node["hex_a"][1], node["hex_a"][2])
-#     hex_b = hh.set_hex(node["hex_b"][0], node["hex_b"][1], node["hex_b"][2])
-#     hex_c = hh.set_hex(node["hex_c"][0], node["hex_c"][1], node["hex_c"][2])
-
-#     node_list = list(hh.hex_corners_set(layout, hex_a) & hh.hex_corners_set(layout, hex_b) & hh.hex_corners_set(layout, hex_c))
-#     if len(node_list) != 0:
-#         return node_list[0]
 
 # raylib functions without raylib for server
 def radius_check_v(pt1:Point, pt2:Point, radius:int)->bool:
@@ -1101,8 +1086,6 @@ class ClientState:
         # robber_hex : [0, 0]
         q, r = server_response["robber_hex"]
         self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
-
-        print(self.board)
 
 
     def render_board(self):
