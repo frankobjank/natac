@@ -202,7 +202,6 @@ class Node:
         return f"Node('hexes': {self.hexes}, 'player': {self.player}, 'town': {self.town}, 'port': {self.port})"
 
     def get_node_point(self):
-        print(f"node hexes = {self.hexes}")
         node_list = list(hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1]) & hh.hex_corners_set(pointy, self.hexes[2]))
         if len(node_list) != 0:
             return node_list[0]
@@ -619,7 +618,7 @@ class ServerState:
         town_nodes = []
         road_edges = []
 
-        # add all nodes/edge owned by players and port nodes, abridge hexes
+        # add all nodes/edge owned by players, abridge hexes
         for node in self.board.nodes:
             if node.player != None:
                 node_dict = node.__dict__
@@ -631,14 +630,16 @@ class ServerState:
                 edge_dict = edge.__dict__
                 edge_dict["hexes"] = [hex[:2] for hex in edge_dict["hexes"]]
                 road_edges.append(edge_dict)
-        
+
         total_num_towns = 0
         total_num_roads = 0
         for player_object in self.players.values():
             total_num_towns += player_object.num_cities + player_object.num_settlements
             total_num_roads += player_object.num_roads
 
-
+        for n in self.board.nodes:
+            if n.player != None:
+                print(n)
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
             "ports_ordered": self.board.ports_ordered,
@@ -693,11 +694,14 @@ class ServerState:
         # build town or road
         # toggle between settlement, city, None
         if client_request["action"] == "build_town":
+            print(location_hexes)
             selected_node = None
             for node in self.board.nodes:
-                if node.hexes == location_hexes:
-                    selected_node = node
-                    break
+                check = 0
+                for i in range(3):
+                    if node.hexes[i] == location_hexes[i]:
+                        print(f"existing {node.hexes[i]} and new {location_hexes[i]}")
+            print(f"selected{selected_node}")
             if selected_node.town == None and current_player_object != None:
                 # check num_settlements
                 if current_player_object.num_settlements >= 5:
@@ -735,13 +739,13 @@ class ServerState:
 
 
             # town is city and should be removed
-            elif node.town == "city":
-                current_owner = self.players[node.player]
-                node.player = None
-                node.town = None
+            elif selected_node.town == "city":
+                current_owner = self.players[selected_node.player]
+                selected_node.player = None
+                selected_node.town = None
                 current_owner.num_cities -= 1
-                if node.port:
-                    current_owner.ports.remove(node.port)
+                if selected_node.port:
+                    current_owner.ports.remove(selected_node.port)
 
             
         elif client_request["action"] == "build_road":
@@ -750,7 +754,6 @@ class ServerState:
                 if edge.hexes == location_hexes:
                     selected_edge = edge
                     break
-            print(selected_edge)
             # place roads unowned edge
             if selected_edge.player == None and current_player_object != None:
                 # check num_roads
@@ -1070,7 +1073,6 @@ class ClientState:
             node_object.town = node["town"]
             node_object.port = node["port"]
             self.board["town_nodes"].append(node_object)
-
         # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
         self.board["road_edges"] = []
         for edge in server_response["road_edges"]:
