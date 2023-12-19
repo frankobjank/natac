@@ -621,15 +621,21 @@ class ServerState:
         # add all nodes/edge owned by players, abridge hexes
         for node in self.board.nodes:
             if node.player != None:
-                node_dict = node.__dict__
-                node_dict["hexes"] = [hex[:2] for hex in node_dict["hexes"]]
-                town_nodes.append(node_dict)
+                # reconstruct node so it doesn't change the original
+                new_node = {}
+                new_node["hexes"] = [hex[:2] for hex in node.hexes]
+                new_node["player"] = node.player
+                new_node["town"] = node.town
+                new_node["port"] = node.port
+                town_nodes.append(new_node)
                 
         for edge in self.board.edges:
             if edge.player != None:
-                edge_dict = edge.__dict__
-                edge_dict["hexes"] = [hex[:2] for hex in edge_dict["hexes"]]
-                road_edges.append(edge_dict)
+                # reconstruct edge so it doesn't change the original
+                new_edge = {}
+                new_edge["hexes"] = [hex[:2] for hex in edge.hexes]
+                new_edge["player"] = edge.player
+                road_edges.append(new_node)
 
         total_num_towns = 0
         total_num_roads = 0
@@ -637,9 +643,6 @@ class ServerState:
             total_num_towns += player_object.num_cities + player_object.num_settlements
             total_num_roads += player_object.num_roads
 
-        for n in self.board.nodes:
-            if n.player != None:
-                print(n)
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
             "ports_ordered": self.board.ports_ordered,
