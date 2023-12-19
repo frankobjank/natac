@@ -697,13 +697,10 @@ class ServerState:
         # build town or road
         # toggle between settlement, city, None
         if client_request["action"] == "build_town":
-            print(location_hexes)
             selected_node = None
             for node in self.board.nodes:
-                check = 0
-                for i in range(3):
-                    if node.hexes[i] == location_hexes[i]:
-                        print(f"existing {node.hexes[i]} and new {location_hexes[i]}")
+                if node.hexes == location_hexes:
+                    selected_node = node
             print(f"selected{selected_node}")
             if selected_node.town == None and current_player_object != None:
                 # check num_settlements
@@ -734,6 +731,7 @@ class ServerState:
 
                 # if owner is different from current_player, remove
                 elif current_owner != current_player_object:
+                    print("removing settlement")
                     current_owner.num_settlements -= 1
                     selected_node.player = None
                     selected_node.town = None
@@ -743,6 +741,7 @@ class ServerState:
 
             # town is city and should be removed
             elif selected_node.town == "city":
+                print("removing city")
                 current_owner = self.players[selected_node.player]
                 selected_node.player = None
                 selected_node.town = None
@@ -770,6 +769,7 @@ class ServerState:
 
             # remove roads
             elif selected_edge.player:
+                print("removing road")
                 current_owner = self.players[selected_edge.player]
                 current_owner.num_roads -= 1
                 selected_edge.player = None
