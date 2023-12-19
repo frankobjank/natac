@@ -917,6 +917,19 @@ class ClientState:
             self.camera.zoom = default_zoom
             self.camera.rotation = 0.0
 
+        # set current_player/ robber
+        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+            # DEBUG - buttons
+            if self.debug == True:
+                for button in self.buttons:
+                    if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
+                        if button.name == "robber":
+                            self.move_robber = True
+                            self.current_player_name = ""
+                        else:
+                            self.current_player_name = button.name
+
+
 
     def build_client_request(self, user_input):
         # client_request = {"player": "PLAYER_NAME", "location": Hex, Node or Edge, "debug": bool}
@@ -966,16 +979,7 @@ class ClientState:
 
         # selecting based on mouse button input from get_user_input()]
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-            # DEBUG - buttons
-            if self.debug == True:
-                for button in self.buttons:
-                    if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                        if button.name == "robber":
-                            self.move_robber = True
-                            self.current_player_name = ""
-                        else:
-                            self.current_player_name = button.name
-            
+
             # selecting hex, node, edge
             selection = None
             action = ""
@@ -1013,6 +1017,8 @@ class ClientState:
                     
             if self.debug == True:
                 print(f"Received from server {msg_recv}")
+            
+            return msg_recv
 
         elif combined == True:
             return msg_to_send
@@ -1203,15 +1209,17 @@ class ClientState:
 
 def run_client():
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
-    print("starting client")
     pr.init_window(screen_width, screen_height, "Natac")
     pr.set_target_fps(60)
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
+
     c_state = ClientState()
+    print("starting client")
     # receive init message with board?
-    client_request = c_state.build_client_request(None)
+    client_request = c_state.build_client_request(user_input=None)
     server_response = c_state.client_to_server(client_request)
     c_state.update_client(server_response)
+
     while not pr.window_should_close():
         user_input = c_state.get_user_input()
 
@@ -1287,8 +1295,8 @@ def test():
 
 
 # run_server()
-# run_client()
-run_combined()
+run_client()
+# run_combined()
 # test()
 
 # 3 ways to play:
