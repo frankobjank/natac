@@ -549,7 +549,6 @@ class Player:
         self.num_roads = 0
         self.ports = []
 
-    
     def __repr__(self):
         return f"Player {self.name}: \nHand: {self.hand}, Victory points: {self.victory_points}"
     
@@ -635,7 +634,7 @@ class ServerState:
                 new_edge = {}
                 new_edge["hexes"] = [hex[:2] for hex in edge.hexes]
                 new_edge["player"] = edge.player
-                road_edges.append(new_node)
+                road_edges.append(new_edge)
 
         total_num_towns = 0
         total_num_roads = 0
