@@ -1058,17 +1058,13 @@ class ClientState:
         # create OceanTile namedtuple with hex, port
         self.board["ocean_tiles"] = []
         for i in range(len(server_response["ocean_hexes"])):
-            q, r = server_response["ocean_hexes"][i]
-            hex = (hh.set_hex(q, r, -q-r))
-            tile = OceanTile(hex, server_response["ports_ordered"][i], server_response["port_corners"][i])
+            tile = OceanTile(self.board["ocean_hexes"][i], server_response["ports_ordered"][i], server_response["port_corners"][i])
             self.board["ocean_tiles"].append(tile)
 
         # create LandTile namedtuple with hex, terrain, token
         self.board["land_tiles"] = []
         for i in range(len(server_response["land_hexes"])):
-            q, r = server_response["land_hexes"][i]
-            hex = (hh.set_hex(q, r, -q-r))
-            tile = LandTile(hex, server_response["terrains"][i], server_response["tokens"][i])
+            tile = LandTile(self.board["land_hexes"][i], server_response["terrains"][i], server_response["tokens"][i])
             self.board["land_tiles"].append(tile)
         
 
@@ -1295,8 +1291,8 @@ def test():
 
 
 # run_server()
-run_client()
-# run_combined()
+# run_client()
+run_combined()
 # test()
 
 # 3 ways to play:
