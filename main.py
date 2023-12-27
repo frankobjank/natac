@@ -572,7 +572,6 @@ class Player:
 class ServerState:
     def __init__(self):
         # NETWORKING
-        self.packet = {}
         self.msg_number = 0
 
         self.board = None
@@ -1013,8 +1012,11 @@ class ClientState:
             self.socket.sendto(msg_to_send, (local_IP, local_port))
             
             # receive message from server
-            msg_recv, address = self.socket.recvfrom(buffer_size)
-                    
+            try:
+                msg_recv, address = self.socket.recvfrom(buffer_size, socket.MSG_DONTWAIT)
+            except BlockingIOError:
+                return None
+            
             if self.debug == True:
                 print(f"Received from server {msg_recv}")
             
@@ -1211,10 +1213,6 @@ def run_client():
 
     c_state = ClientState()
     print("starting client")
-    # receive init message with board?
-    client_request = c_state.build_client_request(user_input=None)
-    server_response = c_state.client_to_server(client_request)
-    c_state.update_client(server_response)
 
     while not pr.window_should_close():
         user_input = c_state.get_user_input()
@@ -1222,9 +1220,12 @@ def run_client():
         c_state.update_client_settings(user_input)
 
         client_request = c_state.build_client_request(user_input)
+
         server_response = c_state.client_to_server(client_request)
 
-        c_state.update_client(server_response)
+        if server_response != None:
+            c_state.update_client(server_response)
+
         c_state.render_client()
     pr.unload_font(pr.gui_get_font())
     pr.close_window()
@@ -1244,7 +1245,6 @@ def run_server():
 def run_combined():
     s_state = ServerState() # initialize board, players
     s_state.initialize_game()
-    init_packet = s_state.start_server(combined=True)
     
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
     pr.init_window(screen_width, screen_height, "Natac")
@@ -1254,7 +1254,6 @@ def run_combined():
 
     c_state = ClientState()
     print("starting client")
-    c_state.update_client(init_packet)
 
     while not pr.window_should_close():
         # get user input

@@ -1,0 +1,28 @@
+tcp - create test file to try it out
+make python bindings for nbnet
+
+function to find node/edge 
+    find_node(nodes, node)
+    find_edge(edges, edge) - see line 787 main.py
+
+
+
+Notes from meet w Victor 12/26
+
+next steps:
+Encode game state
+Dice
+Resources
+Player hands
+Current player turn:
+    Dice roll
+    Collect resources
+
+client 'action' should be defined before it currently is
+    currently mouse hover appears over nodes even when move_robber is selected, but only valid inputs should be highlighted with the mouse hover
+
+client - player should have different 'states'/'actions':
+    (could make to enum)
+    action: dice roll - only highlight dice/ make dice selectable. everything else not highlighted
+    action: None
+
