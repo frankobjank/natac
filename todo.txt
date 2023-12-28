@@ -26,3 +26,18 @@ client - player should have different 'states'/'actions':
     action: dice roll - only highlight dice/ make dice selectable. everything else not highlighted
     action: None
 
+Turn steps
+
+Client:
+    roll dice
+    play soldier card - move robber and steal card
+
+if (dice == 7){
+    return cards check for all players
+    move robber
+    steal card
+}
+else{
+    distribute resources to all players
+}
+
