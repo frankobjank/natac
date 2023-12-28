@@ -15,7 +15,9 @@ game_color_dict = {
     # other pieces
     "robber": pr.BLACK,
     # buttons
-    # put terrain (tile kind) colors here
+    "roll_dice": pr.RAYWHITE,
+
+    # put terrain + tile colors here
     "forest": pr.get_color(0x517d19ff),
     "hill": pr.get_color(0x9c4300ff),
     "pasture": pr.get_color(0x17b97fff),

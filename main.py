@@ -7,7 +7,6 @@ from operator import attrgetter
 import pyray as pr
 import hex_helper as hh
 import rendering_functions as rf
-import sys
 
 
 
@@ -18,11 +17,6 @@ buffer_size = 10000
 def to_json(obj):
     return json.dumps(obj, default=lambda o: o.__dict__)
 
-
-screen_width=800
-screen_height=600
-
-default_zoom = .9
 
 # Raylib functions I replaced with my own for use on server side:
     # check_collision_circles -> radius_check_two_circles()
@@ -796,7 +790,7 @@ class ServerState:
         msg_to_send = self.build_msg_to_client()
 
         if combined == False:
-            print(msg_to_send)
+            print(len(msg_to_send))
             # use socket to respond
             self.socket.sendto(msg_to_send, address)
         else:
@@ -826,6 +820,11 @@ class ClientState:
         self.msg_number = 0
 
         self.board = {}
+        self.screen_width=800
+        self.screen_height=600
+
+        self.default_zoom = 0.9
+
 
         # selecting via mouse
         self.world_position = None
@@ -835,26 +834,31 @@ class ClientState:
         self.current_node_hexes = []
         
         self.current_player_name = ""
+
         self.move_robber = False
 
         self.debug = True
         self.debug_msgs = []
 
+        # maybe add potential actions so the mouse hover render knows what to highlight
+
         # debug buttons
         self.buttons=[
-            Button(pr.Rectangle(750, 20, 40, 40), "blue"),
-            Button(pr.Rectangle(700, 20, 40, 40), "orange"), 
-            Button(pr.Rectangle(650, 20, 40, 40), "white"), 
-            Button(pr.Rectangle(600, 20, 40, 40), "red"),
-            Button(pr.Rectangle(550, 20, 40, 40), "robber")
+            Button(pr.Rectangle(self.screen_width-250, 20, 40, 40), "robber"),
+            Button(pr.Rectangle(self.screen_width-200, 20, 40, 40), "red"),
+            Button(pr.Rectangle(self.screen_width-150, 20, 40, 40), "white"), 
+            Button(pr.Rectangle(self.screen_width-100, 20, 40, 40), "orange"), 
+            Button(pr.Rectangle(self.screen_width-50, 20, 40, 40), "blue"),
+
+            Button(pr.Rectangle(self.screen_width-100, self.screen_height-150, 40, 40), "roll_dice")
         ]
 
         # camera controls
         self.camera = pr.Camera2D()
         self.camera.target = pr.Vector2(0, 0)
-        self.camera.offset = pr.Vector2(screen_width/2, screen_height/2)
+        self.camera.offset = pr.Vector2(self.screen_width/2, self.screen_height/2)
         self.camera.rotation = 0.0
-        self.camera.zoom = default_zoom
+        self.camera.zoom = self.default_zoom
     
     def does_board_exist(self):
         if len(self.board) > 0:
@@ -913,22 +917,12 @@ class ClientState:
         # camera and board reset (zoom and rotation)
         if user_input == pr.KeyboardKey.KEY_R:
             self.reset = True
-            self.camera.zoom = default_zoom
+            self.camera.zoom = self.default_zoom
             self.camera.rotation = 0.0
 
-        # set current_player/ robber
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-            # DEBUG - buttons
-            if self.debug == True:
-                for button in self.buttons:
-                    if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                        if button.name == "robber":
-                            self.move_robber = True
-                            self.current_player_name = ""
-                        else:
-                            self.current_player_name = button.name
-
-
+            # enter game/ change settings in client
+            pass
 
     def build_client_request(self, user_input):
         # client_request = {"player": "PLAYER_NAME", "location": Hex, Node or Edge, "debug": bool}
@@ -975,13 +969,21 @@ class ClientState:
         elif current_hex_2:
             self.current_edge_hexes = sort_hexes([self.current_hex, current_hex_2])
 
-
-        # selecting based on mouse button input from get_user_input()]
+        # selecting buttons based on left mouse input
+        action = ""
+        selection = None
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+            for button in self.buttons:
+                if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
+                    if button.name == "robber":
+                        self.move_robber = True
+                        # self.current_player_name = ""
+                    elif button.name == "roll_dice":
+                        action = "roll_dice"
+                    else:
+                        self.current_player_name = button.name
 
-            # selecting hex, node, edge
-            selection = None
-            action = ""
+            # checking board selections for building town, road, moving robber
             if self.current_node_hexes:
                 selection = self.current_node_hexes
                 action = "build_town"
@@ -990,16 +992,16 @@ class ClientState:
                 selection = self.current_edge_hexes
                 action = "build_road"
 
-            elif self.current_hex:
-                selection = self.current_hex
+            elif self.current_hex != None and self.current_hex in self.board["land_hexes"]:
                 if self.move_robber == True:
+                    selection = self.current_hex
                     action = "move_robber"
-                    self.move_robber = False
+                    self.move_robber = False # move this to update_client since server has to determine if robber is a valid move. server should return either "accept" or "reject" so client knows to toggle move_robber off, will prob help with other things too 
 
-            client_request["player"] = self.current_player_name
-            client_request["action"] = action
-            client_request["location"] = selection
-            client_request["debug"] = self.debug
+        client_request["player"] = self.current_player_name
+        client_request["action"] = action
+        client_request["location"] = selection
+        client_request["debug"] = self.debug
                         
         if len(client_request) > 0 and self.debug == True:
             print(f"client request = {client_request}. Msg {self.msg_number}")
@@ -1206,17 +1208,16 @@ class ClientState:
 
 
 def run_client():
-    # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
-    pr.init_window(screen_width, screen_height, "Natac")
-    pr.set_target_fps(60)
-    pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
-
     c_state = ClientState()
     print("starting client")
 
+    # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
+    pr.init_window(c_state.screen_width, c_state.screen_height, "Natac")
+    pr.set_target_fps(60)
+    pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
+
     while not pr.window_should_close():
         user_input = c_state.get_user_input()
-
         c_state.update_client_settings(user_input)
 
         client_request = c_state.build_client_request(user_input)
@@ -1246,14 +1247,13 @@ def run_combined():
     s_state = ServerState() # initialize board, players
     s_state.initialize_game()
     
-    # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
-    pr.init_window(screen_width, screen_height, "Natac")
-    pr.set_target_fps(60)
-    pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
-
-
     c_state = ClientState()
     print("starting client")
+
+    # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
+    pr.init_window(c_state.screen_width, c_state.screen_height, "Natac")
+    pr.set_target_fps(60)
+    pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
 
     while not pr.window_should_close():
         # get user input
@@ -1300,14 +1300,3 @@ run_combined()
 # "client" to "server" encoding and decoding within same program
 
 # once board is initiated, all server has to send back is update on whatever has been updated 
-
-
-
-# command line arguments - main.py run_client
-def command_line_args():
-    if __name__ == "__main__":
-        args = sys.argv
-        # args[0] = current file
-        # args[1] = function name
-        # args[2:] = function args : (*unpacked)
-        globals()[args[1]](*args[2:])

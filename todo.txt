@@ -18,6 +18,8 @@ Current player turn:
     Dice roll
     Collect resources
 
+use same seed for dice randomization to make testing easier
+
 client 'action' should be defined before it currently is
     currently mouse hover appears over nodes even when move_robber is selected, but only valid inputs should be highlighted with the mouse hover
 
