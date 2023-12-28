@@ -9,7 +9,6 @@ import hex_helper as hh
 import rendering_functions as rf
 
 
-
 local_IP = '127.0.0.1'
 local_port = 12345
 buffer_size = 10000
@@ -564,7 +563,7 @@ class Player:
 
 
 class ServerState:
-    def __init__(self):
+    def __init__(self, combined=False):
         # NETWORKING
         self.msg_number = 0
 
@@ -572,18 +571,11 @@ class ServerState:
         self.players = {}
 
         self.debug = True
-        self.debug_msgs = []
 
-    def start_server(self, combined=False):
-        print("starting server")
-        if combined == False:
+        self.combined = combined
+        if self.combined == False:
             self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
             self.socket.bind((local_IP, local_port))
-            # need to send initial message before board can be built?
-        
-        if combined == True:
-            # send initial state so client has board
-            return self.build_msg_to_client()
 
     
     def initialize_game(self):
@@ -765,16 +757,13 @@ class ServerState:
                 current_owner = self.players[selected_edge.player]
                 current_owner.num_roads -= 1
                 selected_edge.player = None
-
-        # set debug/display msg here
-        # self.debug_msgs.append()
             
 
     def server_to_client(self, encoded_client_request=None, combined=False):
         self.msg_number += 1
         msg_recv = ""
         if combined == False:
-            # use socket
+            # use socket to receive msg
             msg_recv, address = self.socket.recvfrom(buffer_size)
         else:
             # or just pass in variable
@@ -1233,9 +1222,9 @@ def run_client():
 
 
 def run_server():
-    s_state = ServerState() # initialize board, players
-    s_state.start_server()
-    s_state.initialize_game()
+    s_state = ServerState(combined=False) # initialize socket
+    print("starting server")
+    s_state.initialize_game() # initialize board, players
     while True:
         # receives msg, updates s_state, then sends message
         s_state.server_to_client()
@@ -1244,8 +1233,9 @@ def run_server():
 
 
 def run_combined():
-    s_state = ServerState() # initialize board, players
-    s_state.initialize_game()
+    s_state = ServerState(combined=True)
+    print("starting server")
+    s_state.initialize_game() # initialize board, players
     
     c_state = ClientState()
     print("starting client")
