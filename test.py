@@ -503,3 +503,9 @@ def main_test():
 
 # main_test()
 
+for i in range(4):
+    # random.seed(4)
+    die1, die2 = random.randint(1, 6), random.randint(1, 6)
+    print(f"die1: {die1}")
+    print(f"die2: {die2}")
+    print(f"roll: {die1+die2}")

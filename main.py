@@ -563,19 +563,22 @@ class Player:
 
 
 class ServerState:
-    def __init__(self, combined=False):
+    def __init__(self, combined=False, debug=True):
         # NETWORKING
         self.msg_number = 0
-
-        self.board = None
-        self.players = {}
-
-        self.debug = True
-
         self.combined = combined
         if self.combined == False:
             self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
             self.socket.bind((local_IP, local_port))
+
+        self.board = None
+        self.players = {}
+        self.die1 = 0
+        self.die2 = 0
+
+        self.debug = debug
+        if self.debug == True:
+            random.seed(4)
 
     
     def initialize_game(self):
@@ -638,7 +641,8 @@ class ServerState:
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex[:2],
             "num_towns": total_num_towns,
-            "num_roads": total_num_roads
+            "num_roads": total_num_roads,
+            "dice": [self.die1, self.die2]
         }
 
         return to_json(packet).encode()
@@ -658,19 +662,21 @@ class ServerState:
         if len(client_request["action"]) == 0:
             return
 
+        # move robber
+        elif client_request["action"] == "move_robber":
+            assert len(client_request["location"]) == 3, "should be 3 hex coords"
+
+            if client_request["location"] != self.board.robber_hex:
+                self.board.robber_hex = client_request["location"]
+        
+        elif client_request["action"] == "roll_dice":
+            self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
+        
         # define player if given (not for all actions e.g. move_robber)
         if len(client_request["player"]) > 0:
             current_player_object = self.players[client_request["player"]]
         else:
             current_player_object = None
-
-        # move robber
-        if client_request["action"] == "move_robber":
-            assert len(client_request["location"]) == 3, "should be 3 hex coords"
-
-            if client_request["location"] != self.board.robber_hex:
-                self.board.robber_hex = client_request["location"]
-
 
         # converts location to hexes
         location_hexes = []
@@ -809,11 +815,6 @@ class ClientState:
         self.msg_number = 0
 
         self.board = {}
-        self.screen_width=800
-        self.screen_height=600
-
-        self.default_zoom = 0.9
-
 
         # selecting via mouse
         self.world_position = None
@@ -821,17 +822,26 @@ class ClientState:
         self.current_hex = None
         self.current_edge_hexes = []
         self.current_node_hexes = []
+
+        self.hover_rec = None
         
         self.current_player_name = ""
 
         self.move_robber = False
+
+        self.die1 = 4
+        self.die2 = 3
 
         self.debug = True
         self.debug_msgs = []
 
         # maybe add potential actions so the mouse hover render knows what to highlight
 
-        # debug buttons
+        # window size
+        self.screen_width=800
+        self.screen_height=600
+
+        # buttons
         self.buttons=[
             Button(pr.Rectangle(self.screen_width-250, 20, 40, 40), "robber"),
             Button(pr.Rectangle(self.screen_width-200, 20, 40, 40), "red"),
@@ -839,9 +849,11 @@ class ClientState:
             Button(pr.Rectangle(self.screen_width-100, 20, 40, 40), "orange"), 
             Button(pr.Rectangle(self.screen_width-50, 20, 40, 40), "blue"),
 
-            Button(pr.Rectangle(self.screen_width-100, self.screen_height-150, 40, 40), "roll_dice")
+            Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 80, 40), "roll_dice")
         ]
 
+
+        self.default_zoom = 0.9
         # camera controls
         self.camera = pr.Camera2D()
         self.camera.target = pr.Vector2(0, 0)
@@ -854,6 +866,7 @@ class ClientState:
             return True
       
     def get_user_input(self):
+        
         self.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), self.camera)
 
         if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
@@ -880,12 +893,11 @@ class ClientState:
             return pr.KeyboardKey.KEY_F
 
     def update_client_settings(self, user_input):
-        # camera controls
-
         # not sure how to represent mouse wheel
         # if state.user_input == mouse wheel
         # state.camera.zoom += get_mouse_wheel_move() * 0.03
 
+        # camera controls
         if user_input == pr.KeyboardKey.KEY_RIGHT_BRACKET:
             self.camera.zoom += 0.03
         elif user_input == pr.KeyboardKey.KEY_LEFT_BRACKET:
@@ -908,6 +920,12 @@ class ClientState:
             self.reset = True
             self.camera.zoom = self.default_zoom
             self.camera.rotation = 0.0
+
+        self.hover_rec = None
+        # define mouse hover
+        for button in self.buttons:
+            if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
+                self.hover_rec = button.rec
 
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             # enter game/ change settings in client
@@ -992,8 +1010,8 @@ class ClientState:
         client_request["location"] = selection
         client_request["debug"] = self.debug
                         
-        if len(client_request) > 0 and self.debug == True:
-            print(f"client request = {client_request}. Msg {self.msg_number}")
+        # if len(client_request) > 0 and self.debug == True:
+            # print(f"client request = {client_request}. Msg {self.msg_number}")
         return client_request
 
     def client_to_server(self, client_request, combined=False):
@@ -1029,11 +1047,12 @@ class ClientState:
         # robber_hex : [0, 0]
         # num_roads : 8 
         # num_towns : 8
+        # dice : [die1, die2]
 
         server_response = json.loads(encoded_server_response)
 
         # data verification
-        lens_for_verification = {"ocean_hexes": 18, "ports_ordered": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19, "town_nodes": server_response["num_towns"], "road_edges": server_response["num_roads"], "robber_hex": 2}
+        lens_for_verification = {"ocean_hexes": 18, "ports_ordered": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19, "town_nodes": server_response["num_towns"], "road_edges": server_response["num_roads"], "robber_hex": 2, "dice": 2}
 
         for key, length in lens_for_verification.items():
             assert len(server_response[key]) == length, f"incorrect number of {key}, actual number = {len(server_response[key])}"
@@ -1081,6 +1100,9 @@ class ClientState:
         # robber_hex : [0, 0]
         q, r = server_response["robber_hex"]
         self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
+
+        # add dice roll
+        self.die1, self.die2 = server_response["dice"]
 
 
     def render_board(self):
@@ -1159,7 +1181,6 @@ class ClientState:
         # highlight current hex
         elif self.current_hex:
             pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 0, 6, pr.BLACK)
-
             
     def render_client(self):
     
@@ -1180,17 +1201,30 @@ class ClientState:
                 debug_2 = "Current player = None"
             pr.draw_text_ex(pr.gui_get_font(), debug_2, pr.Vector2(5, 25), 15, 0, pr.BLACK)
 
-            i = 0
-            for msg in self.debug_msgs:
-                i += 20 
-                if msg != None:
-                    pr.draw_text_ex(pr.gui_get_font(), debug_2, pr.Vector2(5, 45+i), 15, 0, pr.BLACK)
+            for i in (range(len(self.debug_msgs))):
+                offset = (i+1)*20
+                if self.debug_msgs[i] != None:
+                    pr.draw_text_ex(pr.gui_get_font(), debug_2, pr.Vector2(5, 45+offset), 15, 0, pr.BLACK)
 
-            for button in self.buttons:
-                pr.draw_rectangle_rec(button.rec, button.color)
-                pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
+        for button in self.buttons:
+            pr.draw_rectangle_rec(button.rec, button.color)
+            pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
+            # hightlight player button when selected
+            if self.current_player_name == button.name:
+                pr.draw_rectangle_lines_ex(button.rec, 4, pr.BLACK)
+            # draw dice
+            if button.name == "roll_dice":
+                rf.draw_dice(self.die1, self.die2, button.rec)
+                # draw line between dice
+                pr.draw_line_ex((int(button.rec.x + button.rec.width//2), int(button.rec.y)), (int(button.rec.x + button.rec.width//2), int(button.rec.y+button.rec.height)), 2, pr.BLACK)
 
-            
+        # highlight hover_rec
+        if self.hover_rec != None:
+            outer_offset = 2
+            outer_rec = pr.Rectangle(self.hover_rec.x-outer_offset, self.hover_rec.y-outer_offset, self.hover_rec.width+2*outer_offset, self.hover_rec.height+2*outer_offset)
+            pr.draw_rectangle_lines_ex(outer_rec, 5, pr.BLACK)
+            # pr.draw_rectangle_lines_ex(self.hover_rec, 3, pr.BLACK)
+     
         pr.end_drawing()
 
 

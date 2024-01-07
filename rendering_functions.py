@@ -152,6 +152,54 @@ def draw_city(node_point, color):
     # draw city base
     pr.draw_rectangle_rec(city_base_rec, color)
 
+
+def draw_dice(die1, die2, button_rec:pr.Rectangle):
+    # 1 = center
+    # 2 = 2 corners
+    # 3 = center + 2 corners
+    # 4 = 4 corners
+    # 5 = center + 4 corners
+    # 6 = 4 corners + 2 side dots
+    dot_size = 2.8
+    # die_x = button_rec.x
+    # die_y = button_rec.y
+    die_center_x = int(button_rec.x+button_rec.width//4)
+    die_center_y = int(button_rec.y+button_rec.height//2)
+    die_corner_offset = int(button_rec.width//7)
+    # draw die 1
+    if die1 == 1 or die1 == 3 or die1 == 5:
+        # center
+        pr.draw_circle(die_center_x, die_center_y, dot_size, pr.BLACK)
+    if die1 == 2 or die1 == 3 or die1 == 4 or die1 == 5 or die1 == 6:
+        # 2 corners
+        pr.draw_circle(die_center_x+die_corner_offset, die_center_y-die_corner_offset, dot_size, pr.BLACK)
+        pr.draw_circle(die_center_x-die_corner_offset, die_center_y+die_corner_offset, dot_size, pr.BLACK)
+    if die1 == 4 or die1 == 5 or die1 == 6:
+        # 2 other corners (4 total)
+        pr.draw_circle(die_center_x+die_corner_offset, die_center_y+die_corner_offset, dot_size, pr.BLACK)
+        pr.draw_circle(die_center_x-die_corner_offset, die_center_y-die_corner_offset, dot_size, pr.BLACK)
+    if die1 == 6:
+        pr.draw_circle(die_center_x+die_corner_offset, die_center_y, dot_size, pr.BLACK)
+        pr.draw_circle(die_center_x-die_corner_offset, die_center_y, dot_size, pr.BLACK)
+
+    # draw die 2
+    die2_x_offset = int(button_rec.width//2)
+    if die2 == 1 or die2 == 3 or die2 == 5:
+        pr.draw_circle(die_center_x+die2_x_offset, die_center_y, dot_size, pr.BLACK)
+    if die2 == 2 or die2 == 3 or die2 == 4 or die2 == 5 or die2 == 6:
+        # 2 corners
+        pr.draw_circle(die_center_x+die_corner_offset+die2_x_offset, die_center_y-die_corner_offset, dot_size, pr.BLACK)
+        pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y+die_corner_offset, dot_size, pr.BLACK)
+    if die2 == 4 or die2 == 5 or die2 == 6:
+        # 2 other corners (4 total)
+        pr.draw_circle(die_center_x+die_corner_offset+die2_x_offset, die_center_y+die_corner_offset, dot_size, pr.BLACK)
+        pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y-die_corner_offset, dot_size, pr.BLACK)
+    if die2 == 6:
+        pr.draw_circle(die_center_x+die_corner_offset+die2_x_offset, die_center_y, dot_size, pr.BLACK)
+        pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y, dot_size, pr.BLACK)
+
+
+
 # DEBUG
 def draw_axes():
     pr.draw_line_ex((510, 110), (290, 490), 2, pr.BLACK)
