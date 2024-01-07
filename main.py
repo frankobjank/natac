@@ -541,6 +541,7 @@ class Player:
         self.num_settlements = 0
         self.num_roads = 0
         self.ports = []
+        self.order = 0
 
     def __repr__(self):
         return f"Player {self.name}: \nHand: {self.hand}, Victory points: {self.victory_points}"
@@ -571,10 +572,15 @@ class ServerState:
             self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
             self.socket.bind((local_IP, local_port))
 
+        # BOARD
         self.board = None
         self.players = {}
+
+        # GAMEPLAY
         self.die1 = 0
         self.die2 = 0
+        self.turn_num = 0
+
 
         self.debug = debug
         if self.debug == True:
@@ -590,14 +596,23 @@ class ServerState:
     
     # hardcoded players, can set up later to take different combos based on user input
     def initialize_players(self, red=False, blue=False, orange=False, white=False):
+        order = 1
         if red == True:
             self.players["red"] = Player("red")
-        if blue == True:
-            self.players["blue"] = Player("blue")
-        if orange == True:
-            self.players["orange"] = Player("orange")
+            self.players["red"].order = order
+            order += 1
         if white == True:
             self.players["white"] = Player("white")
+            self.players["white"].order = order
+            order += 1
+        if orange == True:
+            self.players["orange"] = Player("orange")
+            self.players["orange"].order = order
+            order += 1
+        if blue == True:
+            self.players["blue"] = Player("blue")
+            self.players["blue"].order = order
+            order += 1
 
         # self.players = {"red": Player("red"), "blue": Player("blue"), "orange": Player("orange"), "white": Player("white")}
     
@@ -624,11 +639,6 @@ class ServerState:
                 new_edge["player"] = edge.player
                 road_edges.append(new_edge)
 
-        total_num_towns = 0
-        total_num_roads = 0
-        for player_object in self.players.values():
-            total_num_towns += player_object.num_cities + player_object.num_settlements
-            total_num_roads += player_object.num_roads
 
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
@@ -640,9 +650,8 @@ class ServerState:
             "town_nodes": town_nodes,
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex[:2],
-            "num_towns": total_num_towns,
-            "num_roads": total_num_roads,
-            "dice": [self.die1, self.die2]
+            "dice": [self.die1, self.die2],
+            "hands": {player_name: player_object.hand for player_name, player_object in self.players.items()} # {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
         }
 
         return to_json(packet).encode()
@@ -823,19 +832,22 @@ class ClientState:
         self.current_edge_hexes = []
         self.current_node_hexes = []
 
+        # maybe add potential actions so the mouse hover render knows what to highlight
         self.hover_rec = None
         
+        # players
+        self.players_ordered = []
         self.current_player_name = ""
 
+        # game pieces
         self.move_robber = False
-
         self.die1 = 4
         self.die2 = 3
 
+        # debug
         self.debug = True
         self.debug_msgs = []
 
-        # maybe add potential actions so the mouse hover render knows what to highlight
 
         # window size
         self.screen_width=800
@@ -853,8 +865,8 @@ class ClientState:
         ]
 
 
-        self.default_zoom = 0.9
         # camera controls
+        self.default_zoom = 0.9
         self.camera = pr.Camera2D()
         self.camera.target = pr.Vector2(0, 0)
         self.camera.offset = pr.Vector2(self.screen_width/2, self.screen_height/2)
@@ -1045,14 +1057,12 @@ class ClientState:
         # town_nodes : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None},
         # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
         # robber_hex : [0, 0]
-        # num_roads : 8 
-        # num_towns : 8
         # dice : [die1, die2]
 
         server_response = json.loads(encoded_server_response)
 
         # data verification
-        lens_for_verification = {"ocean_hexes": 18, "ports_ordered": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19, "town_nodes": server_response["num_towns"], "road_edges": server_response["num_roads"], "robber_hex": 2, "dice": 2}
+        lens_for_verification = {"ocean_hexes": 18, "ports_ordered": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19, "robber_hex": 2, "dice": 2}
 
         for key, length in lens_for_verification.items():
             assert len(server_response[key]) == length, f"incorrect number of {key}, actual number = {len(server_response[key])}"
