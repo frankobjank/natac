@@ -13,10 +13,12 @@ game_color_dict = {
     "white": pr.get_color(0xd6d6d6ff),
 
     # other pieces
-    "robber": pr.BLACK,
+    "robber": pr.RAYWHITE,
+    "road": pr.RAYWHITE,
+    "town": pr.RAYWHITE,
     # buttons
     "roll_dice": pr.RAYWHITE,
-    "end_turn": pr.RED,
+    "end_turn": pr.RAYWHITE,
 
     # put terrain + tile colors here
     "mountain": pr.get_color(0x7b6f83ff),
@@ -165,7 +167,7 @@ def draw_dice(dice, button_rec:pr.Rectangle):
     die_center_x = int(button_rec.x+button_rec.width//4)
     die_center_y = int(button_rec.y+button_rec.height//2)
     die_corner_offset = int(button_rec.width//7)
-    
+
     for i in range(2):
         # set die2_x_offset
         if i == 1:

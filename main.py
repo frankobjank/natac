@@ -579,15 +579,16 @@ class ServerState:
         self.players = {}
         self.current_player_name = None
 
-        # TURNS - maybe turn into class or method later
-        # self.toggles = {"move_robber": False, "build_road": False, "build_town": False}
-        self.move_robber = False
-        self.build_road = False
-        self.build_town = False
+        # TURNS
         self.die1 = 0
         self.die2 = 0
         self.turn_num = -1 # start game after first end_turn is pressed
         self.dice_rolls = 0
+        self.toggle_state = None
+        self.move_robber = False
+        self.build_road = False
+        self.build_town = False
+        self.trading = False
 
 
         self.debug = debug
@@ -631,7 +632,6 @@ class ServerState:
             rand_player = player_names[random.randint(0, len(player_names)-1)]
             self.players[rand_player].order = i
             player_names.remove(rand_player)
-
     
     def build_msg_to_client(self) -> bytes:
         town_nodes = []
@@ -675,7 +675,8 @@ class ServerState:
             "hands": {player_name: player_object.hand for player_name, player_object in self.players.items()}, # {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
             "turn_num": self.turn_num,
             "current_player": self.current_player_name,
-            "move_robber": self.move_robber
+            "toggle": self.toggle_state,
+            # "move_robber": self.move_robber
         }
 
         return to_json(packet).encode()
@@ -687,17 +688,25 @@ class ServerState:
         # client_request["id"] = client ID (player name)
         # client_request["action"] = action
         # client_request["location"] = selection - list of hexes
-        # client_request["move_robber"] = False
-            # make into client_request["toggles"] = {"move_robber": False, build_town: False, build_road: False, trading: False}
+        # client_request["toggle_state"] = "move_robber" or "build_town" or "build_road" or "trading"}
         # client_request["debug"] = self.debug
+            # client_request["move_robber"] = False
 
         # if receiving input from non-current player, return
         if client_request["id"] != self.current_player_name:
             # only time input from other players would be needed is for trades?
             return
 
-        # unpack toggles
-        self.move_robber = client_request["move_robber"]
+        # unpack toggle_state
+        self.toggle_state = client_request["toggle_state"]
+        if self.toggle_state == "move_robber":
+            self.move_robber = not self.move_robber
+        elif self.toggle_state == "build_road":
+            self.build_road = not self.build_road
+        elif self.toggle_state == "build_town":
+            self.build_town = not self.build_town
+        elif self.toggle_state == "trading":
+            self.trading = not self.trading
 
         self.debug = client_request["debug"]
 
@@ -711,8 +720,6 @@ class ServerState:
             q, r, s = client_request["location"]
             location_hex = hh.set_hex(q, r, s)
             if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
-                print(f"from client - {location_hex}")
-                print(f"on server - {self.board.robber_hex}")
                 self.board.robber_hex = location_hex
                 self.move_robber = False
                 print("server accepted robber move")
@@ -730,7 +737,7 @@ class ServerState:
             if self.dice_rolls > self.turn_num:
                 self.turn_num += 1
                 for player_name, player_object in self.players.items():
-                    if self.turn_num % 4 == player_object.order:
+                    if self.turn_num % len(self.players) == player_object.order:
                         self.current_player_name = player_name
             return
         
@@ -800,7 +807,7 @@ class ServerState:
                 if selected_node.port:
                     current_owner.ports.remove(selected_node.port)
 
-            
+
         elif client_request["action"] == "build_road":
             selected_edge = None
             for edge in self.board.edges:
@@ -897,11 +904,13 @@ class ClientState:
         self.current_player_name = None
 
         # GAMEPLAY
+        self.dice = []
+        self.turn_num = -1
+        self.toggle_state = None # can be move_robber, build_town, build_road, trading
         self.move_robber = False
         self.build_town = False
         self.build_road = False
-        self.dice = []
-        self.turn_num = -1
+        self.trading = False
 
 
         self.debug = True
@@ -914,6 +923,8 @@ class ClientState:
         button_size = 40
         self.buttons=[
             Button(pr.Rectangle(self.screen_width-50, 20, button_size, button_size), "robber"),
+            Button(pr.Rectangle(self.screen_width-100, 20, button_size, button_size), "road"),
+            Button(pr.Rectangle(self.screen_width-150, 20, button_size, button_size), "town"),
             Button(pr.Rectangle(150-2*button_size, self.screen_height-150, 2*button_size, button_size), "roll_dice"),
             Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 2*button_size, button_size), "end_turn")
         ]
@@ -961,9 +972,15 @@ class ClientState:
 
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_E):
             return pr.KeyboardKey.KEY_E
-        
+
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_F):
             return pr.KeyboardKey.KEY_F
+        
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_D):
+            return pr.KeyboardKey.KEY_D
+
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_C):
+            return pr.KeyboardKey.KEY_C
 
     def update_client_settings(self, user_input):
         # not sure how to represent mouse wheel
@@ -1049,14 +1066,27 @@ class ClientState:
         elif current_hex_2:
             self.current_edge_hexes = sort_hexes([self.current_hex, current_hex_2])
 
-        # selecting buttons based on left mouse input
+        # selecting action using button/keyboard
         action = ""
         selection = None
-        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+        if user_input == pr.KeyboardKey.KEY_D:
+            action = "roll_dice"
+        
+        elif user_input == pr.KeyboardKey.KEY_C:
+            action = "end_turn"
+        
+        elif user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             for button in self.buttons:
                 if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
                     if button.name == "robber":
                         self.move_robber = True
+                        self.toggle_state = "move_robber"
+                    elif button.name == "road":
+                        self.build_road = True
+                        self.toggle_state = "build_road"
+                    elif button.name == "town":
+                        self.build_town = True
+                        self.toggle_state = "build_town"
                     elif button.name == "roll_dice":
                         action = "roll_dice"
                     elif button.name == "end_turn":
@@ -1083,7 +1113,7 @@ class ClientState:
         client_request["id"] = self.id
         client_request["action"] = action
         client_request["location"] = selection
-        client_request["move_robber"] = self.move_robber
+        client_request["temp_state"] = self.move_robber
         client_request["debug"] = self.debug
                         
         # if len(client_request) > 0 and self.debug == True:
@@ -1125,6 +1155,7 @@ class ClientState:
         # hands: {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
         # turn_num : 0
         # current_player : self.current_player
+        # toggle : "move_robber"
         # move_robber : self.move_robber
 
 
@@ -1185,6 +1216,18 @@ class ClientState:
         self.turn_num = server_response["turn_num"]
 
         self.current_player_name = server_response["current_player"]
+
+        # unpack toggle_state
+        self.toggle_state = server_response["toggle"]
+        if self.toggle_state == "move_robber":
+            self.move_robber = not self.move_robber
+        elif self.toggle_state == "build_road":
+            self.build_road = not self.build_road
+        elif self.toggle_state == "build_town":
+            self.build_town = not self.build_town
+        elif self.toggle_state == "trading":
+            self.trading = not self.trading
+
 
         self.move_robber = server_response["move_robber"]
 
@@ -1292,7 +1335,7 @@ class ClientState:
             pr.draw_text_ex(pr.gui_get_font(), debug_2, pr.Vector2(5, 25), 15, 0, pr.BLACK)
             debug_3 = f"Turn number: {self.turn_num}"
             pr.draw_text_ex(pr.gui_get_font(), debug_3, pr.Vector2(5, 45), 15, 0, pr.BLACK)
-            debug_4 = f"Move robber: {self.move_robber}"
+            debug_4 = f"temp_state: {self.temp_state}"
             pr.draw_text_ex(pr.gui_get_font(), debug_4, pr.Vector2(5, 65), 15, 0, pr.BLACK)
 
         for button in self.buttons:
@@ -1303,8 +1346,15 @@ class ClientState:
                 rf.draw_dice(self.dice, button.rec)
                 # draw line between dice
                 pr.draw_line_ex((int(button.rec.x + button.rec.width//2), int(button.rec.y)), (int(button.rec.x + button.rec.width//2), int(button.rec.y+button.rec.height)), 2, pr.BLACK)
+            if button.name == "road":
+                pr.draw_text_ex(pr.gui_get_font(), "road", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
+            if button.name == "town":
+                pr.draw_text_ex(pr.gui_get_font(), "town", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
+            if button.name == "robber":
+                pr.draw_text_ex(pr.gui_get_font(), "robr", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
+
             if button.name == "end_turn":
-                pr.draw_text_ex(pr.gui_get_font(), "End Turn", (button.rec.x+5, button.rec.y+5), 12, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), "End Turn", (button.rec.x+5, button.rec.y+12), 12, 0, pr.BLACK)
 
         for marker in self.markers:
             pr.draw_rectangle_rec(marker.rec, marker.color)
