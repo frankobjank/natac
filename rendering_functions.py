@@ -16,6 +16,7 @@ game_color_dict = {
     "robber": pr.BLACK,
     # buttons
     "roll_dice": pr.RAYWHITE,
+    "end_turn": pr.RED,
 
     # put terrain + tile colors here
     "forest": pr.get_color(0x517d19ff),

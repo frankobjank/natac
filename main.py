@@ -124,7 +124,7 @@ class Edge:
         return list(adj_edges_1.symmetric_difference(adj_edges_2))
 
 
-    def build_check_road(self, s_state, current_player):
+    def build_check_road(self, s_state, current_player_name):
         print("build_check_road")
 
         # ocean check
@@ -135,7 +135,7 @@ class Edge:
         # home check. if adj node is a same-player town, return True
         self_nodes = self.get_adj_nodes(s_state.board.nodes)
         for node in self_nodes:
-            if node.player == current_player:
+            if node.player == current_player_name:
                 print("building next to settlement")
                 return True
         
@@ -144,7 +144,7 @@ class Edge:
         # origin_edge = None
         origin_edges = []
         for edge in adj_edges:
-            if edge.player == current_player:
+            if edge.player == current_player_name:
                 origin_edges.append(edge)
 
         if len(origin_edges) == 0: # non-contiguous
@@ -167,10 +167,10 @@ class Edge:
                 destination_node = self_nodes[0]
 
             # match with adj edge, build is ok
-            if origin_node.player != None and origin_node.player == current_player:
+            if origin_node.player != None and origin_node.player == current_player_name:
                 break
             # origin node blocked by another player
-            elif origin_node.player != None and origin_node.player != current_player:
+            elif origin_node.player != None and origin_node.player != current_player_name:
                 print("adjacent node blocked by settlement, checking others")
                 blocked_count += 1
                 
@@ -229,7 +229,7 @@ class Node:
                     
         return adj_nodes
 
-    def build_check_settlement(self, s_state, current_player):
+    def build_check_settlement(self, s_state, current_player_name):
         # current_player is player name only
         print("build_check_settlement")
         
@@ -251,16 +251,16 @@ class Node:
             
         adj_edges = self.get_adj_edges(s_state.board.edges)
         # is node adjacent to at least 1 same-colored road
-        if all(edge.player != current_player for edge in adj_edges):
+        if all(edge.player != current_player_name for edge in adj_edges):
             print("no adjacent roads")
             return False
         
         # if between opponent's road
         adj_edge_players = [edge.player for edge in adj_edges]
-        if current_player in adj_edge_players:
-            adj_edge_players.remove(current_player)
+        if current_player_name in adj_edge_players:
+            adj_edge_players.remove(current_player_name)
             if adj_edge_players[0] == adj_edge_players[1]:
-                if None not in adj_edge_players and current_player not in adj_edge_players:
+                if None not in adj_edge_players and current_player_name not in adj_edge_players:
                     print("can't build in middle of road")
                     return False
                 
@@ -574,13 +574,16 @@ class ServerState:
 
         # BOARD
         self.board = None
-        self.players = {}
 
-        # GAMEPLAY
+        # PLAYERS
+        self.players = {}
+        self.current_player_name = None
+
+        # TURNS
         self.die1 = 0
         self.die2 = 0
-        self.turn_num = 0
-
+        self.turn_num = -1 # start game after first dice roll
+        self.dice_rolls = 0
 
         self.debug = debug
         if self.debug == True:
@@ -596,7 +599,7 @@ class ServerState:
     
     # hardcoded players, can set up later to take different combos based on user input
     def initialize_players(self, red=False, blue=False, orange=False, white=False):
-        order = 1
+        order = 0
         if red == True:
             self.players["red"] = Player("red")
             self.players["red"].order = order
@@ -614,12 +617,22 @@ class ServerState:
             self.players["blue"].order = order
             order += 1
 
+        # eventually randomize player order; randomly assign order to each player
         # self.players = {"red": Player("red"), "blue": Player("blue"), "orange": Player("orange"), "white": Player("white")}
+            
+    def randomize_player_order(self):
+        player_names = [name for name in self.players.keys()]
+        for i in range(len(player_names)):
+            rand_player = player_names[random.randint(0, len(player_names)-1)]
+            self.players[rand_player].order = i
+            player_names.remove(rand_player)
+
     
     def build_msg_to_client(self) -> bytes:
         town_nodes = []
         road_edges = []
-
+        player_order = {}
+        
         # add all nodes/edge owned by players, abridge hexes
         for node in self.board.nodes:
             if node.player != None:
@@ -639,6 +652,9 @@ class ServerState:
                 new_edge["player"] = edge.player
                 road_edges.append(new_edge)
 
+        # player order - might be useful in actual gameplay when turn order is more random and for client rendering so the game goes in clock-wise order (if that even applies)
+        for player_name, player_object in self.players.items():
+            player_order[player_object.order] = player_name
 
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
@@ -651,7 +667,9 @@ class ServerState:
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex[:2],
             "dice": [self.die1, self.die2],
-            "hands": {player_name: player_object.hand for player_name, player_object in self.players.items()} # {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
+            "hands": {player_name: player_object.hand for player_name, player_object in self.players.items()}, # {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
+            "turn_num": self.turn_num,
+            "current_player": self.current_player_name
         }
 
         return to_json(packet).encode()
@@ -659,11 +677,17 @@ class ServerState:
     def update_server(self, client_request) -> None:
         if client_request == None or len(client_request) == 0:
             return
-
-        # client_request["player"] = current_player_name
+        
+        # client_request["id"] = client ID (player name)
         # client_request["action"] = action
         # client_request["location"] = selection - list of hexes
         # client_request["debug"] = self.debug
+
+        # if receiving input from non-current player, return
+        if client_request["id"] != self.current_player_name:
+            # only time input from other players would be needed is for trades?
+            return
+
 
         client_request["debug"] = self.debug
 
@@ -677,24 +701,33 @@ class ServerState:
 
             if client_request["location"] != self.board.robber_hex:
                 self.board.robber_hex = client_request["location"]
+                print("server accepted robber move")
         
         elif client_request["action"] == "roll_dice":
             self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
+            return
+
+        elif client_request["action"] == "end_turn":
+            # increment turn number and set new current_player
+            self.turn_num += 1
+            for player_name, player_object in self.players.items():
+                if self.turn_num % 4 == player_object.order:
+                    self.current_player_name = player_name
+            return
         
-        # define player if given (not for all actions e.g. move_robber)
-        if len(client_request["player"]) > 0:
-            current_player_object = self.players[client_request["player"]]
-        else:
-            current_player_object = None
 
         # converts location to hexes
-        location_hexes = []
-        if "build" in client_request["action"] and len(client_request["location"]) > 0:
+        elif "build" in client_request["action"] and len(client_request["location"]) > 0:
+            location_hexes = []
             for hex_coords in client_request["location"]:
                 location_hexes.append(hh.set_hex_from_coords(hex_coords))
         
+        current_player_object = None
+        if self.current_player_name:
+            current_player_object = self.players[self.current_player_name]
+        
         # build town or road
-        # toggle between settlement, city, None
+        # toggle between settlement, city
         if client_request["action"] == "build_town":
             selected_node = None
             for node in self.board.nodes:
@@ -707,9 +740,9 @@ class ServerState:
                     print("no available settlements")
                     return
                 # settlement build_check
-                if selected_node.build_check_settlement(self, client_request["player"]):
+                if selected_node.build_check_settlement(self, self.current_player_name):
                     selected_node.town = "settlement"
-                    selected_node.player = client_request["player"]
+                    selected_node.player = self.current_player_name
                     current_player_object.num_settlements += 1
                     if selected_node.port:
                         current_player_object.ports.append(selected_node.port)
@@ -756,14 +789,14 @@ class ServerState:
                     selected_edge = edge
                     break
             # place roads unowned edge
-            if selected_edge.player == None and current_player_object != None:
+            if selected_edge.player == None and self.current_player_name != None:
                 # check num_roads
                 if current_player_object.num_roads >= 15:
                     print("no available roads")
                     return
                 # build_check_road
-                if selected_edge.build_check_road(self, client_request["player"]):
-                    selected_edge.player = client_request["player"]
+                if selected_edge.build_check_road(self, self.current_player_name):
+                    selected_edge.player = self.current_player_name
                     current_player_object.num_roads += 1
 
             # remove roads
@@ -814,14 +847,19 @@ class Button:
     def __repr__(self):
         return f"Button({self.name}"
 
-
+class Marker:
+    def __init__(self, rec:pr.Rectangle, name):
+        self.rec = rec
+        self.name = name
+        self.color = rf.game_color_dict[self.name]
 
 
 class ClientState:
-    def __init__(self):
+    def __init__(self, id="red"):
         # Networking
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.msg_number = 0
+        self.id = id # for debug, start as "red"
 
         self.board = {}
 
@@ -835,33 +873,38 @@ class ClientState:
         # maybe add potential actions so the mouse hover render knows what to highlight
         self.hover_rec = None
         
-        # players
-        self.players_ordered = []
-        self.current_player_name = ""
+        # PLAYERS
+        # self.players_ordered = []
+        self.current_player_name = None
 
-        # game pieces
+        # GAMEPLAY
         self.move_robber = False
+        self.build_town = False
+        self.build_road = False
         self.die1 = 4
         self.die2 = 3
+        self.turn_num = -1
 
-        # debug
+
         self.debug = True
-        self.debug_msgs = []
-
 
         # window size
-        self.screen_width=800
-        self.screen_height=600
+        self.screen_width=900 #800
+        self.screen_height=750 #600
 
         # buttons
+        button_size = 40
         self.buttons=[
-            Button(pr.Rectangle(self.screen_width-250, 20, 40, 40), "robber"),
-            Button(pr.Rectangle(self.screen_width-200, 20, 40, 40), "red"),
-            Button(pr.Rectangle(self.screen_width-150, 20, 40, 40), "white"), 
-            Button(pr.Rectangle(self.screen_width-100, 20, 40, 40), "orange"), 
-            Button(pr.Rectangle(self.screen_width-50, 20, 40, 40), "blue"),
+            Button(pr.Rectangle(self.screen_width-50, 20, button_size, button_size), "robber"),
+            Button(pr.Rectangle(150-2*button_size, self.screen_height-150, 2*button_size, button_size), "roll_dice"),
+            Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 2*button_size, button_size), "end_turn")
+        ]
 
-            Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 80, 40), "roll_dice")
+        self.markers=[
+            Marker(pr.Rectangle(self.screen_width//2, self.screen_height-20-button_size, button_size, button_size), "red"),
+            Marker(pr.Rectangle(50-button_size, self.screen_height//2, button_size, button_size), "white"),
+            Marker(pr.Rectangle(self.screen_width//2, 20, button_size, button_size), "orange"), 
+            Marker(pr.Rectangle(self.screen_width-50, self.screen_height//2, button_size, button_size), "blue"),
         ]
 
 
@@ -996,11 +1039,10 @@ class ClientState:
                 if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
                     if button.name == "robber":
                         self.move_robber = True
-                        # self.current_player_name = ""
                     elif button.name == "roll_dice":
                         action = "roll_dice"
-                    else:
-                        self.current_player_name = button.name
+                    elif button.name == "end_turn":
+                        action = "end_turn"
 
             # checking board selections for building town, road, moving robber
             if self.current_node_hexes:
@@ -1017,7 +1059,11 @@ class ClientState:
                     action = "move_robber"
                     self.move_robber = False # move this to update_client since server has to determine if robber is a valid move. server should return either "accept" or "reject" so client knows to toggle move_robber off, will prob help with other things too 
 
-        client_request["player"] = self.current_player_name
+        # eventually one client will only be able to control one player; for debug client presents itself as current_player
+        if self.debug == True:
+            self.id = self.current_player_name
+
+        client_request["id"] = self.id
         client_request["action"] = action
         client_request["location"] = selection
         client_request["debug"] = self.debug
@@ -1058,6 +1104,10 @@ class ClientState:
         # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
         # robber_hex : [0, 0]
         # dice : [die1, die2]
+        # hands: {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
+        # turn_num : 0
+        # current_player: self.current_player
+
 
         server_response = json.loads(encoded_server_response)
 
@@ -1109,10 +1159,20 @@ class ClientState:
         
         # robber_hex : [0, 0]
         q, r = server_response["robber_hex"]
-        self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
+        # if robber moved, set move_robber to false
+        if "robber_hex" in self.board:
+            old_robber_hex = self.board["robber_hex"]
+            self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
+            if old_robber_hex != self.board["robber_hex"]:
+                self.move_robber = False
+        else:
+            self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
 
-        # add dice roll
         self.die1, self.die2 = server_response["dice"]
+
+        self.turn_num = server_response["turn_num"]
+
+        self.current_player_name = server_response["current_player"]
 
 
     def render_board(self):
@@ -1154,8 +1214,8 @@ class ClientState:
                         midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
                         pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
-        if self.debug == True:
-            self.render_mouse_hover()
+        # if self.debug == True:
+        self.render_mouse_hover()
 
         # draw roads, settlements, cities
         for edge in self.board["road_edges"]:
@@ -1172,25 +1232,31 @@ class ClientState:
         rf.draw_robber(robber_hex_center)
 
     def render_mouse_hover(self):
-        # highlight current node
-        if self.current_node_hexes:
-            node_object = Node(self.current_node_hexes[0], self.current_node_hexes[1], self.current_node_hexes[2])
-            pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
-            # highlight node hexes
-            for hex in self.current_node_hexes:
-                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, 50, 0, 6, pr.BLACK)
+        if self.debug == True:
+            # highlight current node
+            if self.current_node_hexes:
+                node_object = Node(self.current_node_hexes[0], self.current_node_hexes[1], self.current_node_hexes[2])
+                pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
+                # highlight node hexes
+                for hex in self.current_node_hexes:
+                    pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, 50, 0, 6, pr.BLACK)
 
-        # highlight current edge
-        elif self.current_edge_hexes:
-            edge_object = Edge(self.current_edge_hexes[0], self.current_edge_hexes[1])
-            pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
-            # highlight edge hexes
-            for hex in self.current_edge_hexes:
-                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, 50, 0, 6, pr.BLACK)
+            # highlight current edge
+            elif self.current_edge_hexes:
+                edge_object = Edge(self.current_edge_hexes[0], self.current_edge_hexes[1])
+                pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
+                # highlight edge hexes
+                for hex in self.current_edge_hexes:
+                    pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, 50, 0, 6, pr.BLACK)
 
-        # highlight current hex
-        elif self.current_hex:
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 0, 6, pr.BLACK)
+            # highlight current hex
+            elif self.current_hex and self.move_robber == True:
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 0, 6, pr.BLACK)
+            
+        elif self.debug == False:
+            if self.current_hex and self.move_robber == True:
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 0, 6, pr.BLACK)
+
             
     def render_client(self):
     
@@ -1210,24 +1276,28 @@ class ClientState:
             else:
                 debug_2 = "Current player = None"
             pr.draw_text_ex(pr.gui_get_font(), debug_2, pr.Vector2(5, 25), 15, 0, pr.BLACK)
-
-            for i in (range(len(self.debug_msgs))):
-                offset = (i+1)*20
-                if self.debug_msgs[i] != None:
-                    pr.draw_text_ex(pr.gui_get_font(), debug_2, pr.Vector2(5, 45+offset), 15, 0, pr.BLACK)
+            debug_3 = f"Turn number: {self.turn_num}"
+            pr.draw_text_ex(pr.gui_get_font(), debug_3, pr.Vector2(5, 45), 15, 0, pr.BLACK)
 
         for button in self.buttons:
             pr.draw_rectangle_rec(button.rec, button.color)
             pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
-            # hightlight player button when selected
-            if self.current_player_name == button.name:
-                pr.draw_rectangle_lines_ex(button.rec, 4, pr.BLACK)
             # draw dice
             if button.name == "roll_dice":
                 rf.draw_dice(self.die1, self.die2, button.rec)
                 # draw line between dice
                 pr.draw_line_ex((int(button.rec.x + button.rec.width//2), int(button.rec.y)), (int(button.rec.x + button.rec.width//2), int(button.rec.y+button.rec.height)), 2, pr.BLACK)
+            if button.name == "end_turn":
+                pr.draw_text_ex(pr.gui_get_font(), "End Turn", (button.rec.x+5, button.rec.y+5), 12, 0, pr.BLACK)
 
+        for marker in self.markers:
+            pr.draw_rectangle_rec(marker.rec, marker.color)
+            pr.draw_rectangle_lines_ex(marker.rec, 1, pr.BLACK)
+
+            # hightlight current player
+            if marker.name == self.current_player_name:
+                pr.draw_rectangle_lines_ex(marker.rec, 4, pr.BLACK)
+                
         # highlight hover_rec
         if self.hover_rec != None:
             outer_offset = 2

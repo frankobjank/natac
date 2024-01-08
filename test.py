@@ -1,37 +1,13 @@
-from pyray import *
 import pyray as pr
-from enum import Enum
-from hex_helper import *
-
-from operator import itemgetter, attrgetter
-import random
-
 import hex_helper as hh
 import rendering_functions as rf
-
-from typing import Literal
+from operator import itemgetter, attrgetter
+import random
 import math
 
-# classes
-# player = {"cities": None, "settlements": None, "roads": None, "ports": None, "resource_cards": None, "development_cards": None, "victory_points": 0}
-
-# {edges: "player": player} where player is None if no roads present 
-# edge()
-# self.nodes = {}
-
-
-# all things hexes are used for:
-    # node:
-        # placing settlements and cities
-        # collecting resources
-        # connecting to ports
-    # edges:
-        # building roads
-    # number token
-    # contains robber
 
 def vector2_round(vector2):
-    return Vector2(int(vector2.x), int(vector2.y))
+    return pr.Vector2(int(vector2.x), int(vector2.y))
 
 
 screen_width=800
@@ -44,44 +20,16 @@ pointy = hh.Layout(hh.layout_pointy, hh.Point(50, 50), hh.Point(400, 300))
 origin = hh.set_hex(0, 0, 0)
 
 class Player:
-    def __init__(self, PlayerColor):
-        self.name = PlayerColor.name
-        self.color = PlayerColor.value
-        self.cities = []
-        self.settlements = []
-        self.roads = []
-        self.ports = []
-        self.hand = []
-        self.development_cards = []
+    def __init__(self, name):
+        self.name = name
+        self.hand = {} # {"brick": 4, "wood": 2}
+        self.development_cards = {} # {"soldier": 4, "victory_point": 1}
         self.victory_points = 0
-    
-    def __repr__(self):
-        return f"Player {self.name}:  cities {self.cities}, settlements {self.settlements}, roads {self.roads}, ports {self.ports}, hand {self.hand}, victory points: {self.victory_points}"
-
-
-# test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
-class PlayerColor(Enum):
-    NIL = GRAY
-    RED = get_color(0xe1282fff)
-    BLUE = get_color(0x2974b8ff)
-    ORANGE = get_color(0xd46a24ff)
-    WHITE = get_color(0xd6d6d6ff)
-
-# player_colors = {"NIL": GRAY, "RED": get_color(0xe1282fff), "BLUE": get_color(0x2974b8ff), "ORANGE": get_color(0xd46a24ff), "WHITE": get_color(0xd6d6d6ff)}
-
-# class Player(Enum):
-#     NIL = PlayerClass(PlayerColor.NIL)
-#     RED = PlayerClass(PlayerColor.RED)
-#     BLUE = PlayerClass(PlayerColor.BLUE)
-#     ORANGE = PlayerClass(PlayerColor.ORANGE)
-#     WHITE = PlayerClass(PlayerColor.WHITE)
-
-PlayerBLUE = Player(PlayerColor.BLUE)
-PlayerRED = Player(PlayerColor.RED)
-PlayerORANGE = Player(PlayerColor.ORANGE)
-PlayerWHITE = Player(PlayerColor.WHITE)
-PlayerNIL = Player(PlayerColor.NIL)
-
+        self.num_cities = 0
+        self.num_settlements = 0
+        self.num_roads = 0
+        self.ports = []
+        self.order = 0
 
 hexes = [hh.set_hex(0, -2, 2),
         hh.set_hex(1, -2, 1),
@@ -175,337 +123,87 @@ class Node:
                     adj_edges.append(edge)
         return adj_edges
     
-nodes = []
-edges = []
 
-# check if distance between mouse and hex_center shorter than radius
-def radius_check_v(pt1:Vector2, pt2:Vector2, radius:int)->bool:
-    
-    if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
-        return True
-    else:
-        return False
-    
-def radius_check_two_circles(center1: Vector2, radius1: int, center2: Vector2, radius2: int) -> bool:
-    if math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2):
-        return True
-    else:
-        return False
-
-
-# build node and edge lists
-for i in range(len(hexes)):
-    for j in range(i+1, len(hexes)):
-        if radius_check_two_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[j]), 60):
-            edges.append(Edge(hexes[i], hexes[j]))
-            for k in range(j+1, len(hexes)):
-                if radius_check_two_circles(hh.hex_to_pixel(pointy, hexes[i]), 60, hh.hex_to_pixel(pointy, hexes[k]), 60):
-                    nodes.append(Node(hexes[i], hexes[j], hexes[k]))
-
-node = nodes[0]
-
-class Tile:
-    def __init__(self, terrain, hex, token, port=None):
-        self.terrain = terrain
-        self.resource = terrain.value["resource"]
-        self.color = terrain.value["color"]
-        self.hex = hex
-        self.token = token
-        for k, v in self.token.items():
-            self.dice_num = k
-            self.dots = v
-        self.port = port
-    
-    def __repr__(self):
-        return f"Tile(terrain: {self.terrain}, resource: {self.resource}, color: {self.color}, hex: {self.hex}, token: {self.token}, dice_num: {self.dice_num}, dots: {self.dots} port: {self.port})"
-
-class Terrain(Enum):
-    # colors defined as R, G, B, A where A is alpha/opacity
-    FOREST = {"resource": "wood", "color": get_color(0x517d19ff)}
-    HILL = {"resource": "brick", "color": get_color(0x9c4300ff)}
-    PASTURE = {"resource": "sheep", "color": get_color(0x17b97fff)}
-    FIELD = {"resource": "wheat", "color": get_color(0xf0ad00ff)}
-    MOUNTAIN = {"resource": "ore", "color": get_color(0x7b6f83ff)}
-    DESERT = {"resource": None, "color": get_color(0xffd966ff)}
-    OCEAN = {"resource": None, "color": get_color(0x4fa6ebff)}
-
-default_terrains=[
-    Terrain.MOUNTAIN, Terrain.PASTURE, Terrain.FOREST,
-    Terrain.FIELD, Terrain.HILL, Terrain.PASTURE, Terrain.HILL,
-    Terrain.FIELD, Terrain.FOREST, Terrain.DESERT, Terrain.FOREST, Terrain.MOUNTAIN,
-    Terrain.FOREST, Terrain.MOUNTAIN, Terrain.FIELD, Terrain.PASTURE,
-    Terrain.HILL, Terrain.FIELD, Terrain.PASTURE]
-
-
-default_tile_tokens_dict = [{10: 3}, {2: 1}, {9: 4}, {12: 1}, {6: 5}, {4: 3}, {10: 3}, {9: 4}, {11: 2}, {None: None}, {3: 2}, {8: 5}, {8: 5}, {3: 2}, {4: 3}, {5: 4}, {5: 4}, {6: 5}, {11: 2}]
-
-
-board = []
-
-for i in range(len(hexes)):
-    board.append(Tile(default_terrains[i], hexes[i], default_tile_tokens_dict[i]))
-
-roads = []
-settlements = []
-cities = []
-
-# Red 
-red_nodes = [Node(Hex(0, -2, 2), Hex(1, -2, 1), Hex(0, -1, 1)), Node(Hex(-2, 0, 2), Hex(-1, 0, 1), Hex(-2, 1, 1))]
-red_edges = [Edge(Hex(1, -2, 1), Hex(0, -1, 1)), Edge(Hex(-1, 0, 1), Hex(-2, 1, 1))]
-
-# Blue
-blue_nodes = [Node(Hex(-2, 1, 1), Hex(-1, 1, 0), Hex(-2, 2, 0)), Node(Hex(0, 1, -1), Hex(1, 1, -2), Hex(0, 2, -2))]
-blue_edges = [Edge(Hex(-1, 1, 0), Hex(-2, 2, 0)), Edge(Hex(0, 1, -1), Hex(1, 1, -2))]
-
-# White
-white_nodes = [Node(Hex(q=-1, r=-1, s=2), Hex(q=-1, r=0, s=1), Hex(q=0, r=-1, s=1)), Node(Hex(q=1, r=0, s=-1), Hex(q=1, r=1, s=-2), Hex(q=2, r=0, s=-2))]
-white_edges = [Edge(Hex(q=1, r=0, s=-1), Hex(q=2, r=0, s=-2)), Edge(Hex(q=-1, r=-1, s=2), Hex(q=-1, r=0, s=1))]
-
-# Orange
-orange_nodes = [Node(Hex(q=-1, r=1, s=0), Hex(q=-1, r=2, s=-1), Hex(q=0, r=1, s=-1)), Node(Hex(q=1, r=-1, s=0), Hex(q=2, r=-2, s=0), Hex(q=2, r=-1, s=-1))]
-orange_edges=[Edge(Hex(q=1, r=-1, s=0), Hex(q=2, r=-2, s=0)), Edge(Hex(q=-1, r=2, s=-1), Hex(q=0, r=1, s=-1))]
-
-# assign settlements
-for node in nodes:
-    for orange_node in orange_nodes:
-        if node.hex_a == orange_node.hex_a and node.hex_b == orange_node.hex_b and node.hex_c == orange_node.hex_c:
-            # 4 ways to add the settlement..... too many?
-            PlayerORANGE.settlements.append(node)
-            settlements.append(node)
-            node.player = PlayerORANGE
-            node.town = "settlement"
-
-    for blue_node in blue_nodes:
-        if node.hex_a == blue_node.hex_a and node.hex_b == blue_node.hex_b and node.hex_c == blue_node.hex_c:
-            PlayerBLUE.settlements.append(node)
-            settlements.append(node)
-            node.player = PlayerBLUE
-            node.town = "settlement"
-
-    for red_node in red_nodes:
-        if node.hex_a == red_node.hex_a and node.hex_b == red_node.hex_b and node.hex_c == red_node.hex_c:
-            PlayerRED.settlements.append(node)
-            settlements.append(node)
-            node.player = PlayerRED
-            node.town = "settlement"
-
-    for white_node in white_nodes:
-        if node.hex_a == white_node.hex_a and node.hex_b == white_node.hex_b and node.hex_c == white_node.hex_c:
-            PlayerWHITE.settlements.append(node)
-            settlements.append(node)
-            node.player = PlayerWHITE
-            node.town = "settlement"
-# assign roads
-for edge in edges:
-    for orange_edge in orange_edges:
-        if edge.hex_a == orange_edge.hex_a and edge.hex_b == orange_edge.hex_b:
-            PlayerORANGE.roads.append(edge)
-            roads.append(edge)
-            edge.player = PlayerORANGE
-
-    for blue_edge in blue_edges:
-        if edge.hex_a == blue_edge.hex_a and edge.hex_b == blue_edge.hex_b:
-            PlayerBLUE.roads.append(edge)
-            roads.append(edge)
-            edge.player = PlayerBLUE
-
-    for red_edge in red_edges:
-        if edge.hex_a == red_edge.hex_a and edge.hex_b == red_edge.hex_b:
-            PlayerRED.roads.append(edge)
-            roads.append(edge)
-            edge.player = PlayerRED
-
-    for white_edge in white_edges:
-        if edge.hex_a == white_edge.hex_a and edge.hex_b == white_edge.hex_b:
-            PlayerWHITE.roads.append(edge)
-            roads.append(edge)
-            edge.player = PlayerWHITE
 
 
 def main():
-    init_window(screen_width, screen_height, "natac")
-    gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
-    set_target_fps(60)
-    current_player = PlayerNIL
-    while not window_should_close():
-        # user input/ update
-        mouse = get_mouse_position()
-
-        current_hex = None
-        current_hex_2 = None
-        current_hex_3 = None
-        current_edge = None
-        current_node = None
-
-        # check radius for current hex
-        for hex in hexes:
-            if radius_check_v(mouse, hh.hex_to_pixel(pointy, hex), 60):
-                current_hex = hex
-                break
-        # 2nd loop for edges - current_hex_2
-        for hex in hexes:
-            if current_hex != hex:
-                if radius_check_v(mouse, hh.hex_to_pixel(pointy, hex), 60):
-                    current_hex_2 = hex
-                    break
-        # 3rd loop for nodes - current_hex_3
-        for hex in hexes:
-            if current_hex != hex and current_hex_2 != hex:
-                if radius_check_v(mouse, hh.hex_to_pixel(pointy, hex), 60):
-                    current_hex_3 = hex
-                    break
-        
-        # finding node with all current hexes
-        if current_hex_3:
-            sorted_hexes = sorted((current_hex, current_hex_2, current_hex_3), key=attrgetter("q", "r", "s"))
-            for node in nodes:
-                if node.hex_a == sorted_hexes[0] and node.hex_b == sorted_hexes[1] and node.hex_c == sorted_hexes[2]:
-                    current_node = node
-                    break
-
-        # finding edge with both current hexes
-        elif current_hex_2:
-            sorted_hexes = sorted((current_hex, current_hex_2), key=attrgetter("q", "r", "s"))
-            for edge in edges:
-                if edge.hex_a == sorted_hexes[0] and edge.hex_b == sorted_hexes[1]:
-                    current_edge = edge
-                    break
-
-        blue_button = Rectangle(700, 20, 40, 40)
-        if check_collision_point_rec(mouse, blue_button):
-            current_player = PlayerBLUE
-
-        orange_button = Rectangle(650, 20, 40, 40)
-        if check_collision_point_rec(mouse, orange_button):
-            current_player = PlayerORANGE
-
-        white_button = Rectangle(600, 20, 40, 40)
-        if check_collision_point_rec(mouse, white_button):
-            current_player = PlayerWHITE
-
-        red_button = Rectangle(550, 20, 40, 40)
-        if check_collision_point_rec(mouse, red_button):
-            current_player = PlayerRED
-        
-        robber_button = Rectangle(750, 20, 40, 40)
-        if check_collision_point_rec(mouse, robber_button):
-            current_player = PlayerNIL
-
-        buttons = {blue_button: PlayerBLUE.color, orange_button: PlayerORANGE.color, white_button: PlayerWHITE.color, red_button: PlayerRED.color, robber_button: BLACK}
-
-
-                    
-
+    pr.init_window(screen_width, screen_height, "natac")
+    pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
+    pr.set_target_fps(60)
+    while not pr.window_should_close():
 
         # render
-        begin_drawing()
-        clear_background(WHITE)
-        for hex in hexes:
-            hex_center = hh.hex_to_pixel(pointy, hex)
-            draw_poly(hex_center, 6, 50, 0, GRAY)
-            draw_poly_lines(hex_center, 6, 50, 0, BLACK)
-        
-        if current_hex:
-            draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex), 6, 50, 0, 5, BLACK)
-        if current_hex_2:
-            draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex_2), 6, 50, 0, 5, BLACK)
-        if current_hex_3:
-            draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex_3), 6, 50, 0, 5, BLACK)
-        
-        if current_node:
-            draw_circle_v(current_node.get_node_point(), 8, BLACK)
+        pr.begin_drawing()
+        pr.clear_background(pr.WHITE)
 
-        if current_edge:
-            corners = current_edge.get_edge_points()
-            draw_line_ex(corners[0], corners[1], 6, BLACK)
+        pr.end_drawing()
 
-        if is_mouse_button_released(MouseButton.MOUSE_BUTTON_LEFT):
-            # toggle: add node to settlements->cities->None
-            if current_node != None:
-                if current_node not in settlements and current_node not in cities:
-                    settlements.append(current_node)
-                    if current_player:
-                        current_node.player = current_player
-                elif current_node in settlements:
-                    settlements.remove(current_node)
-                    cities.append(current_node)
-                elif current_node in cities:
-                    cities.remove(current_node)
-                    current_node.player = None
-
-            if current_edge != None: 
-                if current_edge not in roads:
-                    roads.append(current_edge)
-                    if current_player:
-                        current_edge.player = current_player
-                elif current_edge in roads:
-                    roads.remove(current_edge)
-                    current_edge.player = PlayerNIL
-
-  
-        for edge in roads:
-            rf.draw_road(edge, edge.player.color)
-            
-        for node in settlements:
-            rf.draw_settlement(node, node.player.color)
-        
-        for node in cities:
-            rf.draw_city(node, node.player.color)        
-
-        for button, color in buttons.items():
-            draw_rectangle_rec(button, color)
-
-
-        draw_text_ex(gui_get_font(), f"Mouse at: ({int(mouse.x)}, {int(mouse.y)})", Vector2(5, 5), 15, 0, BLACK)
-
-
-        draw_text_ex(gui_get_font(), f"Current edge: {current_edge}", Vector2(5, 25), 15, 0, BLACK)
-        draw_text_ex(gui_get_font(), f"Current node: {current_node}", Vector2(5, 45), 15, 0, BLACK)
-        # draw_text_ex(gui_get_font(), f"Current player: {current_player}", Vector2(5, 65), 15, 0, BLACK)
-
-
-        end_drawing()
-
-    unload_font(gui_get_font())
-    close_window()
+    pr.unload_font(pr.gui_get_font())
+    pr.close_window()
 
 # main()
 
 def main_test():
-    init_window(screen_width, screen_height, "natac")
-    gui_set_font(load_font("assets/classic_memesbruh03.ttf"))
-    set_target_fps(60)
-    while not window_should_close():
+    pr.init_window(screen_width, screen_height, "natac")
+    pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
+    pr.set_target_fps(60)
+    while not pr.window_should_close():
         # user input/ update
-        mouse = get_mouse_position()
+        mouse = pr.get_mouse_position()
         current_hex = None
 
         # check radius for current hex
-        for hex in hexes:
-            if radius_check_v(mouse, hh.hex_to_pixel(pointy, hex), 60):
-                current_hex = hex
-                break
+        # for hex in hexes:
+        #     if radius_check_v(mouse, hh.hex_to_pixel(pointy, hex), 60):
+        #         current_hex = hex
+        #         break
         
-        begin_drawing()
-        clear_background(WHITE)
+        pr.begin_drawing()
+        pr.clear_background(pr.WHITE)
         if current_hex:
-            draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex), 6, 50, 0, 5, BLACK)
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex), 6, 50, 0, 5, pr.BLACK)
 
-        draw_text_ex(gui_get_font(), f"Mouse at: ({get_mouse_x()}, {get_mouse_y()})", Vector2(5, 5), 15, 0, BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), f"Mouse at: ({pr.get_mouse_x()}, {pr.get_mouse_y()})", pr.Vector2(5, 5), 15, 0, pr.BLACK)
         
-        if gui_button(Rectangle(700, 20, 40, 40), "R"):
-            current_player = PlayerBLUE
+        # if gui_button(Rectangle(700, 20, 40, 40), "R"):
+            # current_player = PlayerBLUE
 
-        end_drawing()
+        pr.end_drawing()
 
-    unload_font(gui_get_font())
-    close_window()
+    pr.unload_font(pr.gui_get_font())
+    pr.close_window()
 
 # main_test()
 
-for i in range(4):
-    # random.seed(4)
-    die1, die2 = random.randint(1, 6), random.randint(1, 6)
-    print(f"die1: {die1}")
-    print(f"die2: {die2}")
-    print(f"roll: {die1+die2}")
+
+players = {}
+
+order=0
+players["blue"] = Player("blue")
+players["blue"].order = order
+order += 1
+
+players["white"] = Player("white")
+players["white"].order = order
+order += 1
+
+players["red"] = Player("red")
+players["red"].order = order
+order += 1
+
+players["orange"] = Player("orange")
+players["orange"].order = order
+order += 1
+
+
+
+
+
+
+player_names = [name for name in players.keys()]
+for i in range(len(player_names)):
+    rand_player = player_names[random.randint(0, len(player_names)-1)]
+    players[rand_player].order = i
+    player_names.remove(rand_player)
+for k, v in players.items():
+    print(f"{k} order = {v.order}")
