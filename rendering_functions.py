@@ -19,11 +19,11 @@ game_color_dict = {
     "end_turn": pr.RED,
 
     # put terrain + tile colors here
+    "mountain": pr.get_color(0x7b6f83ff),
     "forest": pr.get_color(0x517d19ff),
+    "field": pr.get_color(0xf0ad00ff),
     "hill": pr.get_color(0x9c4300ff),
     "pasture": pr.get_color(0x17b97fff),
-    "field": pr.get_color(0xf0ad00ff),
-    "mountain": pr.get_color(0x7b6f83ff),
     "desert": pr.get_color(0xffd966ff),
     "ocean": pr.get_color(0x4fa6ebff)
     }
@@ -162,42 +162,29 @@ def draw_dice(die1, die2, button_rec:pr.Rectangle):
     # 5 = center + 4 corners
     # 6 = 4 corners + 2 side dots
     dot_size = 2.8
-    # die_x = button_rec.x
-    # die_y = button_rec.y
     die_center_x = int(button_rec.x+button_rec.width//4)
     die_center_y = int(button_rec.y+button_rec.height//2)
     die_corner_offset = int(button_rec.width//7)
-    # draw die 1
-    if die1 == 1 or die1 == 3 or die1 == 5:
-        # center
-        pr.draw_circle(die_center_x, die_center_y, dot_size, pr.BLACK)
-    if die1 == 2 or die1 == 3 or die1 == 4 or die1 == 5 or die1 == 6:
-        # 2 corners
-        pr.draw_circle(die_center_x+die_corner_offset, die_center_y-die_corner_offset, dot_size, pr.BLACK)
-        pr.draw_circle(die_center_x-die_corner_offset, die_center_y+die_corner_offset, dot_size, pr.BLACK)
-    if die1 == 4 or die1 == 5 or die1 == 6:
-        # 2 other corners (4 total)
-        pr.draw_circle(die_center_x+die_corner_offset, die_center_y+die_corner_offset, dot_size, pr.BLACK)
-        pr.draw_circle(die_center_x-die_corner_offset, die_center_y-die_corner_offset, dot_size, pr.BLACK)
-    if die1 == 6:
-        pr.draw_circle(die_center_x+die_corner_offset, die_center_y, dot_size, pr.BLACK)
-        pr.draw_circle(die_center_x-die_corner_offset, die_center_y, dot_size, pr.BLACK)
 
-    # draw die 2
-    die2_x_offset = int(button_rec.width//2)
-    if die2 == 1 or die2 == 3 or die2 == 5:
-        pr.draw_circle(die_center_x+die2_x_offset, die_center_y, dot_size, pr.BLACK)
-    if die2 == 2 or die2 == 3 or die2 == 4 or die2 == 5 or die2 == 6:
-        # 2 corners
-        pr.draw_circle(die_center_x+die_corner_offset+die2_x_offset, die_center_y-die_corner_offset, dot_size, pr.BLACK)
-        pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y+die_corner_offset, dot_size, pr.BLACK)
-    if die2 == 4 or die2 == 5 or die2 == 6:
-        # 2 other corners (4 total)
-        pr.draw_circle(die_center_x+die_corner_offset+die2_x_offset, die_center_y+die_corner_offset, dot_size, pr.BLACK)
-        pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y-die_corner_offset, dot_size, pr.BLACK)
-    if die2 == 6:
-        pr.draw_circle(die_center_x+die_corner_offset+die2_x_offset, die_center_y, dot_size, pr.BLACK)
-        pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y, dot_size, pr.BLACK)
+    dice = [die1, die2]
+    for i in range(2):
+        if i == 1:
+            die2_x_offset = int(button_rec.width//2)
+        else:
+            die2_x_offset = 0
+        if dice[i] == 1 or dice[i] == 3 or dice[i] == 5:
+            pr.draw_circle(die_center_x+die2_x_offset, die_center_y, dot_size, pr.BLACK)
+        if dice[i] == 2 or dice[i] == 3 or dice[i] == 4 or dice[i] == 5 or dice[i] == 6:
+            # 2 corners
+            pr.draw_circle(die_center_x+die_corner_offset+die2_x_offset, die_center_y-die_corner_offset, dot_size, pr.BLACK)
+            pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y+die_corner_offset, dot_size, pr.BLACK)
+        if dice[i] == 4 or dice[i] == 5 or dice[i] == 6:
+            # 2 other corners (4 total)
+            pr.draw_circle(die_center_x+die_corner_offset+die2_x_offset, die_center_y+die_corner_offset, dot_size, pr.BLACK)
+            pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y-die_corner_offset, dot_size, pr.BLACK)
+        if dice[i] == 6:
+            pr.draw_circle(die_center_x+die_corner_offset+die2_x_offset, die_center_y, dot_size, pr.BLACK)
+            pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y, dot_size, pr.BLACK)
 
 
 
