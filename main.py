@@ -579,11 +579,16 @@ class ServerState:
         self.players = {}
         self.current_player_name = None
 
-        # TURNS
+        # TURNS - maybe turn into class or method later
+        # self.toggles = {"move_robber": False, "build_road": False, "build_town": False}
+        self.move_robber = False
+        self.build_road = False
+        self.build_town = False
         self.die1 = 0
         self.die2 = 0
-        self.turn_num = -1 # start game after first dice roll
+        self.turn_num = -1 # start game after first end_turn is pressed
         self.dice_rolls = 0
+
 
         self.debug = debug
         if self.debug == True:
@@ -669,7 +674,8 @@ class ServerState:
             "dice": [self.die1, self.die2],
             "hands": {player_name: player_object.hand for player_name, player_object in self.players.items()}, # {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
             "turn_num": self.turn_num,
-            "current_player": self.current_player_name
+            "current_player": self.current_player_name,
+            "move_robber": self.move_robber
         }
 
         return to_json(packet).encode()
@@ -681,6 +687,8 @@ class ServerState:
         # client_request["id"] = client ID (player name)
         # client_request["action"] = action
         # client_request["location"] = selection - list of hexes
+        # client_request["move_robber"] = False
+            # make into client_request["toggles"] = {"move_robber": False, build_town: False, build_road: False, trading: False}
         # client_request["debug"] = self.debug
 
         # if receiving input from non-current player, return
@@ -688,8 +696,10 @@ class ServerState:
             # only time input from other players would be needed is for trades?
             return
 
+        # unpack toggles
+        self.move_robber = client_request["move_robber"]
 
-        client_request["debug"] = self.debug
+        self.debug = client_request["debug"]
 
         # can't take action if action is not given
         if len(client_request["action"]) == 0:
@@ -698,21 +708,30 @@ class ServerState:
         # move robber
         elif client_request["action"] == "move_robber":
             assert len(client_request["location"]) == 3, "should be 3 hex coords"
-
-            if client_request["location"] != self.board.robber_hex:
-                self.board.robber_hex = client_request["location"]
+            q, r, s = client_request["location"]
+            location_hex = hh.set_hex(q, r, s)
+            if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
+                print(f"from client - {location_hex}")
+                print(f"on server - {self.board.robber_hex}")
+                self.board.robber_hex = location_hex
+                self.move_robber = False
                 print("server accepted robber move")
         
         elif client_request["action"] == "roll_dice":
-            self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
+            # only allow roll if #rolls = turn_num
+            if self.dice_rolls == self.turn_num:
+                self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
+                self.dice_rolls += 1
             return
 
         elif client_request["action"] == "end_turn":
+            # only allow if # rolls > turn_num
             # increment turn number and set new current_player
-            self.turn_num += 1
-            for player_name, player_object in self.players.items():
-                if self.turn_num % 4 == player_object.order:
-                    self.current_player_name = player_name
+            if self.dice_rolls > self.turn_num:
+                self.turn_num += 1
+                for player_name, player_object in self.players.items():
+                    if self.turn_num % 4 == player_object.order:
+                        self.current_player_name = player_name
             return
         
 
@@ -881,8 +900,7 @@ class ClientState:
         self.move_robber = False
         self.build_town = False
         self.build_road = False
-        self.die1 = 4
-        self.die2 = 3
+        self.dice = []
         self.turn_num = -1
 
 
@@ -987,7 +1005,7 @@ class ClientState:
             pass
 
     def build_client_request(self, user_input):
-        # client_request = {"player": "PLAYER_NAME", "location": Hex, Node or Edge, "debug": bool}
+        # client_request = {"id": "client ID", "action": "move_robber" etc., "location": Hex, Node or Edge, "move_robber": False, "debug": bool}
         self.msg_number += 1
         client_request = {}
         if not self.does_board_exist():
@@ -1053,11 +1071,10 @@ class ClientState:
                 selection = self.current_edge_hexes
                 action = "build_road"
 
-            elif self.current_hex != None and self.current_hex in self.board["land_hexes"]:
+            elif self.current_hex != None:
                 if self.move_robber == True:
                     selection = self.current_hex
                     action = "move_robber"
-                    self.move_robber = False # move this to update_client since server has to determine if robber is a valid move. server should return either "accept" or "reject" so client knows to toggle move_robber off, will prob help with other things too 
 
         # eventually one client will only be able to control one player; for debug client presents itself as current_player
         if self.debug == True:
@@ -1066,6 +1083,7 @@ class ClientState:
         client_request["id"] = self.id
         client_request["action"] = action
         client_request["location"] = selection
+        client_request["move_robber"] = self.move_robber
         client_request["debug"] = self.debug
                         
         # if len(client_request) > 0 and self.debug == True:
@@ -1106,7 +1124,8 @@ class ClientState:
         # dice : [die1, die2]
         # hands: {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
         # turn_num : 0
-        # current_player: self.current_player
+        # current_player : self.current_player
+        # move_robber : self.move_robber
 
 
         server_response = json.loads(encoded_server_response)
@@ -1159,20 +1178,15 @@ class ClientState:
         
         # robber_hex : [0, 0]
         q, r = server_response["robber_hex"]
-        # if robber moved, set move_robber to false
-        if "robber_hex" in self.board:
-            old_robber_hex = self.board["robber_hex"]
-            self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
-            if old_robber_hex != self.board["robber_hex"]:
-                self.move_robber = False
-        else:
-            self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
+        self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
 
-        self.die1, self.die2 = server_response["dice"]
+        self.dice = server_response["dice"]
 
         self.turn_num = server_response["turn_num"]
 
         self.current_player_name = server_response["current_player"]
+
+        self.move_robber = server_response["move_robber"]
 
 
     def render_board(self):
@@ -1278,13 +1292,15 @@ class ClientState:
             pr.draw_text_ex(pr.gui_get_font(), debug_2, pr.Vector2(5, 25), 15, 0, pr.BLACK)
             debug_3 = f"Turn number: {self.turn_num}"
             pr.draw_text_ex(pr.gui_get_font(), debug_3, pr.Vector2(5, 45), 15, 0, pr.BLACK)
+            debug_4 = f"Move robber: {self.move_robber}"
+            pr.draw_text_ex(pr.gui_get_font(), debug_4, pr.Vector2(5, 65), 15, 0, pr.BLACK)
 
         for button in self.buttons:
             pr.draw_rectangle_rec(button.rec, button.color)
             pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
             # draw dice
             if button.name == "roll_dice":
-                rf.draw_dice(self.die1, self.die2, button.rec)
+                rf.draw_dice(self.dice, button.rec)
                 # draw line between dice
                 pr.draw_line_ex((int(button.rec.x + button.rec.width//2), int(button.rec.y)), (int(button.rec.x + button.rec.width//2), int(button.rec.y+button.rec.height)), 2, pr.BLACK)
             if button.name == "end_turn":

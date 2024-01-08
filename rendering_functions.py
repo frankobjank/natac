@@ -154,7 +154,7 @@ def draw_city(node_point, color):
     pr.draw_rectangle_rec(city_base_rec, color)
 
 
-def draw_dice(die1, die2, button_rec:pr.Rectangle):
+def draw_dice(dice, button_rec:pr.Rectangle):
     # 1 = center
     # 2 = 2 corners
     # 3 = center + 2 corners
@@ -165,14 +165,16 @@ def draw_dice(die1, die2, button_rec:pr.Rectangle):
     die_center_x = int(button_rec.x+button_rec.width//4)
     die_center_y = int(button_rec.y+button_rec.height//2)
     die_corner_offset = int(button_rec.width//7)
-
-    dice = [die1, die2]
+    
     for i in range(2):
+        # set die2_x_offset
         if i == 1:
             die2_x_offset = int(button_rec.width//2)
         else:
             die2_x_offset = 0
+        # draw die dots
         if dice[i] == 1 or dice[i] == 3 or dice[i] == 5:
+            # draw center
             pr.draw_circle(die_center_x+die2_x_offset, die_center_y, dot_size, pr.BLACK)
         if dice[i] == 2 or dice[i] == 3 or dice[i] == 4 or dice[i] == 5 or dice[i] == 6:
             # 2 corners
@@ -183,6 +185,7 @@ def draw_dice(die1, die2, button_rec:pr.Rectangle):
             pr.draw_circle(die_center_x+die_corner_offset+die2_x_offset, die_center_y+die_corner_offset, dot_size, pr.BLACK)
             pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y-die_corner_offset, dot_size, pr.BLACK)
         if dice[i] == 6:
+            # draw sides
             pr.draw_circle(die_center_x+die_corner_offset+die2_x_offset, die_center_y, dot_size, pr.BLACK)
             pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y, dot_size, pr.BLACK)
 
