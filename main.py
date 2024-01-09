@@ -574,6 +574,7 @@ class ServerState:
 
         # BOARD
         self.board = None
+        self.hover = False # perform checks on server and pass back to client for rendering
 
         # PLAYERS
         self.players = {}
@@ -584,7 +585,7 @@ class ServerState:
         self.die2 = 0
         self.turn_num = -1 # start game after first end_turn is pressed
         self.dice_rolls = 0
-        self.toggle_state = None
+        self.mode = None
         self.move_robber = False
         self.build_road = False
         self.build_town = False
@@ -675,7 +676,7 @@ class ServerState:
             "hands": {player_name: player_object.hand for player_name, player_object in self.players.items()}, # {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
             "turn_num": self.turn_num,
             "current_player": self.current_player_name,
-            "toggle": self.toggle_state,
+            "mode": self.mode,
             # "move_robber": self.move_robber
         }
 
@@ -688,7 +689,7 @@ class ServerState:
         # client_request["id"] = client ID (player name)
         # client_request["action"] = action
         # client_request["location"] = selection - list of hexes
-        # client_request["toggle_state"] = "move_robber" or "build_town" or "build_road" or "trading"}
+        # client_request["mode"] = "move_robber" or "build_town" or "build_road" or "trading"}
         # client_request["debug"] = self.debug
             # client_request["move_robber"] = False
 
@@ -697,18 +698,35 @@ class ServerState:
             # only time input from other players would be needed is for trades?
             return
 
-        # unpack toggle_state
-        self.toggle_state = client_request["toggle_state"]
-        if self.toggle_state == "move_robber":
+        # unpack mode
+        self.mode = client_request["mode"]
+        if self.mode == "move_robber":
             self.move_robber = not self.move_robber
-        elif self.toggle_state == "build_road":
+        elif self.mode == "build_road":
             self.build_road = not self.build_road
-        elif self.toggle_state == "build_town":
+        elif self.mode == "build_town":
             self.build_town = not self.build_town
-        elif self.toggle_state == "trading":
+        elif self.mode == "trading":
             self.trading = not self.trading
 
         self.debug = client_request["debug"]
+
+        # only calculate hover if location is > 0
+        if len(client_request["location"]) == 0:
+            return
+        
+        # to determine hover
+        if self.move_robber:
+            assert len(client_request["location"]) == 3, "should be 3 hex coords"
+            q, r, s = client_request["location"]
+            location_hex = hh.set_hex(q, r, s)
+            if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
+                self.hover = True
+                self.board.robber_hex = location_hex
+                self.move_robber = False
+
+        # instead of having separate sections for hover and action, try to combine and only go through with action if len(action) > 0
+
 
         # can't take action if action is not given
         if len(client_request["action"]) == 0:
@@ -722,6 +740,7 @@ class ServerState:
             if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
                 self.board.robber_hex = location_hex
                 self.move_robber = False
+                
                 print("server accepted robber move")
         
         elif client_request["action"] == "roll_dice":
@@ -900,13 +919,12 @@ class ClientState:
         self.hover_rec = None
         
         # PLAYERS
-        # self.players_ordered = []
         self.current_player_name = None
 
         # GAMEPLAY
         self.dice = []
         self.turn_num = -1
-        self.toggle_state = None # can be move_robber, build_town, build_road, trading
+        self.mode = None # can be move_robber, build_town, build_road, trading
         self.move_robber = False
         self.build_town = False
         self.build_road = False
@@ -1022,7 +1040,7 @@ class ClientState:
             pass
 
     def build_client_request(self, user_input):
-        # client_request = {"id": "client ID", "action": "move_robber" etc., "location": Hex, Node or Edge, "move_robber": False, "debug": bool}
+        # client_request = {"id": "client ID", "action": "move_robber", "location": Hex, Node or Edge, "mode": "move_robber", "debug": bool}
         self.msg_number += 1
         client_request = {}
         if not self.does_board_exist():
@@ -1038,6 +1056,9 @@ class ClientState:
         self.current_node_hexes = []
         
         all_hexes = self.board["land_hexes"] + self.board["ocean_hexes"]
+
+        selection = None
+        action = ""
 
         # defining current_hex, current_edge, current_node
         # check radius for current hex
@@ -1059,16 +1080,19 @@ class ClientState:
                     break
         
         # defining current_node
-        if current_hex_3:
+        if current_hex_3 and self.mode == "build_town":
             self.current_node_hexes = sort_hexes([self.current_hex, current_hex_2, current_hex_3])
+            selection = self.current_node_hexes
         
         # defining current_edge
-        elif current_hex_2:
+        elif current_hex_2 and self.mode == "build_road":
             self.current_edge_hexes = sort_hexes([self.current_hex, current_hex_2])
+            selection = self.current_edge_hexes
+
+        elif self.current_hex and self.mode == "move_robber":
+            selection = self.current_hex
 
         # selecting action using button/keyboard
-        action = ""
-        selection = None
         if user_input == pr.KeyboardKey.KEY_D:
             action = "roll_dice"
         
@@ -1080,28 +1104,28 @@ class ClientState:
                 if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
                     if button.name == "robber":
                         self.move_robber = True
-                        self.toggle_state = "move_robber"
+                        self.mode = "move_robber"
                     elif button.name == "road":
                         self.build_road = True
-                        self.toggle_state = "build_road"
+                        self.mode = "build_road"
                     elif button.name == "town":
                         self.build_town = True
-                        self.toggle_state = "build_town"
+                        self.mode = "build_town"
                     elif button.name == "roll_dice":
                         action = "roll_dice"
                     elif button.name == "end_turn":
                         action = "end_turn"
 
             # checking board selections for building town, road, moving robber
-            if self.current_node_hexes:
+            if self.current_node_hexes and self.mode == "build_town":
                 selection = self.current_node_hexes
                 action = "build_town"
             
-            elif self.current_edge_hexes:
+            elif self.current_edge_hexes and self.mode == "build_road":
                 selection = self.current_edge_hexes
                 action = "build_road"
 
-            elif self.current_hex != None:
+            elif self.current_hex and self.mode == "move_robber":
                 if self.move_robber == True:
                     selection = self.current_hex
                     action = "move_robber"
@@ -1113,7 +1137,7 @@ class ClientState:
         client_request["id"] = self.id
         client_request["action"] = action
         client_request["location"] = selection
-        client_request["temp_state"] = self.move_robber
+        client_request["mode"] = self.mode
         client_request["debug"] = self.debug
                         
         # if len(client_request) > 0 and self.debug == True:
@@ -1156,7 +1180,6 @@ class ClientState:
         # turn_num : 0
         # current_player : self.current_player
         # toggle : "move_robber"
-        # move_robber : self.move_robber
 
 
         server_response = json.loads(encoded_server_response)
@@ -1166,6 +1189,9 @@ class ClientState:
 
         for key, length in lens_for_verification.items():
             assert len(server_response[key]) == length, f"incorrect number of {key}, actual number = {len(server_response[key])}"
+        
+        modes = [None, "move_robber", "build_road", "build_town", "trading"]
+        assert server_response["mode"] in modes, f"expected mode, got `{server_response['mode']}`"
 
 
         # expanding ocean_hexes and land_hexes
@@ -1217,19 +1243,17 @@ class ClientState:
 
         self.current_player_name = server_response["current_player"]
 
-        # unpack toggle_state
-        self.toggle_state = server_response["toggle"]
-        if self.toggle_state == "move_robber":
+        # unpack mode
+        self.mode = server_response["mode"]
+        if self.mode == "move_robber":
             self.move_robber = not self.move_robber
-        elif self.toggle_state == "build_road":
+        elif self.mode == "build_road":
             self.build_road = not self.build_road
-        elif self.toggle_state == "build_town":
+        elif self.mode == "build_town":
             self.build_town = not self.build_town
-        elif self.toggle_state == "trading":
+        elif self.mode == "trading":
             self.trading = not self.trading
 
-
-        self.move_robber = server_response["move_robber"]
 
 
     def render_board(self):
@@ -1335,7 +1359,7 @@ class ClientState:
             pr.draw_text_ex(pr.gui_get_font(), debug_2, pr.Vector2(5, 25), 15, 0, pr.BLACK)
             debug_3 = f"Turn number: {self.turn_num}"
             pr.draw_text_ex(pr.gui_get_font(), debug_3, pr.Vector2(5, 45), 15, 0, pr.BLACK)
-            debug_4 = f"temp_state: {self.temp_state}"
+            debug_4 = f"mode: {self.mode}"
             pr.draw_text_ex(pr.gui_get_font(), debug_4, pr.Vector2(5, 65), 15, 0, pr.BLACK)
 
         for button in self.buttons:
