@@ -176,34 +176,6 @@ def main_test():
 # main_test()
 
 
-players = {}
-
-order=0
-players["blue"] = Player("blue")
-players["blue"].order = order
-order += 1
-
-players["white"] = Player("white")
-players["white"].order = order
-order += 1
-
-players["red"] = Player("red")
-players["red"].order = order
-order += 1
-
-players["orange"] = Player("orange")
-players["orange"].order = order
-order += 1
-
-
-
-
-
-
-player_names = [name for name in players.keys()]
-for i in range(len(player_names)):
-    rand_player = player_names[random.randint(0, len(player_names)-1)]
-    players[rand_player].order = i
-    player_names.remove(rand_player)
-for k, v in players.items():
-    print(f"{k} order = {v.order}")
+dct = {"hex1": 1, "hex2": 2, "hex3": 3}
+k, v = zip(*dct.items())
+print(k)
