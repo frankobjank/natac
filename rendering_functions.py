@@ -13,10 +13,11 @@ game_color_dict = {
     "white": pr.get_color(0xd6d6d6ff),
 
     # other pieces
-    "robber": pr.RAYWHITE,
-    "road": pr.RAYWHITE,
-    "town": pr.RAYWHITE,
+    "robber": pr.BLACK,
     # buttons
+    "move_robber": pr.RAYWHITE,
+    "build_road": pr.RAYWHITE,
+    "build_town": pr.RAYWHITE,
     "roll_dice": pr.RAYWHITE,
     "end_turn": pr.RAYWHITE,
 

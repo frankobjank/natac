@@ -586,10 +586,6 @@ class ServerState:
         self.turn_num = -1 # start game after first end_turn is pressed
         self.dice_rolls = 0
         self.mode = None
-        self.move_robber = False
-        self.build_road = False
-        self.build_town = False
-        self.trading = False
 
 
         self.debug = debug
@@ -676,8 +672,7 @@ class ServerState:
             "hands": {player_name: player_object.hand for player_name, player_object in self.players.items()}, # {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
             "turn_num": self.turn_num,
             "current_player": self.current_player_name,
-            "mode": self.mode,
-            # "move_robber": self.move_robber
+            # "mode": self.mode,
         }
 
         return to_json(packet).encode()
@@ -697,22 +692,14 @@ class ServerState:
             # only time input from other players would be needed is for trades?
             return
 
-        # unpack mode
-        self.mode = client_request["mode"]
-        if self.mode == "move_robber":
-            self.move_robber = not self.move_robber
-        elif self.mode == "build_road":
-            self.build_road = not self.build_road
-        elif self.mode == "build_town":
-            self.build_town = not self.build_town
-        elif self.mode == "trading":
-            self.trading = not self.trading
+        # toggle mode if the same kind, else change to client mode
+        if self.mode == client_request["mode"]:
+            self.mode = None
+        else:
+            self.mode = client_request["mode"]
 
         self.debug = client_request["debug"]
 
-        # can't take action if action is not given
-        # if len(client_request["action"]) == 0:
-            # return
         
         if client_request["action"] == "roll_dice":
             # only allow roll if #rolls = turn_num
@@ -735,8 +722,9 @@ class ServerState:
         if client_request["location"] == None:
             return
         
+
         # to determine hover
-        if self.move_robber:
+        if self.mode == "move_robber":
             assert len(client_request["location"]) == 3, "should be 3 hex coords"
             q, r, s = client_request["location"]
             location_hex = hh.set_hex(q, r, s)
@@ -904,7 +892,8 @@ class ClientState:
 
         # maybe add potential actions so the mouse hover render knows what to highlight
         self.hover_rec = None
-        
+        self.hover = False
+
         # PLAYERS
         self.current_player_name = None
 
@@ -912,11 +901,6 @@ class ClientState:
         self.dice = []
         self.turn_num = -1
         self.mode = None # can be move_robber, build_town, build_road, trading
-        self.move_robber = False
-        self.build_town = False
-        self.build_road = False
-        self.trading = False
-
 
         self.debug = True
 
@@ -927,9 +911,9 @@ class ClientState:
         # buttons
         button_size = 40
         self.buttons=[
-            Button(pr.Rectangle(self.screen_width-50, 20, button_size, button_size), "robber"),
-            Button(pr.Rectangle(self.screen_width-100, 20, button_size, button_size), "road"),
-            Button(pr.Rectangle(self.screen_width-150, 20, button_size, button_size), "town"),
+            Button(pr.Rectangle(self.screen_width-50, 20, button_size, button_size), "move_robber"),
+            Button(pr.Rectangle(self.screen_width-100, 20, button_size, button_size), "build_road"),
+            Button(pr.Rectangle(self.screen_width-150, 20, button_size, button_size), "build_town"),
             Button(pr.Rectangle(150-2*button_size, self.screen_height-150, 2*button_size, button_size), "roll_dice"),
             Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 2*button_size, button_size), "end_turn")
         ]
@@ -1036,15 +1020,11 @@ class ClientState:
 
         # reset current hex, edge, node
         self.current_hex = None
-        current_hex_2 = None
-        current_hex_3 = None
-
-        self.current_edge_hexes = []
-        self.current_node_hexes = []
+        self.current_hex_2 = None
+        self.current_hex_3 = None
         
         all_hexes = self.board["land_hexes"] + self.board["ocean_hexes"]
 
-        selection = None
         action = ""
 
         # defining current_hex, current_edge, current_node
@@ -1057,27 +1037,14 @@ class ClientState:
         for hex in all_hexes:
             if self.current_hex != hex:
                 if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hex), 60):
-                    current_hex_2 = hex
+                    self.current_hex_2 = hex
                     break
         # 3rd loop for nodes - current_hex_3
         for hex in all_hexes:
-            if self.current_hex != hex and current_hex_2 != hex:
+            if self.current_hex != hex and self.current_hex_2 != hex:
                 if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hex), 60):
-                    current_hex_3 = hex
+                    self.current_hex_3 = hex
                     break
-        
-        # defining current_node
-        if current_hex_3 and self.mode == "build_town":
-            self.current_node_hexes = sort_hexes([self.current_hex, current_hex_2, current_hex_3])
-            selection = self.current_node_hexes
-        
-        # defining current_edge
-        elif current_hex_2 and self.mode == "build_road":
-            self.current_edge_hexes = sort_hexes([self.current_hex, current_hex_2])
-            selection = self.current_edge_hexes
-
-        elif self.current_hex and self.mode == "move_robber":
-            selection = self.current_hex
 
         # selecting action using button/keyboard
         if user_input == pr.KeyboardKey.KEY_D:
@@ -1089,43 +1056,25 @@ class ClientState:
         elif user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             for button in self.buttons:
                 if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                    if button.name == "robber":
-                        # self.move_robber = True
-                        self.mode = "move_robber"
-                    elif button.name == "road":
-                        # self.build_road = True
-                        self.mode = "build_road"
-                    elif button.name == "town":
-                        # self.build_town = True
-                        self.mode = "build_town"
-                    elif button.name == "roll_dice":
-                        action = "roll_dice"
-                    elif button.name == "end_turn":
-                        action = "end_turn"
+                        self.mode = button.name
 
             # checking board selections for building town, road, moving robber
             if self.current_node_hexes and self.mode == "build_town":
-                selection = self.current_node_hexes
                 action = "build_town"
             
             elif self.current_edge_hexes and self.mode == "build_road":
-                selection = self.current_edge_hexes
                 action = "build_road"
 
             elif self.current_hex and self.mode == "move_robber":
-                if self.move_robber == True:
-                    selection = self.current_hex
-                    action = "move_robber"
+                action = "move_robber"
 
         # eventually one client will only be able to control one player; for debug client presents itself as current_player
         if self.debug == True:
             self.id = self.current_player_name
 
-        print(selection)
-
         client_request["id"] = self.id
         client_request["action"] = action
-        client_request["location"] = selection
+        client_request["location"] = {"hex1": self.current_hex, "hex2": self.current_hex_2, "hex3": self.current_hex_3}
         client_request["mode"] = self.mode
         client_request["debug"] = self.debug
                         
@@ -1168,7 +1117,7 @@ class ClientState:
         # hands: {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
         # turn_num : 0
         # current_player : self.current_player
-        # toggle : "move_robber"
+        # hover : bool
 
 
         server_response = json.loads(encoded_server_response)
@@ -1179,8 +1128,8 @@ class ClientState:
         for key, length in lens_for_verification.items():
             assert len(server_response[key]) == length, f"incorrect number of {key}, actual number = {len(server_response[key])}"
         
-        modes = [None, "move_robber", "build_road", "build_town", "trading"]
-        assert server_response["mode"] in modes, f"expected mode, got `{server_response['mode']}`"
+        # modes = [None, "move_robber", "build_road", "build_town", "trading"]
+        # assert server_response["mode"] in modes, f"expected mode, got `{server_response['mode']}`"
 
 
         # expanding ocean_hexes and land_hexes
@@ -1231,17 +1180,7 @@ class ClientState:
         self.turn_num = server_response["turn_num"]
 
         self.current_player_name = server_response["current_player"]
-
-        # unpack mode
-        self.mode = server_response["mode"]
-        if self.mode == "move_robber":
-            self.move_robber = not self.move_robber
-        elif self.mode == "build_road":
-            self.build_road = not self.build_road
-        elif self.mode == "build_town":
-            self.build_town = not self.build_town
-        elif self.mode == "trading":
-            self.trading = not self.trading
+        self.hover = server_response["hover"]
 
 
 
@@ -1302,29 +1241,19 @@ class ClientState:
         rf.draw_robber(robber_hex_center)
 
     def render_mouse_hover(self):
-        if self.debug == True:
-            # highlight current node
-            if self.current_node_hexes:
-                node_object = Node(self.current_node_hexes[0], self.current_node_hexes[1], self.current_node_hexes[2])
+        if self.hover == True:
+            # highlight current node if building is possible
+            if self.current_hex_3:
+                node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
                 pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
-                # highlight node hexes
-                for hex in self.current_node_hexes:
-                    pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, 50, 0, 6, pr.BLACK)
 
-            # highlight current edge
-            elif self.current_edge_hexes:
-                edge_object = Edge(self.current_edge_hexes[0], self.current_edge_hexes[1])
+            # highlight current edge if building is possible
+            elif self.current_hex_2:
+                edge_object = Edge(self.current_hex, self.current_hex_2)
                 pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
-                # highlight edge hexes
-                for hex in self.current_edge_hexes:
-                    pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, hex), 6, 50, 0, 6, pr.BLACK)
 
-            # highlight current hex
+            # highlight current hex if moving robber is possible
             elif self.current_hex and self.move_robber == True:
-                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 0, 6, pr.BLACK)
-            
-        elif self.debug == False:
-            if self.current_hex and self.move_robber == True:
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 0, 6, pr.BLACK)
 
             
@@ -1359,11 +1288,11 @@ class ClientState:
                 rf.draw_dice(self.dice, button.rec)
                 # draw line between dice
                 pr.draw_line_ex((int(button.rec.x + button.rec.width//2), int(button.rec.y)), (int(button.rec.x + button.rec.width//2), int(button.rec.y+button.rec.height)), 2, pr.BLACK)
-            if button.name == "road":
+            if button.name == "build_road":
                 pr.draw_text_ex(pr.gui_get_font(), "road", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
-            if button.name == "town":
+            if button.name == "build_town":
                 pr.draw_text_ex(pr.gui_get_font(), "town", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
-            if button.name == "robber":
+            if button.name == "move_robber":
                 pr.draw_text_ex(pr.gui_get_font(), "robr", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
 
             if button.name == "end_turn":
