@@ -691,7 +691,6 @@ class ServerState:
         # client_request["location"] = selection - list of hexes
         # client_request["mode"] = "move_robber" or "build_town" or "build_road" or "trading"}
         # client_request["debug"] = self.debug
-            # client_request["move_robber"] = False
 
         # if receiving input from non-current player, return
         if client_request["id"] != self.current_player_name:
@@ -711,39 +710,11 @@ class ServerState:
 
         self.debug = client_request["debug"]
 
-        # only calculate hover if location is > 0
-        if len(client_request["location"]) == 0:
-            return
-        
-        # to determine hover
-        if self.move_robber:
-            assert len(client_request["location"]) == 3, "should be 3 hex coords"
-            q, r, s = client_request["location"]
-            location_hex = hh.set_hex(q, r, s)
-            if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
-                self.hover = True
-                self.board.robber_hex = location_hex
-                self.move_robber = False
-
-        # instead of having separate sections for hover and action, try to combine and only go through with action if len(action) > 0
-
-
         # can't take action if action is not given
-        if len(client_request["action"]) == 0:
-            return
-
-        # move robber
-        elif client_request["action"] == "move_robber":
-            assert len(client_request["location"]) == 3, "should be 3 hex coords"
-            q, r, s = client_request["location"]
-            location_hex = hh.set_hex(q, r, s)
-            if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
-                self.board.robber_hex = location_hex
-                self.move_robber = False
-                
-                print("server accepted robber move")
+        # if len(client_request["action"]) == 0:
+            # return
         
-        elif client_request["action"] == "roll_dice":
+        if client_request["action"] == "roll_dice":
             # only allow roll if #rolls = turn_num
             if self.dice_rolls == self.turn_num:
                 self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
@@ -760,7 +731,23 @@ class ServerState:
                         self.current_player_name = player_name
             return
         
-
+        # only calculate hover if location is > 0
+        if client_request["location"] == None:
+            return
+        
+        # to determine hover
+        if self.move_robber:
+            assert len(client_request["location"]) == 3, "should be 3 hex coords"
+            q, r, s = client_request["location"]
+            location_hex = hh.set_hex(q, r, s)
+            if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
+                self.hover = True
+                if client_request["action"] == "move_robber":
+                    self.board.robber_hex = location_hex
+                    self.move_robber = False
+                    print("server accepted robber move")                
+        
+        
         # converts location to hexes
         elif "build" in client_request["action"] and len(client_request["location"]) > 0:
             location_hexes = []
@@ -1103,13 +1090,13 @@ class ClientState:
             for button in self.buttons:
                 if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
                     if button.name == "robber":
-                        self.move_robber = True
+                        # self.move_robber = True
                         self.mode = "move_robber"
                     elif button.name == "road":
-                        self.build_road = True
+                        # self.build_road = True
                         self.mode = "build_road"
                     elif button.name == "town":
-                        self.build_town = True
+                        # self.build_town = True
                         self.mode = "build_town"
                     elif button.name == "roll_dice":
                         action = "roll_dice"
@@ -1133,6 +1120,8 @@ class ClientState:
         # eventually one client will only be able to control one player; for debug client presents itself as current_player
         if self.debug == True:
             self.id = self.current_player_name
+
+        print(selection)
 
         client_request["id"] = self.id
         client_request["action"] = action
