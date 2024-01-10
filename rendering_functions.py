@@ -18,6 +18,7 @@ game_color_dict = {
     "move_robber": pr.RAYWHITE,
     "build_road": pr.RAYWHITE,
     "build_town": pr.RAYWHITE,
+    "delete": pr.RED,
     "roll_dice": pr.RAYWHITE,
     "end_turn": pr.RAYWHITE,
 

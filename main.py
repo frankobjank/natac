@@ -630,6 +630,33 @@ class ServerState:
             self.players[rand_player].order = i
             player_names.remove(rand_player)
     
+    def build_settlement(self):
+        pass
+
+    def build_city(self):
+        pass
+
+    def build_road(self):
+        pass
+
+    def remove_town(self, location_node):
+        player_object = self.players[location_node.player]
+        location_node.player = None
+        location_node.town = None
+        if location_node.port:
+            player_object.ports.remove(location_node.port)
+
+        if location_node.town == "settlement":
+            player_object.num_settlements -= 1
+        elif location_node.town == "city":
+            player_object.num_cities -= 1
+
+    def remove_road(self, location_edge):
+        player_object = self.players[location_edge.player]
+        player_object.num_roads -= 1
+        location_edge.player = None
+
+
     def build_msg_to_client(self) -> bytes:
         town_nodes = []
         road_edges = []
@@ -683,7 +710,7 @@ class ServerState:
         
         # client_request["id"] = client ID (player name)
         # client_request["action"] = action
-        # client_request["location"] = selection - list of hexes
+        # client_request["location"] = {"hex_a": [1, -1, 0], "hex_b": [0, 0, 0], "hex_c": None}
         # client_request["mode"] = "move_robber" or "build_town" or "build_road" or "trading"}
         # client_request["debug"] = self.debug
 
@@ -721,18 +748,79 @@ class ServerState:
         # only calculate hover if location is > 0
         if all(hex == None for hex in client_request["location"].values()):
             return
-        for hex_num, hex in client_request["location"].items():
-            if
-        # else:
-            # print(client_request["location"])
         
+        # convert location hex coords to hexes
+        location_hexes = {}
+        for hex_num, hex_coords in client_request["location"].items():
+            if hex_coords != None:
+                location_hexes[hex_num] = hh.set_hex_from_coords(hex_coords)
 
         self.hover = False
+
+        location_node = None
+        location_edge = None
+        location_hex = None
         # to determine hover
+        if location_hexes["hex_c"] != None:
+            hex_a, hex_b, hex_c = location_hexes.values()
+            for node in self.board.nodes:
+                if node.hexes == sort_hexes(hex_a, hex_b, hex_c):
+                    location_node = node
+            print(f"selected {location_node}")
+
+        elif location_hexes["hex_b"] != None:
+            hex_a, hex_b = location_hexes.values()
+            for edge in self.board.edges:
+                if edge.hexes == sort_hexes(hex_a, hex_b):
+                    location_edge = edge
+            print(f"selected {location_edge}")
+        
+        elif location_hexes["hex_a"] != None:
+            location_hex = location_hexes["hex_a"]
+
+
+        if self.mode == "build_town":
+            current_player_object = None
+            if self.current_player_name:
+                current_player_object = self.players[self.current_player_name]
+
+            if location_node.town == None and current_player_object != None:
+                # check num_settlements
+                if current_player_object.num_settlements >= 5:
+                    print("no available settlements")
+                    return
+                # settlement build_check
+                if location_node.build_check_settlement(self, self.current_player_name):
+                    self.hover = True
+                    if client_request["action"] == "build_town":
+                        location_node.town = "settlement"
+                        location_node.player = self.current_player_name
+                        current_player_object.num_settlements += 1
+                        if location_node.port:
+                            current_player_object.ports.append(location_node.port)
+
+
+            elif location_node.town == "settlement":
+                # current_owner is player_object type
+                current_owner = self.players[location_node.player]
+                # if owner is same as current_player, upgrade to city
+                if current_owner == current_player_object:
+                    # city build check
+                    if current_player_object.num_cities >= 4:
+                        print("no available cities")
+                        return
+                    self.hover = True
+                    if client_request["action"] == "build_town":
+                        location_node.town = "city"
+                        current_player_object.num_settlements -= 1
+                        current_player_object.num_cities += 1
+
+
         if self.mode == "move_robber":
             assert len(client_request["location"]) == 3, "should be 3 hex coords"
             q, r, s = client_request["location"]
             location_hex = hh.set_hex(q, r, s)
+            # check for valid hex
             if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
                 self.hover = True
                 if client_request["action"] == "move_robber":
@@ -741,95 +829,28 @@ class ServerState:
                     print("server accepted robber move")                
         
         
-        # converts location to hexes
-        elif "build" in client_request["action"] and len(client_request["location"]) > 0:
-            location_hexes = []
-            for hex_coords in client_request["location"]:
-                location_hexes.append(hh.set_hex_from_coords(hex_coords))
-        
-        current_player_object = None
-        if self.current_player_name:
-            current_player_object = self.players[self.current_player_name]
-        
-        # build town or road
-        # toggle between settlement, city
-        if client_request["action"] == "build_town":
-            selected_node = None
-            for node in self.board.nodes:
-                if node.hexes == location_hexes:
-                    selected_node = node
-            print(f"selected{selected_node}")
-            if selected_node.town == None and current_player_object != None:
-                # check num_settlements
-                if current_player_object.num_settlements >= 5:
-                    print("no available settlements")
-                    return
-                # settlement build_check
-                if selected_node.build_check_settlement(self, self.current_player_name):
-                    selected_node.town = "settlement"
-                    selected_node.player = self.current_player_name
-                    current_player_object.num_settlements += 1
-                    if selected_node.port:
-                        current_player_object.ports.append(selected_node.port)
-
-
-            elif selected_node.town == "settlement":
-                # current_owner is player_object type
-                current_owner = self.players[selected_node.player]
-                # if owner is same as current_player, upgrade to city
-                if current_owner == current_player_object:
-                    # city build check
-                    if current_player_object.num_cities >= 4:
-                        print("no available cities")
+            elif client_request["action"] == "build_road":
+                # place roads unowned edge
+                if location_edge.player == None and self.current_player_name != None:
+                    # check num_roads
+                    if current_player_object.num_roads >= 15:
+                        print("no available roads")
                         return
-                    selected_node.town = "city"
-                    current_player_object.num_settlements -= 1
-                    current_player_object.num_cities += 1
-
-                # if owner is different from current_player, remove
-                elif current_owner != current_player_object:
-                    print("removing settlement")
-                    current_owner.num_settlements -= 1
-                    selected_node.player = None
-                    selected_node.town = None
-                    if selected_node.port:
-                        current_owner.ports.remove(selected_node.port)
+                    # build_check_road
+                    if location_edge.build_check_road(self, self.current_player_name):
+                        location_edge.player = self.current_player_name
+                        current_player_object.num_roads += 1
 
 
-            # town is city and should be removed
-            elif selected_node.town == "city":
-                print("removing city")
-                current_owner = self.players[selected_node.player]
-                selected_node.player = None
-                selected_node.town = None
-                current_owner.num_cities -= 1
-                if selected_node.port:
-                    current_owner.ports.remove(selected_node.port)
 
 
-        elif client_request["action"] == "build_road":
-            selected_edge = None
-            for edge in self.board.edges:
-                if edge.hexes == location_hexes:
-                    selected_edge = edge
-                    break
-            # place roads unowned edge
-            if selected_edge.player == None and self.current_player_name != None:
-                # check num_roads
-                if current_player_object.num_roads >= 15:
-                    print("no available roads")
-                    return
-                # build_check_road
-                if selected_edge.build_check_road(self, self.current_player_name):
-                    selected_edge.player = self.current_player_name
-                    current_player_object.num_roads += 1
 
-            # remove roads
-            elif selected_edge.player:
-                print("removing road")
-                current_owner = self.players[selected_edge.player]
-                current_owner.num_roads -= 1
-                selected_edge.player = None
+        # DELETE mode
+        if self.mode == "delete":
+            if location_node: 
+                self.remove_town(location_node)
+            elif location_edge:
+                self.remove_road(location_edge)
             
 
     def server_to_client(self, encoded_client_request=None, combined=False):
@@ -922,6 +943,7 @@ class ClientState:
             Button(pr.Rectangle(self.screen_width-50, 20, button_size, button_size), "move_robber", mode=True),
             Button(pr.Rectangle(self.screen_width-100, 20, button_size, button_size), "build_road", mode=True),
             Button(pr.Rectangle(self.screen_width-150, 20, button_size, button_size), "build_town", mode=True),
+            Button(pr.Rectangle(self.screen_width-200, 20, button_size, button_size), "delete", mode=True),
             Button(pr.Rectangle(150-2*button_size, self.screen_height-150, 2*button_size, button_size), "roll_dice", action=True),
             Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 2*button_size, button_size), "end_turn", action=True)
         ]
@@ -1053,6 +1075,7 @@ class ClientState:
                 if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hex), 60):
                     self.current_hex_3 = hex
                     break
+
         
         # selecting action using button/keyboard
         if user_input == pr.KeyboardKey.KEY_D:
@@ -1088,7 +1111,7 @@ class ClientState:
 
         client_request["id"] = self.id
         client_request["action"] = action
-        client_request["location"] = {"hex1": self.current_hex, "hex2": self.current_hex_2, "hex3": self.current_hex_3}
+        client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
         client_request["mode"] = self.mode
         client_request["debug"] = self.debug
                         
@@ -1308,6 +1331,8 @@ class ClientState:
                 pr.draw_text_ex(pr.gui_get_font(), "town", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
             if button.name == "move_robber":
                 pr.draw_text_ex(pr.gui_get_font(), "robr", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
+            if button.name == "delete":
+                pr.draw_text_ex(pr.gui_get_font(), "del", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
 
             if button.name == "end_turn":
                 pr.draw_text_ex(pr.gui_get_font(), "End Turn", (button.rec.x+5, button.rec.y+12), 12, 0, pr.BLACK)

@@ -177,5 +177,6 @@ def main_test():
 
 
 dct = {"hex1": 1, "hex2": 2, "hex3": 3}
-k, v = zip(*dct.items())
-print(k)
+v1 = [dct.values()]
+# v1, v2, v3 = dct.values()
+print(v1)
