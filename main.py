@@ -162,7 +162,7 @@ class Edge:
                 origin_edges.append(edge)
 
         if len(origin_edges) == 0: # non-contiguous
-            print("non-contiguous")
+            # print("non-contiguous")
             return False
         # origin shows what direction road is going
         # if multiple origins, check if origin node has opposing settlement blocking path
@@ -185,11 +185,11 @@ class Edge:
                 break
             # origin node blocked by another player
             elif origin_node.player != None and origin_node.player != s_state.current_player_name:
-                print("adjacent node blocked by settlement, checking others")
+                # print("adjacent node blocked by settlement, checking others")
                 blocked_count += 1
                 
             if blocked_count == len(origin_edges):
-                print("all routes blocked")
+                # print("all routes blocked")
                 return False
             
         # print("no conflicts")
@@ -244,7 +244,7 @@ class Node:
         return adj_nodes
 
     def build_check_settlement(self, s_state):
-        print("build_check_settlement")
+        # print("build_check_settlement")
 
         if s_state.current_player_name == None:
             return False
@@ -449,16 +449,17 @@ class Board:
             (1, 0), None,
             None, (2, 3),
             (2, 1), None, (2, 3), None
-            ]
+        ]
         
-        self.ports_ordered = ["three", None, "wheat", None, 
-                        None, "ore",
-                        "wood", None,
-                        None, "three",
-                        "brick", None,
-                        None, "sheep", 
-                        "three", None, "three", None
-            ]
+        self.ports_ordered = [
+            "three", None, "wheat", None, 
+            None, "ore",
+            "wood", None,
+            None, "three",
+            "brick", None,
+            None, "sheep", 
+            "three", None, "three", None
+        ]
         
 
         # can be generalized by iterating over ports and repeating if not None 
@@ -692,7 +693,6 @@ class ServerState:
         self.players[location_node.player].num_settlements -= 1
         self.players[location_node.player].num_cities += 1
 
-
     def build_road(self, location_edge):
         location_edge.player = self.current_player_name
         self.players[self.current_player_name].num_roads += 1
@@ -712,6 +712,9 @@ class ServerState:
     def remove_road(self, location_edge):
         self.players[location_edge.player].num_roads -= 1
         location_edge.player = None
+
+    def distribute_resources(self):
+        result = self.die1 + self.die2
 
 
     def build_msg_to_client(self) -> bytes:
@@ -797,7 +800,9 @@ class ServerState:
                 self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
                 self.dice_rolls += 1
                 self.mode = None
+                self.distribute_resources()
             return
+        
 
         elif client_request["action"] == "end_turn":
             # only allow if # rolls > turn_num
@@ -870,8 +875,6 @@ class ServerState:
                 if client_request["action"] == "build_town":
                     self.build_city(location_node)
             
-
-
         elif location_edge:
             # check for delete
             if self.mode == "delete":
@@ -1084,14 +1087,17 @@ class ClientState:
         # defining button highlight if mouse is over it
         for button in self.buttons:
             if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                # special cases for roll_dice, current_player, end_turn
-                if self.mode == "roll_dice" and button.name == "roll_dice":
-                    button.hover = True
-                elif self.current_player_name:
-                    button.hover = True
-                elif button.name == "end_turn":
-                    button.hover = True
-
+                # special cases for roll_dice, end_turn
+                if button.name == "roll_dice":
+                    if self.mode == "roll_dice":
+                        button.hover = True
+                    else:
+                        button.hover = False
+                else:
+                    if button.name == "roll_dice":
+                        button.hover = False
+                    else:
+                        button.hover = True
             else:
                 button.hover = False
 
@@ -1205,6 +1211,7 @@ class ClientState:
         # turn_num : 0
         # current_player : self.current_player
         # hover : bool
+        # mode : None || "move_robber"
 
 
         server_response = json.loads(encoded_server_response)
@@ -1380,12 +1387,12 @@ class ClientState:
                 rf.draw_dice(self.dice, button.rec)
                 # draw line between dice
                 pr.draw_line_ex((int(button.rec.x + button.rec.width//2), int(button.rec.y)), (int(button.rec.x + button.rec.width//2), int(button.rec.y+button.rec.height)), 2, pr.BLACK)
-                if self.mode != "roll_dice":
-                    button.hover = False
+                # if self.mode != "roll_dice":
+                    # button.hover = False
             elif button.name == "end_turn":
                 pr.draw_text_ex(pr.gui_get_font(), "End Turn", (button.rec.x+5, button.rec.y+12), 12, 0, pr.BLACK)
-                if self.mode == "roll_dice":
-                    button.hover = False
+                # if self.mode == "roll_dice":
+                    # button.hover = False
             
             # mode buttons
             elif button.name == "build_road":
