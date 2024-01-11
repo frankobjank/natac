@@ -43,3 +43,32 @@ else{
     distribute resources to all players
 }
 
+
+
+client requests mode change locally and passes to server
+server receives mode request and confirms if it is possible
+server returns decision to client:
+    if mouse over, return hover
+    if mouse click, return action
+
+client requests mode change back by clicking mode
+
+server should validate mode change/ end turn/ dice roll
+
+turn_phases:
+start:
+    actions:
+        roll dice, play soldier
+    modes:
+        robber
+main:
+    actions:
+        buy or play development card
+    modes:
+        build
+        trading
+
+end = turn over turn to next player and make mode roll_dice
+
+dice_roll mode 
+Essentially can split up turns into two phases: dice roll and main phase

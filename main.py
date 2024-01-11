@@ -124,19 +124,33 @@ class Edge:
         return list(adj_edges_1.symmetric_difference(adj_edges_2))
 
 
-    def build_check_road(self, s_state, current_player_name):
-        print("build_check_road")
+    def build_check_road(self, s_state):
+        # print("build_check_road")
+        if s_state.current_player_name == None:
+            return False
+        # check if edge is owned
+        if self.player != None:
+            # if self.player == s_state.players[s_state.current_player_name]:
+                # print("location already owned by you")
+            # else:
+                # print("location already owned by another player")
+            return False
+
+        # check num_roads
+        if s_state.players[s_state.current_player_name].num_roads >= 15:
+            # print("no available roads")
+            return
 
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes:
-            print("can't build in ocean")
+            # print("can't build in ocean")
             return False
         
         # home check. if adj node is a same-player town, return True
         self_nodes = self.get_adj_nodes(s_state.board.nodes)
         for node in self_nodes:
-            if node.player == current_player_name:
-                print("building next to settlement")
+            if node.player == s_state.current_player_name:
+                # print("building next to settlement")
                 return True
         
         # contiguous check. if no edges are not owned by player, break
@@ -144,7 +158,7 @@ class Edge:
         # origin_edge = None
         origin_edges = []
         for edge in adj_edges:
-            if edge.player == current_player_name:
+            if edge.player == s_state.current_player_name:
                 origin_edges.append(edge)
 
         if len(origin_edges) == 0: # non-contiguous
@@ -167,10 +181,10 @@ class Edge:
                 destination_node = self_nodes[0]
 
             # match with adj edge, build is ok
-            if origin_node.player != None and origin_node.player == current_player_name:
+            if origin_node.player != None and origin_node.player == s_state.current_player_name:
                 break
             # origin node blocked by another player
-            elif origin_node.player != None and origin_node.player != current_player_name:
+            elif origin_node.player != None and origin_node.player != s_state.current_player_name:
                 print("adjacent node blocked by settlement, checking others")
                 blocked_count += 1
                 
@@ -178,7 +192,7 @@ class Edge:
                 print("all routes blocked")
                 return False
             
-        print("no conflicts")
+        # print("no conflicts")
         return True
         
         # contiguous - connected to either settlement or road
@@ -229,42 +243,78 @@ class Node:
                     
         return adj_nodes
 
-    def build_check_settlement(self, s_state, current_player_name):
-        # current_player is player name only
+    def build_check_settlement(self, s_state):
         print("build_check_settlement")
+
+        if s_state.current_player_name == None:
+            return False
+
+        # check if player owns node
+        if self.player != None:
+            # if self.player == s_state.players[s_state.current_player_name]:
+            #     print("location already owned by you")
+            # else:
+            #     print("location already owned by another player")
+            return False
+        
+        # check if town is None
+        if self.town != None:
+            # print("this location must be empty")
+            return False
+
+        # check num_settlements
+        if s_state.players[s_state.current_player_name].num_settlements >= 5:
+            # print("no available settlements")
+            return False
         
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes and self.hexes[2] in s_state.board.ocean_hexes:
-            print("can't build in ocean")
+            # print("can't build in ocean")
             return False
         
         # get 3 adjacent nodes and make sure no town is built there
         adj_nodes = self.get_adj_nodes_from_node(s_state.board.nodes)
         for node in adj_nodes:
             if node.town == "settlement":
-                print("too close to settlement")
+                # print("too close to settlement")
                 return False
             elif node.town == "city":
-                print("too close to city")
+                # print("too close to city")
                 return False
 
             
         adj_edges = self.get_adj_edges(s_state.board.edges)
         # is node adjacent to at least 1 same-colored road
-        if all(edge.player != current_player_name for edge in adj_edges):
-            print("no adjacent roads")
+        if all(edge.player != s_state.current_player_name for edge in adj_edges):
+            # print("no adjacent roads")
             return False
         
         # if between opponent's road
         adj_edge_players = [edge.player for edge in adj_edges]
-        if current_player_name in adj_edge_players:
-            adj_edge_players.remove(current_player_name)
+        if s_state.current_player_name in adj_edge_players:
+            adj_edge_players.remove(s_state.current_player_name)
             if adj_edge_players[0] == adj_edge_players[1]:
-                if None not in adj_edge_players and current_player_name not in adj_edge_players:
-                    print("can't build in middle of road")
+                if None not in adj_edge_players and s_state.current_player_name not in adj_edge_players:
+                    # print("can't build in middle of road")
                     return False
                 
         return True
+    
+    def build_check_city(self, s_state):
+        if self.town != "settlement":
+            # print("this location must be a settlement")
+            return False
+        
+        if self.player != s_state.current_player_name:
+            # print("owned by someone else")
+            return False
+
+        if s_state.players[s_state.current_player_name].num_cities >= 4:
+            # print("no available cities")
+            return False
+
+        return True
+
 
 
 
@@ -630,30 +680,37 @@ class ServerState:
             self.players[rand_player].order = i
             player_names.remove(rand_player)
     
-    def build_settlement(self):
-        pass
+    def build_settlement(self, location_node):
+        location_node.town = "settlement"
+        location_node.player = self.current_player_name
+        self.players[location_node.player].num_settlements += 1
+        if location_node.port:
+            self.players[location_node.player].ports.append(location_node.port)
 
-    def build_city(self):
-        pass
+    def build_city(self, location_node):
+        location_node.town = "city"
+        self.players[location_node.player].num_settlements -= 1
+        self.players[location_node.player].num_cities += 1
 
-    def build_road(self):
-        pass
+
+    def build_road(self, location_edge):
+        location_edge.player = self.current_player_name
+        self.players[self.current_player_name].num_roads += 1
 
     def remove_town(self, location_node):
-        player_object = self.players[location_node.player]
+        
         location_node.player = None
         location_node.town = None
         if location_node.port:
-            player_object.ports.remove(location_node.port)
+            self.players[location_node.player].ports.remove(location_node.port)
 
         if location_node.town == "settlement":
-            player_object.num_settlements -= 1
+            self.players[location_node.player].num_settlements -= 1
         elif location_node.town == "city":
-            player_object.num_cities -= 1
+            self.players[location_node.player].num_cities -= 1
 
     def remove_road(self, location_edge):
-        player_object = self.players[location_edge.player]
-        player_object.num_roads -= 1
+        self.players[location_edge.player].num_roads -= 1
         location_edge.player = None
 
 
@@ -700,6 +757,7 @@ class ServerState:
             "turn_num": self.turn_num,
             "current_player": self.current_player_name,
             "hover": self.hover,
+            "mode": self.mode
         }
 
         return to_json(packet).encode()
@@ -711,28 +769,34 @@ class ServerState:
         # client_request["id"] = client ID (player name)
         # client_request["action"] = action
         # client_request["location"] = {"hex_a": [1, -1, 0], "hex_b": [0, 0, 0], "hex_c": None}
-        # client_request["mode"] = "move_robber" or "build_town" or "build_road" or "trading"}
+        # client_request["mode"] = "move_robber" or "build_town" or "build_road" or "trading"
         # client_request["debug"] = self.debug
 
         # if receiving input from non-current player, return
         if client_request["id"] != self.current_player_name:
-            # only time input from other players would be needed is for trades?
+            # only time input from other players would be needed is for trades and returning cards when 7 is rolled. and maybe a development card?
             return
-
-        # toggle mode if the same kind, else change to client mode
-        if self.mode == client_request["mode"]:
-            self.mode = None
-        else:
-            self.mode = client_request["mode"]
-
+        
+        
         self.debug = client_request["debug"]
 
-        
-        if client_request["action"] == "roll_dice":
+        # toggle mode if the same kind, else change to client mode
+        if client_request["mode"] != None:
+            if self.mode == client_request["mode"]:
+                self.mode = None
+            else:
+                self.mode = client_request["mode"]
+
+        # force roll_dice before doing anything else except play soldier (in which case mode will shift to move_robber and must go back to roll_dice after robber is moved, could do with an dice_override var or something...)
+        if self.dice_rolls == self.turn_num:
+            self.mode = "roll_dice"
+
+        if client_request["action"] == "roll_dice" and self.mode == "roll_dice":
             # only allow roll if #rolls = turn_num
             if self.dice_rolls == self.turn_num:
                 self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
                 self.dice_rolls += 1
+                self.mode = None
             return
 
         elif client_request["action"] == "end_turn":
@@ -740,11 +804,20 @@ class ServerState:
             # increment turn number and set new current_player
             if self.dice_rolls > self.turn_num:
                 self.turn_num += 1
+                self.mode = "roll_dice"
                 for player_name, player_object in self.players.items():
                     if self.turn_num % len(self.players) == player_object.order:
                         self.current_player_name = player_name
             return
         
+        if self.mode == None:
+            return
+        
+        if self.mode == "trading":
+            pass
+        if self.mode == "return_cards":
+            pass
+
         # only calculate hover if location is > 0
         if all(hex == None for hex in client_request["location"].values()):
             return
@@ -754,104 +827,70 @@ class ServerState:
         for hex_num, hex_coords in client_request["location"].items():
             if hex_coords != None:
                 location_hexes[hex_num] = hh.set_hex_from_coords(hex_coords)
+            else:
+                location_hexes[hex_num] = None
 
         self.hover = False
 
+        # assign location node, edges, hex based on hexes sent from client
         location_node = None
         location_edge = None
         location_hex = None
-        # to determine hover
-        if location_hexes["hex_c"] != None:
-            hex_a, hex_b, hex_c = location_hexes.values()
+
+        hex_a, hex_b, hex_c = location_hexes.values()
+        if location_hexes["hex_c"] != None and self.mode == "build_town":
             for node in self.board.nodes:
-                if node.hexes == sort_hexes(hex_a, hex_b, hex_c):
+                if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
                     location_node = node
-            print(f"selected {location_node}")
+            # print(f"selected {location_node}")
 
-        elif location_hexes["hex_b"] != None:
-            hex_a, hex_b = location_hexes.values()
+        elif location_hexes["hex_b"] != None and self.mode == "build_road":
             for edge in self.board.edges:
-                if edge.hexes == sort_hexes(hex_a, hex_b):
+                if edge.hexes == sort_hexes([hex_a, hex_b]):
                     location_edge = edge
-            print(f"selected {location_edge}")
+            # print(f"selected {location_edge}")
         
-        elif location_hexes["hex_a"] != None:
-            location_hex = location_hexes["hex_a"]
+        elif location_hexes["hex_a"] != None and self.mode == "move_robber":
+            location_hex = hex_a
+            # print(f"selected {location_hex}")
+
+        # change build_town to mode to build_settlement/ build_city?
+        if location_node:
+            # check for delete
+            if self.mode == "delete":
+                self.remove_town(location_node)
+            # settlement build_check
+            if location_node.build_check_settlement(self): # self is s_state here
+                self.hover = True
+                if client_request["action"] == "build_town":
+                    self.build_settlement(location_node)
+            # city build_check
+            elif location_node.build_check_city(self):
+                self.hover = True
+                if client_request["action"] == "build_town":
+                    self.build_city(location_node)
+            
 
 
-        if self.mode == "build_town":
-            current_player_object = None
-            if self.current_player_name:
-                current_player_object = self.players[self.current_player_name]
+        elif location_edge:
+            # check for delete
+            if self.mode == "delete":
+                self.remove_road(location_edge)
+            # road build check
+            if location_edge.build_check_road(self):
+                self.hover = True
+                if client_request["action"] == "build_road":
+                    self.build_road(location_edge)
 
-            if location_node.town == None and current_player_object != None:
-                # check num_settlements
-                if current_player_object.num_settlements >= 5:
-                    print("no available settlements")
-                    return
-                # settlement build_check
-                if location_node.build_check_settlement(self, self.current_player_name):
-                    self.hover = True
-                    if client_request["action"] == "build_town":
-                        location_node.town = "settlement"
-                        location_node.player = self.current_player_name
-                        current_player_object.num_settlements += 1
-                        if location_node.port:
-                            current_player_object.ports.append(location_node.port)
-
-
-            elif location_node.town == "settlement":
-                # current_owner is player_object type
-                current_owner = self.players[location_node.player]
-                # if owner is same as current_player, upgrade to city
-                if current_owner == current_player_object:
-                    # city build check
-                    if current_player_object.num_cities >= 4:
-                        print("no available cities")
-                        return
-                    self.hover = True
-                    if client_request["action"] == "build_town":
-                        location_node.town = "city"
-                        current_player_object.num_settlements -= 1
-                        current_player_object.num_cities += 1
-
-
-        if self.mode == "move_robber":
-            assert len(client_request["location"]) == 3, "should be 3 hex coords"
-            q, r, s = client_request["location"]
-            location_hex = hh.set_hex(q, r, s)
-            # check for valid hex
+        elif self.mode == "move_robber" and location_hex:
+            # check for valid hex (any land hex that is not current robber hex)
             if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
                 self.hover = True
                 if client_request["action"] == "move_robber":
                     self.board.robber_hex = location_hex
-                    self.move_robber = False
-                    print("server accepted robber move")                
+                    self.mode = None             
         
-        
-            elif client_request["action"] == "build_road":
-                # place roads unowned edge
-                if location_edge.player == None and self.current_player_name != None:
-                    # check num_roads
-                    if current_player_object.num_roads >= 15:
-                        print("no available roads")
-                        return
-                    # build_check_road
-                    if location_edge.build_check_road(self, self.current_player_name):
-                        location_edge.player = self.current_player_name
-                        current_player_object.num_roads += 1
 
-
-
-
-
-        # DELETE mode
-        if self.mode == "delete":
-            if location_node: 
-                self.remove_town(location_node)
-            elif location_edge:
-                self.remove_road(location_edge)
-            
 
     def server_to_client(self, encoded_client_request=None, combined=False):
         self.msg_number += 1
@@ -891,6 +930,7 @@ class Button:
         self.color = rf.game_color_dict[self.name]
         self.mode = mode
         self.action = action
+        self.hover = False
 
 
     def __repr__(self):
@@ -920,7 +960,6 @@ class ClientState:
         self.current_hex_3 = None
 
         # maybe add potential actions so the mouse hover render knows what to highlight
-        self.hover_rec = None
         self.hover = False
 
         # PLAYERS
@@ -929,7 +968,7 @@ class ClientState:
         # GAMEPLAY
         self.dice = []
         self.turn_num = -1
-        self.mode = None # can be move_robber, build_town, build_road, trading
+        self.mode = None # can be move_robber, build_town, build_road, trading, roll dice
 
         self.debug = True
 
@@ -1030,12 +1069,6 @@ class ClientState:
             self.camera.zoom = self.default_zoom
             self.camera.rotation = 0.0
 
-        self.hover_rec = None
-        # define mouse hover
-        for button in self.buttons:
-            if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                self.hover_rec = button.rec
-
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             # enter game/ change settings in client
             pass
@@ -1048,6 +1081,21 @@ class ClientState:
             print("board does not exist")
             return
 
+        # defining button highlight if mouse is over it
+        for button in self.buttons:
+            if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
+                # special cases for roll_dice, current_player, end_turn
+                if self.mode == "roll_dice" and button.name == "roll_dice":
+                    button.hover = True
+                elif self.current_player_name:
+                    button.hover = True
+                elif button.name == "end_turn":
+                    button.hover = True
+
+            else:
+                button.hover = False
+
+
         # reset current hex, edge, node
         self.current_hex = None
         self.current_hex_2 = None
@@ -1055,7 +1103,10 @@ class ClientState:
         
         all_hexes = self.board["land_hexes"] + self.board["ocean_hexes"]
 
+        requested_mode = None
         action = ""
+        
+
 
         # defining current_hex, current_edge, current_node
         # check radius for current hex
@@ -1088,12 +1139,11 @@ class ClientState:
             for button in self.buttons:
                 if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
                     if button.mode:
-                        if self.mode == button.name:
-                            self.mode = None
-                        else:
-                            self.mode = button.name
+                        requested_mode = button.name
                     elif button.action:
                         action = button.name
+
+
 
             # checking board selections for building town, road, moving robber
             if self.current_hex_3 and self.mode == "build_town":
@@ -1112,7 +1162,7 @@ class ClientState:
         client_request["id"] = self.id
         client_request["action"] = action
         client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
-        client_request["mode"] = self.mode
+        client_request["mode"] = requested_mode
         client_request["debug"] = self.debug
                         
         # if len(client_request) > 0 and self.debug == True:
@@ -1217,8 +1267,10 @@ class ClientState:
         self.turn_num = server_response["turn_num"]
 
         self.current_player_name = server_response["current_player"]
+
         self.hover = server_response["hover"]
 
+        self.mode = server_response["mode"]
 
 
     def render_board(self):
@@ -1278,20 +1330,22 @@ class ClientState:
         rf.draw_robber(robber_hex_center)
 
     def render_mouse_hover(self):
+        # self.hover could prob be replaced with other logic about current player, mode
         if self.hover == True:
             # highlight current node if building is possible
-            if self.current_hex_3:
+            if self.current_hex_3 and self.mode == "build_town":
                 node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
                 pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
 
             # highlight current edge if building is possible
-            elif self.current_hex_2:
+            elif self.current_hex_2 and self.mode == "build_road":
                 edge_object = Edge(self.current_hex, self.current_hex_2)
                 pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
 
             # highlight current hex if moving robber is possible
-            elif self.current_hex and self.move_robber == True:
-                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 0, 6, pr.BLACK)
+            elif self.current_hex and self.mode == "move_robber":
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 0, 6, pr.BLACK)     
+
 
             
     def render_client(self):
@@ -1320,22 +1374,36 @@ class ClientState:
         for button in self.buttons:
             pr.draw_rectangle_rec(button.rec, button.color)
             pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
+            # action buttons
             # draw dice
             if button.name == "roll_dice":
                 rf.draw_dice(self.dice, button.rec)
                 # draw line between dice
                 pr.draw_line_ex((int(button.rec.x + button.rec.width//2), int(button.rec.y)), (int(button.rec.x + button.rec.width//2), int(button.rec.y+button.rec.height)), 2, pr.BLACK)
-            if button.name == "build_road":
+                if self.mode != "roll_dice":
+                    button.hover = False
+            elif button.name == "end_turn":
+                pr.draw_text_ex(pr.gui_get_font(), "End Turn", (button.rec.x+5, button.rec.y+12), 12, 0, pr.BLACK)
+                if self.mode == "roll_dice":
+                    button.hover = False
+            
+            # mode buttons
+            elif button.name == "build_road":
                 pr.draw_text_ex(pr.gui_get_font(), "road", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
-            if button.name == "build_town":
+            elif button.name == "build_town":
                 pr.draw_text_ex(pr.gui_get_font(), "town", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
-            if button.name == "move_robber":
+            elif button.name == "move_robber":
                 pr.draw_text_ex(pr.gui_get_font(), "robr", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
-            if button.name == "delete":
+            elif button.name == "delete":
                 pr.draw_text_ex(pr.gui_get_font(), "del", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
 
-            if button.name == "end_turn":
-                pr.draw_text_ex(pr.gui_get_font(), "End Turn", (button.rec.x+5, button.rec.y+12), 12, 0, pr.BLACK)
+            # highlight button if appropriate
+            if button.hover == True:
+                outer_offset = 2
+                outer_rec = pr.Rectangle(button.rec.x-outer_offset, button.rec.y-outer_offset, button.rec.width+2*outer_offset, button.rec.height+2*outer_offset)
+                pr.draw_rectangle_lines_ex(outer_rec, 5, pr.BLACK)
+                # pr.draw_rectangle_lines_ex(button.rec, 3, pr.BLACK)
+
 
         for marker in self.markers:
             pr.draw_rectangle_rec(marker.rec, marker.color)
@@ -1345,13 +1413,6 @@ class ClientState:
             if marker.name == self.current_player_name:
                 pr.draw_rectangle_lines_ex(marker.rec, 4, pr.BLACK)
                 
-        # highlight hover_rec
-        if self.hover_rec != None:
-            outer_offset = 2
-            outer_rec = pr.Rectangle(self.hover_rec.x-outer_offset, self.hover_rec.y-outer_offset, self.hover_rec.width+2*outer_offset, self.hover_rec.height+2*outer_offset)
-            pr.draw_rectangle_lines_ex(outer_rec, 5, pr.BLACK)
-            # pr.draw_rectangle_lines_ex(self.hover_rec, 3, pr.BLACK)
-     
         pr.end_drawing()
 
 
