@@ -20,7 +20,7 @@ pointy = hh.Layout(hh.layout_pointy, hh.Point(50, 50), hh.Point(400, 300))
 origin = hh.set_hex(0, 0, 0)
 
 class Player:
-    def __init__(self, name):
+    def __init__(self, name, order):
         self.name = name
         self.hand = {} # {"brick": 4, "wood": 2}
         self.development_cards = {} # {"soldier": 4, "victory_point": 1}
@@ -29,7 +29,10 @@ class Player:
         self.num_settlements = 0
         self.num_roads = 0
         self.ports = []
-        self.order = 0
+        self.order = order
+    
+    def __repr__(self):
+        return f"{self.name}"
 
 hexes = [hh.set_hex(0, -2, 2),
         hh.set_hex(1, -2, 1),
@@ -175,9 +178,21 @@ def main_test():
 
 # main_test()
 
+player_order = ["red", "white", "orange", "blue"]
+red = Player("red", 3)
+white = Player("white", 1)
+blue = Player("blue", 2)
+orange = Player("orange", 0)
 
- 1, 'wood': 1, 'brick': 0}, 'orange': {'ore': 1, 'wheat': 1, 'sheep': 1, 'wood': 1, 'brick': 0}, 'blue': {'ore': 1, 'wheat': 1, 'sheep': 1, 'wood': 1, 'brick': 1}}
+# players = {Player("red", 0)}
+players = {"red": red, "white": white, "orange": orange, "blue": blue}
 
-{'red': 3, 'white': 3, 'orange': 4, 'blue': {'ore': 1, 'wheat': 1, 'sheep': 1, 'wood': 1, 'brick': 1}}
+player_order.sort(key=lambda player_name: players[player_name].order)
 
-{'red': {'ore': 0, 'wheat': 1, 'sheep': 1, 'wood': 1, 'brick': 0}, 'white': {'ore': 1, 'wheat': 0, 'sheep': 1, 'wood': 1, 'brick': 0}, 'orange': {'ore': 1, 'wheat': 1, 'sheep': 1, 'wood': 1, 'brick': 0}, 'blue': {'ore': 1, 'wheat': 1, 'sheep': 1, 'wood': 1, 'brick': 1}}
+
+print(player_order)
+for p in player_order:
+    print(p)
+# sorted(my_dict.items(), key=operator.itemgetter(1)))
+# bot_score_data.sort(key=lambda b: b.score)
+

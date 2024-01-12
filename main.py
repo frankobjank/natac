@@ -9,6 +9,8 @@ import hex_helper as hh
 import rendering_functions as rf
 
 
+# thought for randomizing settlement starting positions - could be interesting twist to game to randomize starting placements instead of picking yourself. would have to make sure randomized dot numbers were within 1 or 2 between players
+
 local_IP = '127.0.0.1'
 local_port = 12345
 buffer_size = 10000
@@ -584,8 +586,9 @@ class Board:
 
 
 class Player:
-    def __init__(self, name):
+    def __init__(self, name, order):
         self.name = name
+        self.order = order
         self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.development_cards = {} # {"soldier": 4, "victory_point": 1}
         self.victory_points = 0
@@ -593,7 +596,6 @@ class Player:
         self.num_settlements = 0 # for counting victory points
         self.num_roads = 0 # counting longest road
         self.ports = []
-        self.order = 0
 
     def __repr__(self):
         return f"Player {self.name}: \nHand: {self.hand}, Victory points: {self.victory_points}"
@@ -631,6 +633,7 @@ class ServerState:
         # PLAYERS
         self.players = {}
         self.current_player_name = None
+        self.player_order = []
 
         # TURNS
         self.die1 = 0
@@ -646,34 +649,31 @@ class ServerState:
 
     
     def initialize_game(self):
-        self.initialize_players(red=True, blue=True, orange=True, white=True)
+        self.initialize_players("red", "white", "orange", "blue")
         self.board = Board()
         self.board.initialize_board()
         self.board.set_demo_settlements(self)
     
     
     # hardcoded players, can set up later to take different combos based on user input
-    def initialize_players(self, red=False, blue=False, orange=False, white=False):
+    def initialize_players(self, name1=None, name2=None, name3=None, name4=None):
         order = 0
-        if red == True:
-            self.players["red"] = Player("red")
-            self.players["red"].order = order
+        if name1:
+            self.players[name1] = Player(name1, order)
             order += 1
-        if white == True:
-            self.players["white"] = Player("white")
-            self.players["white"].order = order
+        if name2:
+            self.players[name2] = Player(name2, order)
             order += 1
-        if orange == True:
-            self.players["orange"] = Player("orange")
-            self.players["orange"].order = order
+        if name3:
+            self.players[name3] = Player(name3, order)
             order += 1
-        if blue == True:
-            self.players["blue"] = Player("blue")
-            self.players["blue"].order = order
+        if name4:
+            self.players[name4] = Player(name4, order)
             order += 1
 
-        # eventually randomize player order; randomly assign order to each player
-        # self.players = {"red": Player("red"), "blue": Player("blue"), "orange": Player("orange"), "white": Player("white")}
+        self.player_order = [name for name in self.players.keys()]
+        self.player_order.sort(key=lambda player_name: self.players[player_name].order)
+
             
     def randomize_player_order(self):
         player_names = [name for name in self.players.keys()]
@@ -681,6 +681,8 @@ class ServerState:
             rand_player = player_names[random.randint(0, len(player_names)-1)]
             self.players[rand_player].order = i
             player_names.remove(rand_player)
+        
+        self.player_order.sort(key=lambda player_name: self.players[player_name].order)
     
     def build_settlement(self, location_node):
         location_node.town = "settlement"
@@ -788,11 +790,14 @@ class ServerState:
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex[:2],
             "dice": [self.die1, self.die2],
-            "hands": {player_name: player_object.hand for player_name, player_object in self.players.items()}, # {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
             "turn_num": self.turn_num,
-            "current_player": self.current_player_name,
+            "mode": self.mode,
             "hover": self.hover,
-            "mode": self.mode
+            "current_player": self.current_player_name,
+            "player_order": [self.player_order],
+            "victory_points": [player_object.victory_points for player_object in self.players.values()],
+            "hands": [v for v in self.players.values()["hands"]],
+            "development_cards": [player_object.development_cards for player_object in self.players.values()]
         }
 
         return to_json(packet).encode()
@@ -987,6 +992,17 @@ class Marker:
         self.name = name
         self.color = rf.game_color_dict[self.name]
 
+class ClientPlayer:
+    def __init__(self, name: str, order: int, marker: Marker):
+        # assigned locally
+        self.name = name # same player would be local, others would be server
+        self.marker = marker
+
+        # from server
+        self.order = order
+        self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        self.development_cards = {} # {"soldier": 4, "victory_point": 1}
+        self.victory_points = 0
 
 class ClientState:
     def __init__(self, id="red"):
@@ -1008,11 +1024,12 @@ class ClientState:
         self.hover = False
 
         # PLAYERS - undecided if a Player class is needed for client
+        self.client_players = {} # use ClientPlayer class
+        self.player_order = [] # use len(player_order) to get num_players
         self.current_player_name = None
-        self.player_hands = {}
 
         # GAMEPLAY
-        self.dice = []
+        self.dice = [] 
         self.turn_num = -1
         self.mode = None # can be move_robber, build_town, build_road, trading, roll dice
 
@@ -1028,16 +1045,9 @@ class ClientState:
             Button(pr.Rectangle(self.screen_width-50, 20, button_size, button_size), "move_robber", mode=True),
             Button(pr.Rectangle(self.screen_width-100, 20, button_size, button_size), "build_road", mode=True),
             Button(pr.Rectangle(self.screen_width-150, 20, button_size, button_size), "build_town", mode=True),
-            Button(pr.Rectangle(self.screen_width-200, 20, button_size, button_size), "delete", mode=True),
+            # Button(pr.Rectangle(self.screen_width-200, 20, button_size, button_size), "delete", mode=True),
             Button(pr.Rectangle(150-2*button_size, self.screen_height-150, 2*button_size, button_size), "roll_dice", action=True),
             Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 2*button_size, button_size), "end_turn", action=True)
-        ]
-
-        self.markers=[
-            Marker(pr.Rectangle(self.screen_width//2, self.screen_height-20-button_size, button_size, button_size), "red"),
-            Marker(pr.Rectangle(50-button_size, self.screen_height//2, button_size, button_size), "white"),
-            Marker(pr.Rectangle(self.screen_width//2, 20, button_size, button_size), "orange"), 
-            Marker(pr.Rectangle(self.screen_width-50, self.screen_height//2, button_size, button_size), "blue"),
         ]
 
 
@@ -1052,7 +1062,25 @@ class ClientState:
     def does_board_exist(self):
         if len(self.board) > 0:
             return True
-      
+
+    def client_initialize_players(self):
+        # define player markers based on player_order that comes in from server
+        marker_size = 40
+        if len(self.player_order) > 0:
+            for i in range(len(self.player_order)):
+                marker = None
+                if i == 0:
+                    marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*3, self.screen_height-20-marker_size, marker_size, marker_size), self.player_order[i])
+                elif i == 1:
+                    marker = Marker(pr.Rectangle(50-marker_size, self.screen_height//2-marker_size*3, marker_size, marker_size), self.player_order[i])
+                elif i == 2:
+                    marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*3, 20, marker_size, marker_size), self.player_order[i])
+                elif i == 3:
+                    marker = Marker(pr.Rectangle(self.screen_width-50, self.screen_height//2-marker_size*3, marker_size, marker_size), self.player_order[i])
+                
+                self.client_players[self.player_order[i]] = ClientPlayer(self.player_order[i], i, marker)
+
+
     def get_user_input(self):
         
         self.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), self.camera)
@@ -1250,11 +1278,11 @@ class ClientState:
         # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
         # robber_hex : [0, 0]
         # dice : [die1, die2]
-        # hands: {"red": {"brick": 4, "wood": 2, ...}, "white": num_cards, "orange": num_cards, "blue": num_cards}
         # turn_num : 0
         # current_player : self.current_player
         # hover : bool
         # mode : None || "move_robber"
+        # order : ["red", "white"]
 
         server_response = json.loads(encoded_server_response)
 
@@ -1316,22 +1344,29 @@ class ClientState:
         self.mode = server_response["mode"]
         self.hover = server_response["hover"]
         
-        # PLAYER
-        self.current_player_name = server_response["current_player"]
+        # PLAYERS
+        if len(server_response["order"]) > 0:
+            self.player_order = server_response["player_order"]
+            self.current_player_name = server_response["current_player"]
 
-        # REVEAL HAND FOR CURRENT PLAYER (will have to change later)
-        if self.current_player_name and len(server_response["hands"]) > 0:
-            for player_name, hand in server_response["hands"].items():
-                if player_name == self.current_player_name:
-                    self.player_hands[player_name] = hand
+            # initialize client_players if they don't exist
+            if len(self.client_players) == 0:
+                self.client_initialize_players()
+
+            # UNPACK WITH PLAYER ORDER SINCE NAMES WERE REMOVED TO SAVE BYTES ON MESSAGE FROM SERVER
+            hand_to_resource = ["ore", "wheat", "sheep", "wood", "brick"]
+            print(server_response["player_data"])
+            for i in range(len(self.player_order)):
+                self.client_players[self.player_order[i]].victory_points = server_response["player_data"]["victory_points"][i]
+                # REVEAL HAND FOR CURRENT PLAYER (will have to change later)
+                if self.player_order[i] == self.current_player_name:
+                    self.client_players[self.player_order[i]] = server_response["player_data"]["hands"][i]
                 else:
                     num_cards = 0
-                    for v in hand.values():
+                    for v in server_response["player_data"]["hands"][i]:
                         num_cards += v
-                    self.player_hands[player_name] = num_cards
-
-        print(self.player_hands)
-
+                    self.client_players[self.player_order[i]] = num_cards
+        
 
 
     def render_board(self):
@@ -1463,16 +1498,25 @@ class ClientState:
                 outer_offset = 2
                 outer_rec = pr.Rectangle(button.rec.x-outer_offset, button.rec.y-outer_offset, button.rec.width+2*outer_offset, button.rec.height+2*outer_offset)
                 pr.draw_rectangle_lines_ex(outer_rec, 5, pr.BLACK)
-                # pr.draw_rectangle_lines_ex(button.rec, 3, pr.BLACK)
 
 
-        for marker in self.markers:
-            pr.draw_rectangle_rec(marker.rec, marker.color)
-            pr.draw_rectangle_lines_ex(marker.rec, 1, pr.BLACK)
+        for player_name, player_object in self.client_players.items():
+            # draw player markers
+            # player 0 on bottom, 1 left, 2 top, 3 right
+            pr.draw_rectangle_rec(player_object.marker.rec, player_object.marker.color)
+            pr.draw_rectangle_lines_ex(player_object.marker.rec, 1, pr.BLACK)
+
+
+                # if player.order == 0:
+                    # hand_x, hand_y = marker.rec.x+50, marker.rec.y
+
+            # hand start offset from marker rec
+            
 
             # hightlight current player
-            if marker.name == self.current_player_name:
-                pr.draw_rectangle_lines_ex(marker.rec, 4, pr.BLACK)
+            if player_name == self.current_player_name:
+                pr.draw_rectangle_lines_ex(player_object.marker.rec, 4, pr.BLACK)
+
                 
         pr.end_drawing()
 
