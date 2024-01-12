@@ -175,8 +175,6 @@ def main_test():
 
 # main_test()
 
-
-dct = {"hex1": 1, "hex2": 2, "hex3": 3}
-v1 = [dct.values()]
-# v1, v2, v3 = dct.values()
-print(v1)
+lst = [0, 1, 2, 2, 2, 3, 3, 2, 1, 0, 0, 2]
+indices = [i for i, x in enumerate(lst) if x == 0]
+print(indices)

@@ -67,7 +67,8 @@ terrain_to_resource = {
     "pasture": "sheep",
     "field": "wheat",
     "mountain": "ore",
-    "desert": None
+    "desert": None,
+    "ocean": None
     }
 
 
@@ -332,11 +333,11 @@ class Board:
         self.nodes = []
         self.robber_hex = None
 
-    # 4 wood, 4 wheat, 4 ore, 3 brick, 3 sheep, 1 desert
+    # 4 ore, 4 wheat, 3 sheep, 4 wood, 3 brick, 1 desert
     def get_random_terrain(self):
         # if desert, skip token
         terrain_list = []
-        terrain_counts = {"mountain": 4, "forest": 4, "field": 4, "hill": 3, "pasture": 3, "desert": 1}
+        terrain_counts = {"mountain": 4, "field": 4,  "pasture": 3, "forest": 4,  "hill": 3, "desert": 1}
         tiles_for_random = terrain_counts.keys()
         while len(terrain_list) < 19:
             for i in range(19):
@@ -585,7 +586,7 @@ class Board:
 class Player:
     def __init__(self, name):
         self.name = name
-        self.hand = {} # {"brick": 4, "wood": 2}
+        self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.development_cards = {} # {"soldier": 4, "victory_point": 1}
         self.victory_points = 0
         self.num_cities = 0
@@ -714,7 +715,24 @@ class ServerState:
         location_edge.player = None
 
     def distribute_resources(self):
-        result = self.die1 + self.die2
+        token_indices = [i for i, token in enumerate(self.board.tokens) if token == (self.die1 + self.die2)]
+        print(f"token indices = {token_indices}")
+
+        tiles = [LandTile(self.board.land_hexes[i], self.board.terrains[i], self.board.tokens[i]) for i in token_indices]
+
+        print(f"tiles = {tiles}")
+        # resource_hexes = [self.board.land_hexes[i] for i in token_indices]
+
+        for node in self.board.nodes:
+            if node.player != None:
+                for hex in node.hexes:
+                    for tile in tiles:
+                        if hex == tile.hex:
+                            player_object = self.players[node.player]
+                            resource = terrain_to_resource[tile.terrain]
+                            player_object.hand[resource] += 1
+                            if node.town == "city":
+                                player_object.hand[resource] += 1           
 
 
     def build_msg_to_client(self) -> bytes:
@@ -800,13 +818,20 @@ class ServerState:
                 self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
                 self.dice_rolls += 1
                 self.mode = None
-                self.distribute_resources()
+                if self.die1 + self.die2 != 7:
+                    self.distribute_resources()
+                elif self.die1 + self.die2 == 7:
+                    self.mode = "move_robber"
+                for p_name, ob in self.players.items():
+                    print(f"{p_name} hand: {ob.hand}")
             return
         
 
         elif client_request["action"] == "end_turn":
             # only allow if # rolls > turn_num
             # increment turn number and set new current_player
+            if self.mode != None:
+                return
             if self.dice_rolls > self.turn_num:
                 self.turn_num += 1
                 self.mode = "roll_dice"
