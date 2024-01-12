@@ -590,8 +590,8 @@ class Player:
         self.development_cards = {} # {"soldier": 4, "victory_point": 1}
         self.victory_points = 0
         self.num_cities = 0
-        self.num_settlements = 0
-        self.num_roads = 0
+        self.num_settlements = 0 # for counting victory points
+        self.num_roads = 0 # counting longest road
         self.ports = []
         self.order = 0
 
@@ -698,8 +698,21 @@ class ServerState:
         location_edge.player = self.current_player_name
         self.players[self.current_player_name].num_roads += 1
 
+    def move_robber(self, location_hex=None):
+        # random for debuging
+        if location_hex == None:
+            while self.robber_move_check(location_hex) != True:
+                location_hex = self.board.land_hexes[random.randint(1, 19)]
+        self.board.robber_hex = location_hex
+        self.mode = None # only one robber move at a time
+
+    def robber_move_check(self, location_hex):
+        if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
+            return True
+        return False
+
+
     def remove_town(self, location_node):
-        
         location_node.player = None
         location_node.town = None
         if location_node.port:
@@ -711,16 +724,14 @@ class ServerState:
             self.players[location_node.player].num_cities -= 1
 
     def remove_road(self, location_edge):
-        self.players[location_edge.player].num_roads -= 1
         location_edge.player = None
+        self.players[location_edge.player].num_roads -= 1
 
     def distribute_resources(self):
         token_indices = [i for i, token in enumerate(self.board.tokens) if token == (self.die1 + self.die2)]
-        print(f"token indices = {token_indices}")
 
         tiles = [LandTile(self.board.land_hexes[i], self.board.terrains[i], self.board.tokens[i]) for i in token_indices]
 
-        print(f"tiles = {tiles}")
         # resource_hexes = [self.board.land_hexes[i] for i in token_indices]
 
         for node in self.board.nodes:
@@ -732,8 +743,11 @@ class ServerState:
                             resource = terrain_to_resource[tile.terrain]
                             player_object.hand[resource] += 1
                             if node.town == "city":
-                                player_object.hand[resource] += 1           
+                                player_object.hand[resource] += 1
 
+    def return_cards(self):
+        pass
+        
 
     def build_msg_to_client(self) -> bytes:
         town_nodes = []
@@ -821,9 +835,10 @@ class ServerState:
                 if self.die1 + self.die2 != 7:
                     self.distribute_resources()
                 elif self.die1 + self.die2 == 7:
+                    self.return_cards()
                     self.mode = "move_robber"
-                for p_name, ob in self.players.items():
-                    print(f"{p_name} hand: {ob.hand}")
+                    if self.debug == True:
+                        self.move_robber()
             return
         
 
@@ -912,11 +927,13 @@ class ServerState:
 
         elif self.mode == "move_robber" and location_hex:
             # check for valid hex (any land hex that is not current robber hex)
-            if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
+            if self.robber_move_check(location_hex):
                 self.hover = True
                 if client_request["action"] == "move_robber":
-                    self.board.robber_hex = location_hex
-                    self.mode = None             
+                    self.move_robber(location_hex)
+
+        # calc longest road
+        max(player_object.num_roads for player_object in self.players.values())
         
 
 
@@ -990,8 +1007,9 @@ class ClientState:
         # maybe add potential actions so the mouse hover render knows what to highlight
         self.hover = False
 
-        # PLAYERS
+        # PLAYERS - undecided if a Player class is needed for client
         self.current_player_name = None
+        self.player_hands = {}
 
         # GAMEPLAY
         self.dice = []
@@ -1113,8 +1131,8 @@ class ClientState:
         for button in self.buttons:
             if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
                 # special cases for roll_dice, end_turn
-                if button.name == "roll_dice":
-                    if self.mode == "roll_dice":
+                if self.mode == "roll_dice":
+                    if button.name == "roll_dice":
                         button.hover = True
                     else:
                         button.hover = False
@@ -1187,8 +1205,8 @@ class ClientState:
                 action = "move_robber"
 
         # eventually one client will only be able to control one player; for debug client presents itself as current_player
-        if self.debug == True:
-            self.id = self.current_player_name
+        # if self.debug == True:
+        self.id = self.current_player_name
 
         client_request["id"] = self.id
         client_request["action"] = action
@@ -1232,12 +1250,11 @@ class ClientState:
         # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
         # robber_hex : [0, 0]
         # dice : [die1, die2]
-        # hands: {"red": {"brick": 4, "wood": 2, ...}, "white":{"brick: 2, ..."}}
+        # hands: {"red": {"brick": 4, "wood": 2, ...}, "white": num_cards, "orange": num_cards, "blue": num_cards}
         # turn_num : 0
         # current_player : self.current_player
         # hover : bool
         # mode : None || "move_robber"
-
 
         server_response = json.loads(encoded_server_response)
 
@@ -1246,11 +1263,8 @@ class ClientState:
 
         for key, length in lens_for_verification.items():
             assert len(server_response[key]) == length, f"incorrect number of {key}, actual number = {len(server_response[key])}"
-        
-        # modes = [None, "move_robber", "build_road", "build_town", "trading"]
-        # assert server_response["mode"] in modes, f"expected mode, got `{server_response['mode']}`"
 
-
+        # BOARD
         # expanding ocean_hexes and land_hexes
         self.board["ocean_hexes"] = []
         for h in server_response["ocean_hexes"]:
@@ -1272,7 +1286,6 @@ class ClientState:
             tile = LandTile(self.board["land_hexes"][i], server_response["terrains"][i], server_response["tokens"][i])
             self.board["land_tiles"].append(tile)
         
-
         # town_nodes : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None},
         self.board["town_nodes"] = []
         for node in server_response["town_nodes"]:
@@ -1294,15 +1307,31 @@ class ClientState:
         q, r = server_response["robber_hex"]
         self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
 
-        self.dice = server_response["dice"]
 
+        # DICE/TURNS
+        self.dice = server_response["dice"]
         self.turn_num = server_response["turn_num"]
 
+        # MODE/HOVER
+        self.mode = server_response["mode"]
+        self.hover = server_response["hover"]
+        
+        # PLAYER
         self.current_player_name = server_response["current_player"]
 
-        self.hover = server_response["hover"]
+        # REVEAL HAND FOR CURRENT PLAYER (will have to change later)
+        if self.current_player_name and len(server_response["hands"]) > 0:
+            for player_name, hand in server_response["hands"].items():
+                if player_name == self.current_player_name:
+                    self.player_hands[player_name] = hand
+                else:
+                    num_cards = 0
+                    for v in hand.values():
+                        num_cards += v
+                    self.player_hands[player_name] = num_cards
 
-        self.mode = server_response["mode"]
+        print(self.player_hands)
+
 
 
     def render_board(self):

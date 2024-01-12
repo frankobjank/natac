@@ -175,6 +175,9 @@ def main_test():
 
 # main_test()
 
-lst = [0, 1, 2, 2, 2, 3, 3, 2, 1, 0, 0, 2]
-indices = [i for i, x in enumerate(lst) if x == 0]
-print(indices)
+
+ 1, 'wood': 1, 'brick': 0}, 'orange': {'ore': 1, 'wheat': 1, 'sheep': 1, 'wood': 1, 'brick': 0}, 'blue': {'ore': 1, 'wheat': 1, 'sheep': 1, 'wood': 1, 'brick': 1}}
+
+{'red': 3, 'white': 3, 'orange': 4, 'blue': {'ore': 1, 'wheat': 1, 'sheep': 1, 'wood': 1, 'brick': 1}}
+
+{'red': {'ore': 0, 'wheat': 1, 'sheep': 1, 'wood': 1, 'brick': 0}, 'white': {'ore': 1, 'wheat': 0, 'sheep': 1, 'wood': 1, 'brick': 0}, 'orange': {'ore': 1, 'wheat': 1, 'sheep': 1, 'wood': 1, 'brick': 0}, 'blue': {'ore': 1, 'wheat': 1, 'sheep': 1, 'wood': 1, 'brick': 1}}
