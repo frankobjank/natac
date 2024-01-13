@@ -4,6 +4,7 @@ import rendering_functions as rf
 from operator import itemgetter, attrgetter
 import random
 import math
+import json
 
 
 def vector2_round(vector2):
@@ -22,7 +23,7 @@ origin = hh.set_hex(0, 0, 0)
 class Player:
     def __init__(self, name, order):
         self.name = name
-        self.hand = {} # {"brick": 4, "wood": 2}
+        self.hand = {"ore": 2, "wheat": 0, "sheep": 1, "wood": 0, "brick": 0}
         self.development_cards = {} # {"soldier": 4, "victory_point": 1}
         self.victory_points = 0
         self.num_cities = 0
@@ -179,20 +180,33 @@ def main_test():
 # main_test()
 
 player_order = ["red", "white", "orange", "blue"]
-red = Player("red", 3)
+red = Player("red", 0)
 white = Player("white", 1)
 blue = Player("blue", 2)
-orange = Player("orange", 0)
+orange = Player("orange", 3)
 
-# players = {Player("red", 0)}
-players = {"red": red, "white": white, "orange": orange, "blue": blue}
+players = {"red": red, "white": white, "blue": blue, "orange": orange}
+hands = []
+packet = {
+    "hands": {}
+}
+for player_object in players.values():
+    hand = []
+    for num in player_object.hand.values():
+        hand.append(num)
+    hands.append(hand)
 
-player_order.sort(key=lambda player_name: players[player_name].order)
+
+def to_json(obj):
+    return json.dumps(obj, default=lambda o: o.__dict__)
+
+print(to_json(hands))
 
 
-print(player_order)
-for p in player_order:
-    print(p)
-# sorted(my_dict.items(), key=operator.itemgetter(1)))
-# bot_score_data.sort(key=lambda b: b.score)
 
+
+# Knight card - lets the player move the robber
+# Road Building - player can place 2 roads as if they just built them
+# Year of Plenty - the player can draw 2 resource cards of their choice from the bank
+# Monopoly - player can claim all resource cards of a specific declared type
+# Victory Point card - 1 additional Victory Point is added to the owners total and doesn't need to be played to win.

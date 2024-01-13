@@ -61,7 +61,6 @@ all_game_pieces = ["settlement", "city", "road", "robber", "longest_road", "larg
 all_terrains = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
 all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
 all_ports = ["three", "wood", "brick", "sheep", "wheat", "ore"]
-all_development_cards = ["victory_point", "knight", "monopoly", "year_of_plenty", "road_building"]
 
 terrain_to_resource = {
     "forest": "wood",
@@ -335,6 +334,15 @@ class Board:
         self.nodes = []
         self.robber_hex = None
 
+        # 25 development cards: 14 knight cards, 5 victory point cards, 2 road building, 2 year of plenty, and 2 monopoly
+        self.dev_cards = {
+            "knight": 14, 
+            "victory_point": 5,
+            "road_building": 2, 
+            "year_of_plenty": 2, 
+            "monopoly": 2, 
+        }
+
     # 4 ore, 4 wheat, 3 sheep, 4 wood, 3 brick, 1 desert
     def get_random_terrain(self):
         # if desert, skip token
@@ -590,7 +598,8 @@ class Player:
         self.name = name
         self.order = order
         self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        self.development_cards = {} # {"soldier": 4, "victory_point": 1}
+        self.num_cards = 0
+        self.dev_cards = {"knight": 0, "victory_point": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0}
         self.victory_points = 0
         self.num_cities = 0
         self.num_settlements = 0 # for counting victory points
@@ -605,15 +614,14 @@ class Player:
     
     def calculate_victory_points(self):
         # settlements/ cities
-        self.victory_points = self.num_cities*2 + self.num_settlements*2
+        self.victory_points = self.num_cities*2 + self.num_settlements
         # largest army/ longest road
         if self.longest_road:
             self.victory_points += 2
         if self.largest_army:
             self.victory_points += 2
         # development cards
-        if "victory_point" in self.development_cards:
-            self.victory_points += self.development_cards["victory_point"]
+        self.victory_points += self.dev_cards["victory_point"]
 
 
 
@@ -655,7 +663,7 @@ class ServerState:
         self.board.set_demo_settlements(self)
     
     
-    # hardcoded players, can set up later to take different combos based on user input
+    # hardcoded players for debug
     def initialize_players(self, name1=None, name2=None, name3=None, name4=None):
         order = 0
         if name1:
@@ -674,6 +682,20 @@ class ServerState:
         self.player_order = [name for name in self.players.keys()]
         self.player_order.sort(key=lambda player_name: self.players[player_name].order)
 
+    def is_server_full(self, max_players=4):
+        if len(self.player_order) >= max_players:
+            print("server cannot accept any more players")
+            return True
+        else:
+            return False
+        
+    # adding players to server. order in terms of arrival, will rearrange later
+    def add_player(self, name):
+        if self.is_server_full():
+            return
+        order = len(self.player_order)
+        self.players[name] = Player(name, order)
+        self.player_order.append(name)
             
     def randomize_player_order(self):
         player_names = [name for name in self.players.keys()]
@@ -754,7 +776,6 @@ class ServerState:
     def build_msg_to_client(self) -> bytes:
         town_nodes = []
         road_edges = []
-        player_order = {}
         
         # add all nodes/edge owned by players, abridge hexes
         for node in self.board.nodes:
@@ -775,9 +796,22 @@ class ServerState:
                 new_edge["player"] = edge.player
                 road_edges.append(new_edge)
 
-        # player order - might be useful in actual gameplay when turn order is more random and for client rendering so the game goes in clock-wise order (if that even applies)
-        for player_name, player_object in self.players.items():
-            player_order[player_object.order] = player_name
+        # loop thru players and gather data for client
+        hands = []
+        dev_cards = []
+        victory_points = []
+        for player_object in self.players.values():
+            hand = []
+            for num in player_object.hand.values():
+                hand.append(num)
+            hands.append(hand)
+
+            dev_card_hand = []
+            for num in player_object.dev_cards.values():
+                dev_card_hand.append(num)
+            dev_cards.append(dev_card_hand)
+
+            victory_points.append(player_object.victory_points)
 
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
@@ -794,10 +828,10 @@ class ServerState:
             "mode": self.mode,
             "hover": self.hover,
             "current_player": self.current_player_name,
-            "player_order": [self.player_order],
-            "victory_points": [player_object.victory_points for player_object in self.players.values()],
-            "hands": [v for v in self.players.values()["hands"]],
-            "development_cards": [player_object.development_cards for player_object in self.players.values()]
+            "player_order": self.player_order,
+            "victory_points": victory_points,
+            "hands": hands,
+            "dev_cards": dev_cards
         }
 
         return to_json(packet).encode()
@@ -1001,7 +1035,9 @@ class ClientPlayer:
         # from server
         self.order = order
         self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        self.development_cards = {} # {"soldier": 4, "victory_point": 1}
+        self.num_cards = 0
+        self.dev_cards = {"knight": 0, "victory_point": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0}
+        self.num_dev_cards = 0
         self.victory_points = 0
 
 class ClientState:
@@ -1066,19 +1102,18 @@ class ClientState:
     def client_initialize_players(self):
         # define player markers based on player_order that comes in from server
         marker_size = 40
-        if len(self.player_order) > 0:
-            for i in range(len(self.player_order)):
-                marker = None
-                if i == 0:
-                    marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*3, self.screen_height-20-marker_size, marker_size, marker_size), self.player_order[i])
-                elif i == 1:
-                    marker = Marker(pr.Rectangle(50-marker_size, self.screen_height//2-marker_size*3, marker_size, marker_size), self.player_order[i])
-                elif i == 2:
-                    marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*3, 20, marker_size, marker_size), self.player_order[i])
-                elif i == 3:
-                    marker = Marker(pr.Rectangle(self.screen_width-50, self.screen_height//2-marker_size*3, marker_size, marker_size), self.player_order[i])
-                
-                self.client_players[self.player_order[i]] = ClientPlayer(self.player_order[i], i, marker)
+        for order, name in enumerate(self.player_order):
+            marker = None
+            if order == 0:
+                marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*3, self.screen_height-20-marker_size, marker_size, marker_size), name)
+            elif order == 1:
+                marker = Marker(pr.Rectangle(50-marker_size, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
+            elif order == 2:
+                marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*3, 20, marker_size, marker_size), name)
+            elif order == 3:
+                marker = Marker(pr.Rectangle(self.screen_width-50, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
+            
+            self.client_players[name] = ClientPlayer(name, order, marker)
 
 
     def get_user_input(self):
@@ -1283,6 +1318,9 @@ class ClientState:
         # hover : bool
         # mode : None || "move_robber"
         # order : ["red", "white"]
+        # victory points
+        # hands
+        # development_cards
 
         server_response = json.loads(encoded_server_response)
 
@@ -1293,25 +1331,25 @@ class ClientState:
             assert len(server_response[key]) == length, f"incorrect number of {key}, actual number = {len(server_response[key])}"
 
         # BOARD
-        # expanding ocean_hexes and land_hexes
-        self.board["ocean_hexes"] = []
+        # expanding ocean_hexes and land_hexes - can be local vars since they are added to tiles
+        ocean_hexes = []
         for h in server_response["ocean_hexes"]:
-            self.board["ocean_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
+            ocean_hexes.append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
 
-        self.board["land_hexes"] = []
+        land_hexes = []
         for h in server_response["land_hexes"]:
-            self.board["land_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
+            land_hexes.append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
 
         # create OceanTile namedtuple with hex, port
         self.board["ocean_tiles"] = []
-        for i in range(len(server_response["ocean_hexes"])):
-            tile = OceanTile(self.board["ocean_hexes"][i], server_response["ports_ordered"][i], server_response["port_corners"][i])
+        for i, hex in enumerate(ocean_hexes):
+            tile = OceanTile(hex, server_response["ports_ordered"][i], server_response["port_corners"][i])
             self.board["ocean_tiles"].append(tile)
 
         # create LandTile namedtuple with hex, terrain, token
         self.board["land_tiles"] = []
-        for i in range(len(server_response["land_hexes"])):
-            tile = LandTile(self.board["land_hexes"][i], server_response["terrains"][i], server_response["tokens"][i])
+        for i, hex in enumerate(land_hexes):
+            tile = LandTile(hex, server_response["terrains"][i], server_response["tokens"][i])
             self.board["land_tiles"].append(tile)
         
         # town_nodes : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None},
@@ -1353,19 +1391,23 @@ class ClientState:
             if len(self.client_players) == 0:
                 self.client_initialize_players()
 
+
             # UNPACK WITH PLAYER ORDER SINCE NAMES WERE REMOVED TO SAVE BYTES ON MESSAGE FROM SERVER
+            dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
             hand_to_resource = ["ore", "wheat", "sheep", "wood", "brick"]
-            print(server_response["player_data"])
-            for i in range(len(self.player_order)):
-                self.client_players[self.player_order[i]].victory_points = server_response["player_data"]["victory_points"][i]
-                # REVEAL HAND FOR CURRENT PLAYER (will have to change later)
-                if self.player_order[i] == self.current_player_name:
-                    self.client_players[self.player_order[i]] = server_response["player_data"]["hands"][i]
-                else:
-                    num_cards = 0
-                    for v in server_response["player_data"]["hands"][i]:
-                        num_cards += v
-                    self.client_players[self.player_order[i]] = num_cards
+            for i, name in enumerate(self.player_order):
+                # assign victory points
+                self.client_players[name].victory_points = server_response["victory_points"][i]
+                # construct hand
+                self.client_players[name].hand[hand_to_resource[i]] = server_response["hands"][i]
+                # get num_cards
+                for v in server_response["hands"][i]:
+                    self.client_players[name].num_cards += v
+                # construct dev cards
+
+                
+                
+                
         
 
 
