@@ -662,7 +662,6 @@ class ServerState:
         self.board.initialize_board()
         self.board.set_demo_settlements(self)
     
-    
     # hardcoded players for debug
     def initialize_players(self, name1=None, name2=None, name3=None, name4=None):
         order = 0
@@ -688,7 +687,13 @@ class ServerState:
             return True
         else:
             return False
-        
+    
+    def print_debug(self):
+        print("server:\n")
+        for p in self.players.values():
+            print(f"{p.name} hand: {p.hand}")
+
+
     # adding players to server. order in terms of arrival, will rearrange later
     def add_player(self, name):
         if self.is_server_full():
@@ -705,7 +710,8 @@ class ServerState:
             player_names.remove(rand_player)
         
         self.player_order.sort(key=lambda player_name: self.players[player_name].order)
-    
+
+    # move build and remove functions to nodes/edges? 
     def build_settlement(self, location_node):
         location_node.town = "settlement"
         location_node.player = self.current_player_name
@@ -762,7 +768,7 @@ class ServerState:
             if node.player != None:
                 for hex in node.hexes:
                     for tile in tiles:
-                        if hex == tile.hex:
+                        if hex == tile.hex and hex != self.board.robber_hex:
                             player_object = self.players[node.player]
                             resource = terrain_to_resource[tile.terrain]
                             player_object.hand[resource] += 1
@@ -893,6 +899,9 @@ class ServerState:
                     if self.turn_num % len(self.players) == player_object.order:
                         self.current_player_name = player_name
             return
+        
+        elif client_request["action"] == "print_debug":
+            self.print_debug()
         
         if self.mode == None:
             return
@@ -1099,6 +1108,11 @@ class ClientState:
         if len(self.board) > 0:
             return True
 
+    def print_debug(self):
+        print("client:\n")
+        for p in self.client_players.values():
+            print(f"{p.name} hand: {p.hand}")
+
     def client_initialize_players(self):
         # define player markers based on player_order that comes in from server
         marker_size = 40
@@ -1149,6 +1163,9 @@ class ClientState:
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_C):
             return pr.KeyboardKey.KEY_C
 
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_W):
+            return pr.KeyboardKey.KEY_W
+
     def update_client_settings(self, user_input):
         # not sure how to represent mouse wheel
         # if state.user_input == mouse wheel
@@ -1189,6 +1206,10 @@ class ClientState:
         if not self.does_board_exist():
             print("board does not exist")
             return
+        
+        if user_input == pr.KeyboardKey.KEY_W:
+            self.print_debug()
+            action = "print_debug"
 
         # defining button highlight if mouse is over it
         for button in self.buttons:
@@ -1406,7 +1427,6 @@ class ClientState:
                 for value in server_response["dev_cards"][i]:
                     self.client_players[name].dev_cards[dev_card_order[i]] = value
                     self.client_players[name].num_dev_cards += value
-
                 
                 
                 
