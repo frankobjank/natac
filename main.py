@@ -56,18 +56,18 @@ def sort_hexes(hexes) -> list:
 size = 50 # (radius)
 pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
-# turned these into Enum classes, might be useful for random functions later
+# might be useful
 all_game_pieces = ["settlement", "city", "road", "robber", "longest_road", "largest_army"]
-all_terrains = ["forest", "hill", "pasture", "field", "mountain", "desert", "ocean"]
-all_resources = ["wood", "brick", "sheep", "wheat", "ore"]
+all_terrains = ["mountain", "field", "pasture", "forest", "hill", "desert", "ocean"]
+all_resources = ["ore", "wheat", "sheep", "wood", "brick"]
 all_ports = ["three", "wood", "brick", "sheep", "wheat", "ore"]
 
 terrain_to_resource = {
+    "mountain": "ore",
+    "field": "wheat",
+    "pasture": "sheep",
     "forest": "wood",
     "hill": "brick",
-    "pasture": "sheep",
-    "field": "wheat",
-    "mountain": "ore",
     "desert": None,
     "ocean": None
     }
@@ -762,8 +762,6 @@ class ServerState:
 
         tiles = [LandTile(self.board.land_hexes[i], self.board.terrains[i], self.board.tokens[i]) for i in token_indices]
 
-        # resource_hexes = [self.board.land_hexes[i] for i in token_indices]
-
         for node in self.board.nodes:
             if node.player != None:
                 for hex in node.hexes:
@@ -935,23 +933,20 @@ class ServerState:
             for node in self.board.nodes:
                 if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
                     location_node = node
-            # print(f"selected {location_node}")
 
         elif location_hexes["hex_b"] != None and self.mode == "build_road":
             for edge in self.board.edges:
                 if edge.hexes == sort_hexes([hex_a, hex_b]):
                     location_edge = edge
-            # print(f"selected {location_edge}")
         
         elif location_hexes["hex_a"] != None and self.mode == "move_robber":
             location_hex = hex_a
-            # print(f"selected {location_hex}")
 
         # change build_town to mode to build_settlement/ build_city?
         if location_node:
             # check for delete
-            if self.mode == "delete":
-                self.remove_town(location_node)
+            # if self.mode == "delete":
+                # self.remove_town(location_node)
             # settlement build_check
             if location_node.build_check_settlement(self): # self is s_state here
                 self.hover = True
@@ -965,8 +960,8 @@ class ServerState:
             
         elif location_edge:
             # check for delete
-            if self.mode == "delete":
-                self.remove_road(location_edge)
+            # if self.mode == "delete":
+                # self.remove_road(location_edge)
             # road build check
             if location_edge.build_check_road(self):
                 self.hover = True
@@ -1112,6 +1107,56 @@ class ClientState:
         print("client:\n")
         for p in self.client_players.values():
             print(f"{p.name} hand: {p.hand}")
+
+    def data_verification(self, packet):
+        lens_for_verification = {"ocean_hexes": 18, "ports_ordered": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19, "robber_hex": 2, "dice": 2}
+
+        for key, length in lens_for_verification.items():
+            assert len(packet[key]) == length, f"incorrect number of {key}, actual number = {len(packet[key])}"
+
+    def construct_client_board(self, server_response):
+        # BOARD
+        self.board["ocean_hexes"] = []
+        for h in server_response["ocean_hexes"]:
+            self.board["ocean_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
+
+        self.board["land_hexes"] = []
+        for h in server_response["land_hexes"]:
+            self.board["land_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
+
+        # create OceanTile namedtuple with hex, port
+        self.board["ocean_tiles"] = []
+        for i, hex in enumerate(self.board["ocean_hexes"]):
+            tile = OceanTile(hex, server_response["ports_ordered"][i], server_response["port_corners"][i])
+            self.board["ocean_tiles"].append(tile)
+
+        # create LandTile namedtuple with hex, terrain, token
+        self.board["land_tiles"] = []
+        for i, hex in enumerate(self.board["land_hexes"]):
+            tile = LandTile(hex, server_response["terrains"][i], server_response["tokens"][i])
+            self.board["land_tiles"].append(tile)
+        
+        # town_nodes : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None},
+        self.board["town_nodes"] = []
+        for node in server_response["town_nodes"]:
+            node_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in node["hexes"]]
+            node_object = Node(node_hexes[0], node_hexes[1], node_hexes[2])
+            node_object.player = node["player"]
+            node_object.town = node["town"]
+            node_object.port = node["port"]
+            self.board["town_nodes"].append(node_object)
+        # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
+        self.board["road_edges"] = []
+        for edge in server_response["road_edges"]:
+            edge_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in edge["hexes"]]
+            edge_object = Edge(edge_hexes[0], edge_hexes[1])
+            edge_object.player = edge["player"]
+            self.board["road_edges"].append(edge_object)
+        
+        # robber_hex : [0, 0]
+        q, r = server_response["robber_hex"]
+        self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
+
 
     def client_initialize_players(self):
         # define player markers based on player_order that comes in from server
@@ -1345,54 +1390,8 @@ class ClientState:
 
         server_response = json.loads(encoded_server_response)
 
-        # data verification
-        lens_for_verification = {"ocean_hexes": 18, "ports_ordered": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19, "robber_hex": 2, "dice": 2}
-
-        for key, length in lens_for_verification.items():
-            assert len(server_response[key]) == length, f"incorrect number of {key}, actual number = {len(server_response[key])}"
-
-        # BOARD
-        self.board["ocean_hexes"] = []
-        for h in server_response["ocean_hexes"]:
-            self.board["ocean_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
-
-        self.board["land_hexes"] = []
-        for h in server_response["land_hexes"]:
-            self.board["land_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
-
-        # create OceanTile namedtuple with hex, port
-        self.board["ocean_tiles"] = []
-        for i, hex in enumerate(self.board["ocean_hexes"]):
-            tile = OceanTile(hex, server_response["ports_ordered"][i], server_response["port_corners"][i])
-            self.board["ocean_tiles"].append(tile)
-
-        # create LandTile namedtuple with hex, terrain, token
-        self.board["land_tiles"] = []
-        for i, hex in enumerate(self.board["land_hexes"]):
-            tile = LandTile(hex, server_response["terrains"][i], server_response["tokens"][i])
-            self.board["land_tiles"].append(tile)
-        
-        # town_nodes : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None},
-        self.board["town_nodes"] = []
-        for node in server_response["town_nodes"]:
-            node_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in node["hexes"]]
-            node_object = Node(node_hexes[0], node_hexes[1], node_hexes[2])
-            node_object.player = node["player"]
-            node_object.town = node["town"]
-            node_object.port = node["port"]
-            self.board["town_nodes"].append(node_object)
-        # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
-        self.board["road_edges"] = []
-        for edge in server_response["road_edges"]:
-            edge_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in edge["hexes"]]
-            edge_object = Edge(edge_hexes[0], edge_hexes[1])
-            edge_object.player = edge["player"]
-            self.board["road_edges"].append(edge_object)
-        
-        # robber_hex : [0, 0]
-        q, r = server_response["robber_hex"]
-        self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
-
+        self.data_verification(server_response)
+        self.construct_client_board(server_response)
 
         # DICE/TURNS
         self.dice = server_response["dice"]
@@ -1416,17 +1415,18 @@ class ClientState:
             dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
             hand_to_resource = ["ore", "wheat", "sheep", "wood", "brick"]
             # hands = server_response["hands"] # [[2, 0, 1, 0, 0], [2, 0, 1, 0, 0], [2, 0, 1, 0, 0], [2, 0, 1, 0, 0]]
-            for i, name in enumerate(self.player_order):
+            for order, name in enumerate(self.player_order):
                 # assign victory points
-                self.client_players[name].victory_points = server_response["victory_points"][i]
+                self.client_players[name].victory_points = server_response["victory_points"][order]
                 # construct hand and get num_cards
-                for value in server_response["hands"][i]:
-                    self.client_players[name].hand[hand_to_resource[i]] = value
-                    self.client_players[name].num_cards += value
+                for position, number in enumerate(server_response["hands"][order]):
+                    # print(f"{name} has {number} {hand_to_resource[position]}")
+                    self.client_players[name].hand[hand_to_resource[position]] = number
+                    self.client_players[name].num_cards += number
                 # construct dev_cards hand and get num_dev_cards
-                for value in server_response["dev_cards"][i]:
-                    self.client_players[name].dev_cards[dev_card_order[i]] = value
-                    self.client_players[name].num_dev_cards += value
+                for position, number in enumerate(server_response["dev_cards"][order]):
+                    self.client_players[name].dev_cards[dev_card_order[position]] = number
+                    self.client_players[name].num_dev_cards += number
                 
                 
                 
