@@ -1331,24 +1331,23 @@ class ClientState:
             assert len(server_response[key]) == length, f"incorrect number of {key}, actual number = {len(server_response[key])}"
 
         # BOARD
-        # expanding ocean_hexes and land_hexes - can be local vars since they are added to tiles
-        ocean_hexes = []
+        self.board["ocean_hexes"] = []
         for h in server_response["ocean_hexes"]:
-            ocean_hexes.append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
+            self.board["ocean_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
 
-        land_hexes = []
+        self.board["land_hexes"] = []
         for h in server_response["land_hexes"]:
-            land_hexes.append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
+            self.board["land_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
 
         # create OceanTile namedtuple with hex, port
         self.board["ocean_tiles"] = []
-        for i, hex in enumerate(ocean_hexes):
+        for i, hex in enumerate(self.board["ocean_hexes"]):
             tile = OceanTile(hex, server_response["ports_ordered"][i], server_response["port_corners"][i])
             self.board["ocean_tiles"].append(tile)
 
         # create LandTile namedtuple with hex, terrain, token
         self.board["land_tiles"] = []
-        for i, hex in enumerate(land_hexes):
+        for i, hex in enumerate(self.board["land_hexes"]):
             tile = LandTile(hex, server_response["terrains"][i], server_response["tokens"][i])
             self.board["land_tiles"].append(tile)
         
@@ -1383,7 +1382,7 @@ class ClientState:
         self.hover = server_response["hover"]
         
         # PLAYERS
-        if len(server_response["order"]) > 0:
+        if len(server_response["player_order"]) > 0:
             self.player_order = server_response["player_order"]
             self.current_player_name = server_response["current_player"]
 
@@ -1395,15 +1394,18 @@ class ClientState:
             # UNPACK WITH PLAYER ORDER SINCE NAMES WERE REMOVED TO SAVE BYTES ON MESSAGE FROM SERVER
             dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
             hand_to_resource = ["ore", "wheat", "sheep", "wood", "brick"]
+            # hands = server_response["hands"] # [[2, 0, 1, 0, 0], [2, 0, 1, 0, 0], [2, 0, 1, 0, 0], [2, 0, 1, 0, 0]]
             for i, name in enumerate(self.player_order):
                 # assign victory points
                 self.client_players[name].victory_points = server_response["victory_points"][i]
-                # construct hand
-                self.client_players[name].hand[hand_to_resource[i]] = server_response["hands"][i]
-                # get num_cards
-                for v in server_response["hands"][i]:
-                    self.client_players[name].num_cards += v
-                # construct dev cards
+                # construct hand and get num_cards
+                for value in server_response["hands"][i]:
+                    self.client_players[name].hand[hand_to_resource[i]] = value
+                    self.client_players[name].num_cards += value
+                # construct dev_cards hand and get num_dev_cards
+                for value in server_response["dev_cards"][i]:
+                    self.client_players[name].dev_cards[dev_card_order[i]] = value
+                    self.client_players[name].num_dev_cards += value
 
                 
                 
