@@ -1567,14 +1567,21 @@ class ClientState:
         for player_name, player_object in self.client_players.items():
             # draw player markers
             # player 0 on bottom, 1 left, 2 top, 3 right
+
             pr.draw_rectangle_rec(player_object.marker.rec, player_object.marker.color)
             pr.draw_rectangle_lines_ex(player_object.marker.rec, 1, pr.BLACK)
-
-
-                # if player.order == 0:
-                    # hand_x, hand_y = marker.rec.x+50, marker.rec.y
-
-            # hand start offset from marker rec
+            
+            # draw hands w text - evens are horizontal
+            if player_object.order == 0 or player_object.order == 2:
+                for i, (key, value) in enumerate(player_object.hand.items()):
+                    pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x+50, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
+            # odds are vertical
+            elif player_object.order == 1:
+                for i, (key, value) in enumerate(player_object.hand.items()):
+                    pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x+50, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
+            elif player_object.order == 3:
+                for i, (key, value) in enumerate(player_object.hand.items()):
+                    pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x-70, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
             
 
             # hightlight current player
