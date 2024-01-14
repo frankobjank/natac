@@ -186,27 +186,6 @@ blue = Player("blue", 2)
 orange = Player("orange", 3)
 
 players = {"red": red, "white": white, "blue": blue, "orange": orange}
-hands = []
-packet = {
-    "hands": {}
-}
-for player_object in players.values():
-    hand = []
-    for num in player_object.hand.values():
-        hand.append(num)
-    hands.append(hand)
 
-
-def to_json(obj):
-    return json.dumps(obj, default=lambda o: o.__dict__)
-
-print(to_json(hands))
-
-
-
-
-# Knight card - lets the player move the robber
-# Road Building - player can place 2 roads as if they just built them
-# Year of Plenty - the player can draw 2 resource cards of their choice from the bank
-# Monopoly - player can claim all resource cards of a specific declared type
-# Victory Point card - 1 additional Victory Point is added to the owners total and doesn't need to be played to win.
+# for player_object in players.values():
+    # player_object.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 1}

@@ -18,6 +18,8 @@ game_color_dict = {
     "move_robber": pr.RAYWHITE,
     "build_road": pr.RAYWHITE,
     "build_town": pr.RAYWHITE,
+    "build_settlement": pr.RAYWHITE,
+    "build_city": pr.RAYWHITE,
     "delete": pr.RED,
     "roll_dice": pr.RAYWHITE,
     "end_turn": pr.RAYWHITE,
@@ -88,18 +90,18 @@ def draw_tokens(hex, token, layout):
         pr.draw_circle_lines(dot_x+dot_x_offset*4, dot_y, dot_size, pr.BLACK)
 
 
-def draw_robber(hex_center):
+def draw_robber(hex_center, alpha):
+    assert 0 <= alpha <= 255, f"alpha must be within range(255), got `{alpha}`"
     radiusH = 15
     radiusV = 25
+    # pr.BLACK = (0, 0, 0, 255)
+    robber_color = (0, 0, 0, alpha)
     # draw body (commented out white outline)
-    pr.draw_ellipse(int(hex_center.x), int(hex_center.y), radiusH, radiusV, pr.BLACK)
-    # pr.draw_ellipse_lines(int(hex_center.x), int(hex_center.y), radiusH+1, radiusV, pr.WHITE)
+    pr.draw_ellipse(int(hex_center.x), int(hex_center.y), radiusH, radiusV, robber_color)
     # draw base
-    pr.draw_rectangle(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH+2, pr.BLACK)
-    # pr.draw_rectangle_lines(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH+2, pr.WHITE)
+    pr.draw_rectangle(int(hex_center.x-radiusH), int(hex_center.y+radiusV//2), radiusH*2, radiusH+2, robber_color)
     # draw head
-    pr.draw_circle(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, pr.BLACK)
-    # draw_circle_lines(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, WHITE)
+    pr.draw_circle(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, robber_color)
 
 
 def draw_road(edge_endpoints, color):
