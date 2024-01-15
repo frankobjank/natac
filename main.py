@@ -1216,20 +1216,6 @@ class ClientState:
         if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
             return pr.MouseButton.MOUSE_BUTTON_LEFT
 
-        # camera controls
-        # not sure how to capture mouse wheel, also currently using RAYLIB for these inputs
-        # state.camera.zoom += get_mouse_wheel_move() * 0.03
-
-        elif pr.is_key_down(pr.KeyboardKey.KEY_RIGHT_BRACKET):
-            return pr.KeyboardKey.KEY_RIGHT_BRACKET
-
-        elif pr.is_key_down(pr.KeyboardKey.KEY_LEFT_BRACKET):
-            return pr.KeyboardKey.KEY_LEFT_BRACKET
-
-        # camera and board reset (zoom and rotation)
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
-            return pr.KeyboardKey.KEY_R
-
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_E):
             return pr.KeyboardKey.KEY_E
 
@@ -1246,35 +1232,20 @@ class ClientState:
             return pr.KeyboardKey.KEY_W
 
     def update_client_settings(self, user_input):
-        # not sure how to represent mouse wheel
-        # if state.user_input == mouse wheel
-        # state.camera.zoom += get_mouse_wheel_move() * 0.03
-
-        # camera controls
-        if user_input == pr.KeyboardKey.KEY_RIGHT_BRACKET:
-            self.camera.zoom += 0.03
-        elif user_input == pr.KeyboardKey.KEY_LEFT_BRACKET:
-            self.camera.zoom -= 0.03
-
-        # zoom boundary automatic reset
-        if self.camera.zoom > 3.0:
-            self.camera.zoom = 3.0
-        elif self.camera.zoom < 0.1:
-            self.camera.zoom = 0.1
-
         if user_input == pr.KeyboardKey.KEY_F:
             pr.toggle_fullscreen()
 
         if user_input == pr.KeyboardKey.KEY_E:
             self.debug = not self.debug # toggle
 
-        # camera and board reset (zoom and rotation)
-        if user_input == pr.KeyboardKey.KEY_R:
-            self.reset = True
-            self.camera.zoom = self.default_zoom
-            self.camera.rotation = 0.0
-
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+            for button in self.buttons:
+                if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
+                    # process buttons (mute, fullscreen)
+                    pass
+                else:
+                    button.hover = False
+
             # enter game/ change settings in client
             pass
 
@@ -1436,6 +1407,7 @@ class ClientState:
         self.hover = server_response["hover"]
         
         # PLAYERS
+        # check if player(s) exist on server
         if len(server_response["player_order"]) > 0:
             self.player_order = server_response["player_order"]
             self.current_player_name = server_response["current_player"]
@@ -1445,7 +1417,8 @@ class ClientState:
                 self.client_initialize_players()
 
 
-            # UNPACK WITH PLAYER ORDER SINCE NAMES WERE REMOVED TO SAVE BYTES ON MESSAGE FROM SERVER
+            # unpack hands, dev_cards, victory points
+            # UNPACK WITH PLAYER ORDER SINCE NAMES WERE REMOVED TO SAVE BYTES IN SERVER_RESPONSE
             dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
             hand_to_resource = ["ore", "wheat", "sheep", "wood", "brick"]
             # hands = server_response["hands"] # [[2, 0, 1, 0, 0], [2, 0, 1, 0, 0], [2, 0, 1, 0, 0], [2, 0, 1, 0, 0]]
@@ -1477,10 +1450,12 @@ class ClientState:
         for tile in self.board["land_tiles"]:
             # draw resource hexes
             color = rf.game_color_dict[tile.terrain]
-            pr.draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, color)
-            # draw black outlines around hexes
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, pr.BLACK)
-            if self.
+            pr.draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, color)
+            # draw red outlines around hexes if token matches dice, otherwise outline in black
+            if (self.dice[0] + self.dice[1]) == tile.token:
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 6, pr.YELLOW)
+            else:
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 1, pr.BLACK)
 
             # draw numbers, dots on hexes
             if tile.token != None:
@@ -1489,7 +1464,7 @@ class ClientState:
 
         # draw ocean hexes
         for tile in self.board["ocean_tiles"]:
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 0, 1, pr.BLACK)
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 1, pr.BLACK)
         
             # draw ports
             if tile.port != None:
@@ -1544,11 +1519,11 @@ class ClientState:
 
             # highlight current hex if moving robber is possible
             elif self.current_hex and self.mode == "move_robber":
-                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 0, 6, pr.BLACK)
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
 
             
     def render_client(self):
-        # increment frame
+        # increment frame - for animations
         self.frame += 1
         # reset every 10000 so doesn't get too big?
         self.frame %= 10000

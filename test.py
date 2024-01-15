@@ -147,45 +147,122 @@ def main():
 
 # main()
 
+colors = [pr.LIGHTGRAY, pr.SKYBLUE, pr.GRAY, pr.BLUE, pr.DARKGRAY, pr.DARKBLUE]
+
+
+class Button:
+    def __init__(self, rec:pr.Rectangle, name, mode=False, action=False):
+        self.rec = rec 
+        self.name = name
+        self.mode = mode
+        self.action = action
+
+        self.color = pr.SKYBLUE
+        self.toggle = False
+        self.hover = False
+
+    def __repr__(self):
+        return f"Button({self.name}"
+
+
+class Menu:
+    def __init__(self, header, link_rec: pr.Rectangle, rec: pr.Rectangle, *entries):
+        self.header = header
+        self.link = Button(link_rec, f"{self.header} link", pr.BLACK)
+        self.rec = rec
+        self.entries = []
+        for entry in entries:
+            self.entries[entry] = Button()
+
+
+    def set_link(self, rec):
+        self.link = Button(rec, f"{self.header} link")
+
+
+
+
+size = 50
+num_buttons = 6
+rec_width = 3*size
+rec_height = size
+names = ["one", "two", "three", "four", "five", "six"]
+rec_x = (screen_width-rec_width)//2
+rec_y = 50
+menu_buttons = {name: Button(pr.Rectangle(rec_x, rec_y+(i*size), rec_width, rec_height), i, colors[i]) for name, i in zip(names, range(num_buttons))}
+
+menu_x, menu_y, menu_width = menu_buttons["one"].rec.x, menu_buttons["one"].rec.y, menu_buttons["one"].rec.width
+menu_height = num_buttons * size
+menu_rec = pr.Rectangle(menu_x, menu_y, menu_width, menu_height)
+
+menu_buttons["show_menu"]=Button(pr.Rectangle(50, 50, 50, 50), "show_menu")
 def main_test():
     pr.init_window(screen_width, screen_height, "natac")
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
     pr.set_target_fps(60)
+
+    bgkd_color = pr.WHITE
+    show_menu = False
+    colors = [pr.LIGHTGRAY, pr.SKYBLUE, pr.GRAY, pr.BLUE, pr.DARKGRAY, pr.DARKBLUE]
+
     while not pr.window_should_close():
         # user input/ update
         mouse = pr.get_mouse_position()
-        current_hex = None
+        for button in menu_buttons.values():
+            if pr.check_collision_point_rec(mouse, button.rec):
+                button.hover = True
+                if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
+                    if button.name == "show_menu":
+                        show_menu = not show_menu
+                    else:
+                        
+                        bgkd_color = colors[button.name]
 
-        # check radius for current hex
-        # for hex in hexes:
-        #     if radius_check_v(mouse, hh.hex_to_pixel(pointy, hex), 60):
-        #         current_hex = hex
-        #         break
+            else:
+                button.hover = False
         
+        # render
         pr.begin_drawing()
-        pr.clear_background(pr.WHITE)
-        if current_hex:
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, current_hex), 6, 50, 0, 5, pr.BLACK)
+        pr.clear_background(bgkd_color)
+        if show_menu == True:
+            for button in menu_buttons:
+                pr.draw_rectangle_rec(button.rec, button.color)
+                pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
 
-        pr.draw_text_ex(pr.gui_get_font(), f"Mouse at: ({pr.get_mouse_x()}, {pr.get_mouse_y()})", pr.Vector2(5, 5), 15, 0, pr.BLACK)
-        
-        # if gui_button(Rectangle(700, 20, 40, 40), "R"):
-            # current_player = PlayerBLUE
+            
+                if button.hover:
+                    pr.draw_rectangle_lines_ex(button.rec, 6, pr.BLACK)
+                
+        else:
+            if button.name == "show_menu":
+                pr.draw_rectangle_rec(button.rec, button.color)
+
+
 
         pr.end_drawing()
 
     pr.unload_font(pr.gui_get_font())
     pr.close_window()
 
-# main_test()
+main_test()
+    
 
-player_order = ["red", "white", "orange", "blue"]
-red = Player("red", 0)
-white = Player("white", 1)
-blue = Player("blue", 2)
-orange = Player("orange", 3)
 
-players = {"red": red, "white": white, "blue": blue, "orange": orange}
 
-# for player_object in players.values():
-    # player_object.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 1}
+# use map to combine iterators, also zip
+# numbers = (1, 2, 3, 4)
+# list2 = [4, 3, 2, 1]
+# result = map(lambda x, y: x + y, numbers, list2)
+# print(list(result))
+
+
+
+# def create_list(*num, **d):
+#     # yield num
+#     # yield d
+
+#     return d
+
+# print(create_list(1, 6, 1, 6, 43613461, number=9))
+
+# *args lets you pass unlimited arguments (regular iterable)
+# **kwargs lets you pass dict-type iterable matching up key to value
