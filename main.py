@@ -9,7 +9,16 @@ import hex_helper as hh
 import rendering_functions as rf
 
 
+# UI_SCALE constant for changing scale (fullscreen)
+
+# road build, etc. menu on top right
+
+# Menu of buttons - actions
+# Log in bottom right
+
 # thought for randomizing settlement starting positions - could be interesting twist to game to randomize starting placements instead of picking yourself. would have to make sure randomized dot numbers were within 1 or 2 between players
+
+# alternate game mode: start with 10 cards in hand but only able to build 1 thing per turn
 
 # sound effects/ visuals ideas:
     # when number is rolled, relevant hexes should flash/ change color for a second. animate resource heading towards the player who gets it
@@ -630,6 +639,8 @@ class ServerState:
         if self.combined == False:
             self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
             self.socket.bind((local_IP, local_port))
+        
+        self.log_msg = ""
 
         # BOARD
         self.board = None
@@ -752,7 +763,7 @@ class ServerState:
         if all(hand[resource] >= cost[resource] for resource in cost.keys()):
             return True
         
-        print(f"{self.current_player_name} does not have enough resources to get: {item}")
+        print(f"{self.current_player_name} does not have enough resources for a {item}")
         return False
             
         
@@ -786,7 +797,8 @@ class ServerState:
                         if hex == tile.hex and hex != self.board.robber_hex:
                             player_object = self.players[node.player]
                             resource = terrain_to_resource[tile.terrain]
-                            player_object.hand[resource] += 1
+                            # ITSOVER9000
+                            player_object.hand[resource] += 9
                             if node.town == "city":
                                 player_object.hand[resource] += 1
 
@@ -868,23 +880,26 @@ class ServerState:
         # client_request["debug"] = self.debug
 
         # if receiving input from non-current player, return
+        # will be useful for single-player client
         if client_request["id"] != self.current_player_name:
-            # only time input from other players would be needed is for trades and returning cards when 7 is rolled. and maybe a development card?
             return
+            # only time input from other players would be needed is for trades and returning cards when 7 is rolled
         
+        self.hover = False
         
         self.debug = client_request["debug"]
         
-        # check build_costs to determine if mode is valid
-        if client_request["mode"] == "build_road":
-            if not self.cost_check("road"):
-                return
-        elif client_request["mode"] == "build_settlement":
-            if not self.cost_check("settlement"):
-                return
-        elif client_request["mode"] == "build_city":
-            if not self.cost_check("city"):
-                return
+        if self.turn_num >= 0:
+            # check build_costs to determine if mode is valid
+            if client_request["mode"] == "build_road":
+                if not self.cost_check("road"):
+                    return
+            elif client_request["mode"] == "build_settlement":
+                if not self.cost_check("settlement"):
+                    return
+            elif client_request["mode"] == "build_city":
+                if not self.cost_check("city"):
+                    return
 
         # toggle mode if the same kind, else change server mode to match client mode
         if client_request["mode"] != None:
@@ -938,7 +953,7 @@ class ServerState:
         if self.mode == "return_cards":
             pass
 
-        # only calculate hover if location is > 0
+        # only calculate location hexes if location is > 0
         if all(hex == None for hex in client_request["location"].values()):
             return
         
@@ -950,7 +965,6 @@ class ServerState:
             else:
                 location_hexes[hex_num] = None
 
-        self.hover = False
 
         # assign location node, edges, hex based on hexes sent from client
         location_node = None
@@ -958,10 +972,11 @@ class ServerState:
         location_hex = None
 
         hex_a, hex_b, hex_c = location_hexes.values()
-        if location_hexes["hex_c"] != None and self.mode == "build_town":
-            for node in self.board.nodes:
-                if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
-                    location_node = node
+        if location_hexes["hex_c"] != None:
+            if self.mode == "build_settlement" or self.mode == "build_city":
+                for node in self.board.nodes:
+                    if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
+                        location_node = node
 
         elif location_hexes["hex_b"] != None and self.mode == "build_road":
             for edge in self.board.edges:
@@ -971,33 +986,26 @@ class ServerState:
         elif location_hexes["hex_a"] != None and self.mode == "move_robber":
             location_hex = hex_a
 
-        # change build_town to mode to build_settlement/ build_city?
         if location_node:
-            # check for delete
-            # if self.mode == "delete":
-                # self.remove_town(location_node)
             # settlement build_check
-            if location_node.build_check_settlement(self): # self is s_state here
+            if self.mode == "build_settlement" and location_node.build_check_settlement(self): # self in build_check is s_state
                 self.hover = True
-                if client_request["action"] == "build_town":
+                if client_request["action"] == "build_settlement":
                     self.build_settlement(location_node)
             # city build_check
-            elif location_node.build_check_city(self):
+            elif self.mode == "build_city" and location_node.build_check_city(self):
                 self.hover = True
-                if client_request["action"] == "build_town":
+                if client_request["action"] == "build_city":
                     self.build_city(location_node)
             
-        elif location_edge:
-            # check for delete
-            # if self.mode == "delete":
-                # self.remove_road(location_edge)
+        elif location_edge and self.mode == "build_road":
             # road build check
             if location_edge.build_check_road(self):
                 self.hover = True
                 if client_request["action"] == "build_road":
                     self.build_road(location_edge)
 
-        elif self.mode == "move_robber" and location_hex:
+        elif location_hex and self.mode == "move_robber":
             # check for valid hex (any land hex that is not current robber hex)
             if self.robber_move_check(location_hex):
                 self.hover = True
@@ -1088,7 +1096,8 @@ class ClientState:
         self.current_hex_2 = None
         self.current_hex_3 = None
 
-        # maybe add potential actions so the mouse hover render knows what to highlight
+
+        # could change to hover_button and hover_board to cover both types and chamge from bool
         self.hover = False
 
         # PLAYERS - undecided if a Player class is needed for client
@@ -1111,15 +1120,15 @@ class ClientState:
         # frames for rendering (set to 60 FPS in main())
         self.frame = 0
         # 2nd frame counter to keep track of when animations should start/ end
-        self.frame_counter = 0
+        self.frame_start = 0
 
         # buttons
         button_size = 40
         self.buttons=[
             Button(pr.Rectangle(self.screen_width-50, 20, button_size, button_size), "move_robber", mode=True),
             Button(pr.Rectangle(self.screen_width-100, 20, button_size, button_size), "build_road", mode=True),
-            Button(pr.Rectangle(self.screen_width-150, 20, button_size, button_size), "build_town", mode=True),
-            # Button(pr.Rectangle(self.screen_width-200, 20, button_size, button_size), "delete", mode=True),
+            Button(pr.Rectangle(self.screen_width-150, 20, button_size, button_size), "build_city", mode=True),
+            Button(pr.Rectangle(self.screen_width-200, 20, button_size, button_size), "build_settlement", mode=True),
             Button(pr.Rectangle(150-2*button_size, self.screen_height-150, 2*button_size, button_size), "roll_dice", action=True),
             Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 2*button_size, button_size), "end_turn", action=True)
         ]
@@ -1241,7 +1250,7 @@ class ClientState:
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             for button in self.buttons:
                 if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                    # process buttons (mute, fullscreen)
+                    # optins menu buttons (mute, fullscreen)
                     pass
                 else:
                     button.hover = False
@@ -1451,11 +1460,11 @@ class ClientState:
             # draw resource hexes
             color = rf.game_color_dict[tile.terrain]
             pr.draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, color)
-            # draw red outlines around hexes if token matches dice, otherwise outline in black
-            if (self.dice[0] + self.dice[1]) == tile.token:
+            # draw yellow outlines around hexes if token matches dice and not robber'd, otherwise outline in black
+            if (self.dice[0] + self.dice[1]) == tile.token and tile.hex != self.board["robber_hex"]:
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 6, pr.YELLOW)
             else:
-                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 1, pr.BLACK)
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 2, pr.BLACK)
 
             # draw numbers, dots on hexes
             if tile.token != None:
@@ -1464,7 +1473,7 @@ class ClientState:
 
         # draw ocean hexes
         for tile in self.board["ocean_tiles"]:
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 1, pr.BLACK)
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 2, pr.BLACK)
         
             # draw ports
             if tile.port != None:
@@ -1553,6 +1562,7 @@ class ClientState:
             pr.draw_rectangle_rec(button.rec, button.color)
             pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
             
+            # draw text on buttons
             # action buttons
             if button.name == "roll_dice":
                 rf.draw_dice(self.dice, button.rec)
@@ -1572,11 +1582,9 @@ class ClientState:
                 pr.draw_text_ex(pr.gui_get_font(), "town", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
             elif button.name == "move_robber":
                 pr.draw_text_ex(pr.gui_get_font(), "robr", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
-            # elif button.name == "delete":
-                # pr.draw_text_ex(pr.gui_get_font(), "del", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
 
-            # highlight button if applicable
-            if button.hover == True:
+            # hover - self.hover needed because state must determine if action will be allowed
+            if button.hover and self.hover:
                 outer_offset = 2
                 outer_rec = pr.Rectangle(button.rec.x-outer_offset, button.rec.y-outer_offset, button.rec.width+2*outer_offset, button.rec.height+2*outer_offset)
                 pr.draw_rectangle_lines_ex(outer_rec, 5, pr.BLACK)
