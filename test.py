@@ -151,52 +151,56 @@ colors = [pr.LIGHTGRAY, pr.SKYBLUE, pr.GRAY, pr.BLUE, pr.DARKGRAY, pr.DARKBLUE]
 
 
 class Button:
-    def __init__(self, rec:pr.Rectangle, name, color=pr.WHITE, mode=False, action=False):
+    def __init__(self, rec:pr.Rectangle, name, color=pr.WHITE, mode=False, action=False, is_toggle=False):
         self.rec = rec 
         self.name = name
         self.color = color
         self.mode = mode
         self.action = action
-
+        self.is_toggle = is_toggle
         self.toggle = False
-        self.hover = False
 
     def __repr__(self):
         return f"Button({self.name}"
+    
+    def switch(self):
+        if self.is_toggle:
+            self.toggle = not self.toggle
 
-# default size = 50
-# num_buttons = 6
-# rec_width = 3*size
-# rec_height = size
-# names = ["one", "two", "three", "four", "five", "six"]
-# rec_x = (screen_width-rec_width)//2
-# rec_y = 50
+    def get_toggle_state(self):
+        print(f"toggle state: {self.toggle}")
+
+
+
 
 class Menu:
-    def __init__(self, header, *button_names):
-        self.header = header
+    # def __init__(self, name, *button_names):
+    def __init__(self, name):
+        self.button_names = ["one", "two", "three", "four", "five", "six"]
+        self.name = name
         # entry details
         self.size = 50
-        self.rec_x = (screen_width-self.rec_width)//2
-        self.rec_y = self.size
         self.rec_width = 3*self.size
         self.rec_height = self.size
+        self.rec_x = (screen_width-self.rec_width)//2
+        self.rec_y = self.size
 
-        self.total_rec = pr.Rectangle(self.rec_x, self.rec_y, self.rec_width, len(button_names) * self.size)
-        self.link = Button(pr.Rectangle(50, 50, 50, 50), f"{self.header}_link", pr.BLACK)
-        self.button_names = button_names
+        self.visible = False
+
+
+        self.link = Button(pr.Rectangle(40, 40, 40, 40), f"{self.name}_link", pr.GREEN)
+        # self.button_names = []
         self.buttons = {}
-        for i, name in enumerate(button_names.keys()):
-            self.buttons[name] = Button(pr.Rectangle(self.rec_x, self.rec_y+(i*self.size), self.rec_width, self.rec_height), name)
-        # buttons = {name: Button(pr.Rectangle(rec_x, rec_y+(i*size), rec_width, rec_height), i, colors[i]) for name, i in zip(names, range(len(entries)))}
+        colors = [pr.LIGHTGRAY, pr.SKYBLUE, pr.GRAY, pr.BLUE, pr.DARKGRAY, pr.DARKBLUE]
+
+        for i, b_name in enumerate(self.button_names):
+            self.buttons[b_name] = Button(pr.Rectangle(self.rec_x, self.rec_y+(i*self.size), self.rec_width, self.rec_height), b_name, colors[i])
 
     def set_link(self, button: Button):
         self.link = button
     
 
 
-
-colors = [pr.LIGHTGRAY, pr.SKYBLUE, pr.GRAY, pr.BLUE, pr.DARKGRAY, pr.DARKBLUE]
 
 
 
@@ -207,9 +211,10 @@ def main_test():
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
     pr.set_target_fps(60)
     
+    menu = Menu("colors")
     bgkd_color = pr.WHITE
-    show_menu = False
-    # should hover be 
+    hover = None
+    # maybe hover should be global var that can hold one at a time instead of an attribute for each button?
 
     while not pr.window_should_close():
         # user input/ update
@@ -218,35 +223,34 @@ def main_test():
         if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
             user_input = pr.MouseButton.MOUSE_BUTTON_LEFT
 
-        if pr.check_collision_point_rec(mouse, menu_buttons["show_menu"].rec) and user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-            show_menu = not show_menu
+        if pr.check_collision_point_rec(mouse, menu.link.rec) and user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+            menu.visible = not menu.visible
 
-        for button in menu_buttons.values():
+        if menu.visible:
+            for button in menu.buttons.values():
+                if pr.check_collision_point_rec(mouse, button.rec):
+                    button.hover = True
+                    if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                        bgkd_color = button.color
 
-            if pr.check_collision_point_rec(mouse, button.rec):
-                button.hover = True
-                if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                    bgkd_color = button.color
-
-            else:
-                button.hover = False
+                else:
+                    button.hover = False
         
         # render
         pr.begin_drawing()
         pr.clear_background(bgkd_color)
-        if show_menu == True:
-            for button in menu_buttons.values():
+
+        pr.draw_rectangle_rec(menu.link.rec, menu.link.color)
+        if menu.visible:
+            for button in menu.buttons.values():
                 pr.draw_rectangle_rec(button.rec, button.color)
                 pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
 
             
                 if button.hover:
                     pr.draw_rectangle_lines_ex(button.rec, 6, pr.BLACK)
-                
-        else:
-            if button.name == "show_menu":
-                pr.draw_rectangle_rec(button.rec, button.color)
-
+            
+            pr.draw_rectangle_lines_ex(pr.Rectangle(menu.rec_x, menu.rec_y, menu.rec_width, len(menu.button_names) * menu.size), 2, pr.BLACK)
 
 
         pr.end_drawing()
