@@ -1073,7 +1073,7 @@ class Menu:
     def __init__(self, c_state, name, link: Button, *button_names):
         self.button_names = button_names
         self.name = name
-        # entry details
+        
         self.size = c_state.screen_height//12
         self.rec_width = 3*self.size
         self.rec_height = self.size
@@ -1083,8 +1083,7 @@ class Menu:
         self.visible = False
 
 
-        self.link = Button(pr.Rectangle(40, 40, 40, 40), f"{self.name}_link", pr.GREEN)
-        # self.button_names = []
+        self.link = link
         self.buttons = {}
 
         for i, b_name in enumerate(self.button_names):
@@ -1120,8 +1119,8 @@ class ClientState:
         self.id = id # for debug, start as "red" and shift to current_player_name every turn
 
         # window size
-        self.screen_width=900 #800
-        self.screen_height=750 #600
+        self.screen_width=900
+        self.screen_height=750
 
         # frames for rendering (set to 60 FPS in main())
         self.frame = 0
@@ -1154,6 +1153,9 @@ class ClientState:
 
         self.debug = True
 
+        self.menu_links = {"options": Button(pr.Rectangle(self.screen_width//20, self.screen_height//20, self.screen_width//25, self.screen_height//20), "options_link", pr.DARKGRAY)
+        }
+        self.options_menu = Menu(self, "Options", self.menu_links["options"], *["mute", "borderless_windowed", "close"])
 
         # buttons
         button_size = 40
@@ -1278,13 +1280,13 @@ class ClientState:
         
     def update_client_settings(self, user_input):
         if user_input == pr.KeyboardKey.KEY_F:
-            pr.toggle_fullscreen()
+            pr.toggle_borderless_windowed()
 
         elif user_input == pr.KeyboardKey.KEY_E:
             self.debug = not self.debug # toggle
 
         elif user_input == pr.KeyboardKey.KEY_P:
-            self.options = 
+            self.options_menu.visible = True
 
 
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
@@ -1618,8 +1620,6 @@ class ClientState:
                 pr.draw_text_ex(pr.gui_get_font(), "city", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
             elif button.name == "build_settlement":
                 pr.draw_text_ex(pr.gui_get_font(), "sett", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
-            elif button.name == "build_town":
-                pr.draw_text_ex(pr.gui_get_font(), "town", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
             elif button.name == "move_robber":
                 pr.draw_text_ex(pr.gui_get_font(), "robr", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
 

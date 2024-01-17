@@ -60,10 +60,11 @@ def test():
     pr.init_window(screen_width, screen_height, "UI testing")
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
     pr.set_target_fps(60)
-    button_names = [1, 2, 3, 4, 5, 6]
+    # button_names = [1, 2, 3, 4, 5, 6]
     link = Button(pr.Rectangle(screen_width//20, screen_height//20, screen_width//25, screen_height//20), "link", pr.BLUE)
     links = [link]
-    menu = Menu("colors", link, *button_names)
+    # menu = Menu("colors", link, *button_names)
+    menu = Menu("colors", link, *[1, 2, 3, 4, 5, 6])
     bgkd_color = pr.WHITE
     # maybe hover should be global var that can hold one at a time instead of an attribute for each button?
     while not pr.window_should_close():

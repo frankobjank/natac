@@ -24,6 +24,12 @@ game_color_dict = {
     "roll_dice": pr.RAYWHITE,
     "end_turn": pr.RAYWHITE,
 
+    # menus
+    "options_link": pr.DARKGRAY,
+    "mute": pr.RAYWHITE,
+    "borderless_windowed": pr.RAYWHITE,
+    "close": pr.RAYWHITE,
+
     # put terrain + tile colors here
     "mountain": pr.get_color(0x7b6f83ff),
     "forest": pr.get_color(0x517d19ff),
