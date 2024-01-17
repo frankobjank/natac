@@ -1047,6 +1047,14 @@ class ServerState:
 
 
 
+    def add_card(self):
+        # add card
+        # resize and reorder the hand
+        pass
+
+    def remove_card(self):
+        # for returning cards on a 7, put cards on an overlay like the options menu so no overlapping cards to select
+        pass
 
 class Button:
     def __init__(self, rec:pr.Rectangle, name, mode=False, action=False):
@@ -1059,7 +1067,29 @@ class Button:
 
 
     def __repr__(self):
-        return f"Button({self.name}"
+        return f"Button({self.name})"
+    
+class Menu:
+    def __init__(self, c_state, name, link: Button, *button_names):
+        self.button_names = button_names
+        self.name = name
+        # entry details
+        self.size = c_state.screen_height//12
+        self.rec_width = 3*self.size
+        self.rec_height = self.size
+        self.rec_x = (c_state.screen_width-self.rec_width)//2
+        self.rec_y = (c_state.screen_height-self.rec_height*len(button_names))//2
+
+        self.visible = False
+
+
+        self.link = Button(pr.Rectangle(40, 40, 40, 40), f"{self.name}_link", pr.GREEN)
+        # self.button_names = []
+        self.buttons = {}
+
+        for i, b_name in enumerate(self.button_names):
+            self.buttons[b_name] = Button(pr.Rectangle(self.rec_x, self.rec_y+(i*self.size), self.rec_width, self.rec_height), b_name)
+
 
 class Marker:
     def __init__(self, rec:pr.Rectangle, name):
@@ -1076,6 +1106,7 @@ class ClientPlayer:
         # from server
         self.order = order
         self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        # self.hand = Hand() could make this 
         self.num_cards = 0
         self.dev_cards = {"knight": 0, "victory_point": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0}
         self.num_dev_cards = 0
@@ -1088,6 +1119,14 @@ class ClientState:
         self.msg_number = 0
         self.id = id # for debug, start as "red" and shift to current_player_name every turn
 
+        # window size
+        self.screen_width=900 #800
+        self.screen_height=750 #600
+
+        # frames for rendering (set to 60 FPS in main())
+        self.frame = 0
+        # 2nd frame counter to keep track of when animations should start/ end
+        self.frame_start = 0
 
         # selecting via mouse
         self.world_position = None
@@ -1098,12 +1137,14 @@ class ClientState:
 
 
         # could change to hover_button and hover_board to cover both types and chamge from bool
-        self.hover = False
+        self.hover_board = None
+        self.hover_button = None
 
         # PLAYERS - undecided if a Player class is needed for client
         self.client_players = {} # use ClientPlayer class
         self.player_order = [] # use len(player_order) to get num_players
         self.current_player_name = None
+        self.hand_rec = pr.Rectangle(self.screen_width//2-150, self.screen_height-100, self.screen_width-300, self.screen_height//10)
 
         # GAMEPLAY
         self.board = {}
@@ -1113,14 +1154,6 @@ class ClientState:
 
         self.debug = True
 
-        # window size
-        self.screen_width=900 #800
-        self.screen_height=750 #600
-
-        # frames for rendering (set to 60 FPS in main())
-        self.frame = 0
-        # 2nd frame counter to keep track of when animations should start/ end
-        self.frame_start = 0
 
         # buttons
         button_size = 40
@@ -1240,12 +1273,19 @@ class ClientState:
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_W):
             return pr.KeyboardKey.KEY_W
 
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_P):
+            return pr.KeyboardKey.KEY_P
+        
     def update_client_settings(self, user_input):
         if user_input == pr.KeyboardKey.KEY_F:
             pr.toggle_fullscreen()
 
-        if user_input == pr.KeyboardKey.KEY_E:
+        elif user_input == pr.KeyboardKey.KEY_E:
             self.debug = not self.debug # toggle
+
+        elif user_input == pr.KeyboardKey.KEY_P:
+            self.options = 
+
 
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             for button in self.buttons:
@@ -1492,7 +1532,8 @@ class ClientState:
                         pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
         # if self.debug == True:
-        self.render_mouse_hover()
+        if self.hover_board == True:
+            self.render_mouse_hover()
 
         # draw roads, settlements, cities
         for edge in self.board["road_edges"]:
@@ -1515,20 +1556,19 @@ class ClientState:
 
     def render_mouse_hover(self):
         # self.hover could prob be replaced with other logic about current player, mode
-        if self.hover == True:
-            # highlight current node if building is possible
-            if self.current_hex_3 and self.mode == "build_town":
-                node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
-                pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
+        # highlight current node if building is possible
+        if self.current_hex_3 and self.mode == "build_town":
+            node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
+            pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
 
-            # highlight current edge if building is possible
-            elif self.current_hex_2 and self.mode == "build_road":
-                edge_object = Edge(self.current_hex, self.current_hex_2)
-                pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
+        # highlight current edge if building is possible
+        elif self.current_hex_2 and self.mode == "build_road":
+            edge_object = Edge(self.current_hex, self.current_hex_2)
+            pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
 
-            # highlight current hex if moving robber is possible
-            elif self.current_hex and self.mode == "move_robber":
-                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
+        # highlight current hex if moving robber is possible
+        elif self.current_hex and self.mode == "move_robber":
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
 
             
     def render_client(self):
@@ -1584,7 +1624,7 @@ class ClientState:
                 pr.draw_text_ex(pr.gui_get_font(), "robr", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
 
             # hover - self.hover needed because state must determine if action will be allowed
-            if button.hover and self.hover:
+            if button.hover:
                 outer_offset = 2
                 outer_rec = pr.Rectangle(button.rec.x-outer_offset, button.rec.y-outer_offset, button.rec.width+2*outer_offset, button.rec.height+2*outer_offset)
                 pr.draw_rectangle_lines_ex(outer_rec, 5, pr.BLACK)
