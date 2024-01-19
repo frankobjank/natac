@@ -1158,6 +1158,7 @@ class ClientState:
         self.options_menu = Menu(self, "Options", self.menu_links["options"], *["mute", "borderless_windowed", "close"])
 
         # buttons
+        # self.button_size = self.screen_width//22.5
         button_size = 40
         self.buttons=[
             Button(pr.Rectangle(self.screen_width-50, 20, button_size, button_size), "move_robber", mode=True),
@@ -1281,6 +1282,23 @@ class ClientState:
     def update_client_settings(self, user_input):
         if user_input == pr.KeyboardKey.KEY_F:
             pr.toggle_borderless_windowed()
+            self.screen_width = pr.get_screen_width()
+            self.screen_height = pr.get_screen_height()
+            button_division = 16
+            self.button_w = self.screen_width//button_division
+            self.button_h = self.screen_height//button_division
+            button_names = ["move_robber", "build_road", "build_city", "build_settlement"]
+            self.buttons=[Button(pr.Rectangle(self.screen_width-(i+1)*(self.button_w+10), self.button_h, self.button_w, self.button_h), button_names[i], mode=True) for i in range(4)]
+
+            #     Button(pr.Rectangle(self.screen_width-(self.button_size+10), 20, self.button_w, self.button_size), "move_robber", mode=True),
+            #     Button(pr.Rectangle(self.screen_width-2*(self.button_size+10), 20, self.button_size, self.button_size), "build_road", mode=True),
+            #     Button(pr.Rectangle(self.screen_width-3*(self.button_size+10), 20, self.button_size, self.button_size), "build_city", mode=True),
+            #     Button(pr.Rectangle(self.screen_width-4*(self.button_size+10), 20, self.button_size, self.button_size), "build_settlement", mode=True),
+
+            # ]
+            self.buttons.append(Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 2*self.button_w, self.button_h), "end_turn", action=True))
+            self.buttons.append(Button(pr.Rectangle(self.screen_width//button_division-2*self.button_w, self.screen_height-self.screen_height//button_division, 2*self.button_w, self.button_h), "roll_dice", action=True))
+
 
         elif user_input == pr.KeyboardKey.KEY_E:
             self.debug = not self.debug # toggle
