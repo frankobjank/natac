@@ -77,6 +77,12 @@ all_terrains = ["mountain", "field", "pasture", "forest", "hill", "desert", "oce
 all_resources = ["ore", "wheat", "sheep", "wood", "brick"]
 all_ports = ["three", "wood", "brick", "sheep", "wheat", "ore"]
 
+building_costs = {
+    "road": {"wood": 1, "brick": 1},
+    "settlement": {"wheat": 1, "sheep": 1, "wood": 1, "brick": 1},
+    "city": {"ore": 3, "wheat": 2},
+    "dev_card": {"ore": 1, "wheat": 1, "sheep": 1}
+}
 
 
 class Edge:
@@ -726,15 +732,27 @@ class ServerState:
         self.players[location_node.player].num_settlements += 1
         if location_node.port:
             self.players[location_node.player].ports.append(location_node.port)
+        for resource in ["wheat", "sheep", "brick", "wood"]:
+            self.players[self.current_player_name].hand[resource] -= 1
+
 
     def build_city(self, location_node):
         location_node.town = "city"
         self.players[location_node.player].num_settlements -= 1
         self.players[location_node.player].num_cities += 1
+        for resource in ["ore", "ore", "ore", "wheat", "wheat"]:
+            self.players[self.current_player_name].hand[resource] -= 1
 
     def build_road(self, location_edge):
         location_edge.player = self.current_player_name
         self.players[self.current_player_name].num_roads += 1
+        for resource in ["brick", "wood"]:
+            self.players[self.current_player_name].hand[resource] -= 1
+
+    def buy_dev_card(self):
+        for resource in ["ore", "wheat", "sheep"]:
+            self.players[self.current_player_name].hand[resource] -= 1
+        
 
     def move_robber(self, location_hex=None):
         # random for debuging
@@ -750,14 +768,14 @@ class ServerState:
         return False
 
     def cost_check(self, item):
-        costs = {
+        building_costs = {
             "road": {"wood": 1, "brick": 1},
             "settlement": {"wheat": 1, "sheep": 1, "wood": 1, "brick": 1},
             "city": {"ore": 3, "wheat": 2},
             "dev_card": {"ore": 1, "wheat": 1, "sheep": 1}
         }
 
-        cost = costs[item]
+        cost = building_costs[item]
         hand = self.players[self.current_player_name].hand
         
         if all(hand[resource] >= cost[resource] for resource in cost.keys()):
@@ -798,7 +816,8 @@ class ServerState:
                             player_object = self.players[node.player]
                             resource = terrain_to_resource[tile.terrain]
                             # ITSOVER9000
-                            player_object.hand[resource] += 9
+                            # player_object.hand[resource] += 9
+                            player_object.hand[resource] += 1
                             if node.town == "city":
                                 player_object.hand[resource] += 1
 
@@ -891,7 +910,7 @@ class ServerState:
         
         if self.turn_num >= 0:
             # check build_costs to determine if mode is valid
-            if client_request["mode"] == "build_road":
+            if client_request["mode"] == "build_road" or self.mode == "build road":
                 if not self.cost_check("road"):
                     return
             elif client_request["mode"] == "build_settlement":
@@ -913,18 +932,18 @@ class ServerState:
             self.mode = "roll_dice"
 
         if client_request["action"] == "roll_dice" and self.mode == "roll_dice":
-            # only allow roll if #rolls = turn_num
-            if self.dice_rolls == self.turn_num:
-                self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
-                self.dice_rolls += 1
-                self.mode = None
-                if self.die1 + self.die2 != 7:
-                    self.distribute_resources()
-                elif self.die1 + self.die2 == 7:
-                    self.return_cards()
-                    self.mode = "move_robber"
-                    if self.debug == True:
-                        self.move_robber()
+            # only allow roll if # rolls = turn_num
+            assert self.dice_rolls == self.turn_num, "dice rolls should equal num_turns"
+            self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
+            self.dice_rolls += 1
+            self.mode = None
+            if self.die1 + self.die2 != 7:
+                self.distribute_resources()
+            elif self.die1 + self.die2 == 7:
+                self.return_cards()
+                self.mode = "move_robber"
+                if self.debug == True:
+                    self.move_robber()
             return
         
 
@@ -1055,6 +1074,9 @@ class ServerState:
     def remove_card(self):
         # for returning cards on a 7, put cards on an overlay like the options menu so no overlapping cards to select
         pass
+
+
+
 
 class Button:
     def __init__(self, rec:pr.Rectangle, name, mode=False, action=False):
@@ -1526,9 +1548,9 @@ class ClientState:
                     self.client_players[name].dev_cards[dev_card_order[position]] = number
                     self.client_players[name].num_dev_cards += number
                 
-                
-                
-        
+
+
+
 
 
     def render_board(self):
