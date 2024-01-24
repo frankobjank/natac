@@ -72,3 +72,10 @@ end = turn over turn to next player and make mode roll_dice
 
 dice_roll mode 
 Essentially can split up turns into two phases: dice roll and main phase
+
+
+to change for rendering client:
+    scale text on buttons with resize
+    add box around turn buttons to group them
+    change dice button to say roll dice and display dice roll separately so they can be displayed as squares
+    add log box either in between or below the button boxes

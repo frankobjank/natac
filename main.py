@@ -1173,9 +1173,9 @@ class ClientState:
         self.options_menu = Menu(self, "Options", self.menu_links["options"], *["mute", "borderless_windowed", "close"])
 
         # buttons
-        button_division = 16
-        self.button_w = self.screen_width//button_division
-        self.button_h = self.screen_height//button_division
+        self.button_division = 17
+        self.button_w = self.screen_width//self.button_division
+        self.button_h = self.screen_height//self.button_division
         mode_button_names = ["move_robber", "build_road", "build_city", "build_settlement"]
         self.buttons = {mode_button_names[i]: Button(pr.Rectangle(self.screen_width-(i+1)*(self.button_w+10), self.button_h, self.button_w, self.button_h), mode_button_names[i], mode=True) for i in range(4)}
 
@@ -1208,15 +1208,17 @@ class ClientState:
         self.screen_h_mult = self.screen_height / self.default_screen_h
 
         # resize buttons
-        button_scale = 18
-        self.button_w = self.screen_width / button_scale
-        self.button_h = self.screen_height / button_scale
+        self.button_w = self.screen_width//self.button_division
+        self.button_h = self.screen_height//self.button_division # 80 * self.screen_h_mult
         for i, button in enumerate(self.buttons.values()):
             if button.mode:
                 button.rec = pr.Rectangle(self.screen_width-(i+1)*(self.button_w+10), self.button_h, self.button_w, self.button_h)
+        
+        # set roll_dice and end_turn manually
+        self.buttons["roll_dice"].rec = pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(4*self.button_h), 2*self.button_w, self.button_h)
+        self.buttons["end_turn"].rec = pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(2.5*self.button_h), 2*self.button_w, self.button_h)
                 
-        # self.buttons.append(Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 2*self.button_w, self.button_h), "end_turn", action=True))
-        # self.buttons.append(Button(pr.Rectangle(self.screen_width//button_division-2*self.button_w, self.screen_height-self.screen_height//button_division, 2*self.button_w, self.button_h), "roll_dice", action=True))
+
             
     def does_board_exist(self):
         if len(self.board) > 0:
