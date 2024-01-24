@@ -2,20 +2,13 @@ import pyray as pr
 import hex_helper as hh
 import rendering_functions as rf
 from operator import itemgetter, attrgetter
-import random
+# import random
 import math
-import json
+# import json
 
-
-def vector2_round(vector2):
-    return pr.Vector2(int(vector2.x), int(vector2.y))
-
-
-screen_width=800
-screen_height=600
 
 def offset(lst, offset):
-  return lst[offset:] + lst[:offset]
+    return lst[offset:] + lst[:offset]
 
 pointy = hh.Layout(hh.layout_pointy, hh.Point(50, 50), hh.Point(400, 300))
 origin = hh.set_hex(0, 0, 0)
@@ -55,79 +48,6 @@ hexes = [hh.set_hex(0, -2, 2),
         hh.set_hex(-1, 2, -1),
         hh.set_hex(0, 2, -2)
         ]
-
-def sort_hexes(hexes) -> list:
-    return sorted(hexes, key=attrgetter("q", "r", "s"))
-
-class Edge:
-    def __init__(self, hex_a, hex_b):
-        assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
-        sorted_hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
-        self.hex_a = sorted_hexes[0]
-        self.hex_b = sorted_hexes[1]
-        self.player = None
-    
-    def __repr__(self):
-        return f"Edge({self.hex_a}, {self.hex_b})"
-    
-    def get_hexes(self):
-        return (self.hex_a, self.hex_b)
-        
-    def get_edge_points(self) -> list:
-        return list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b))
-    
-    def get_adj_nodes(self, state) -> list:
-        edge_points = self.get_edge_points()
-        adj_nodes = []
-        for point in edge_points:
-            for node in state.nodes:
-                if point == node.get_node_point():
-                    adj_nodes.append(node)
-        return adj_nodes
-
-    
-    def build_check(self, state):
-        if self.hex_a in state.ocean_hexes and self.hex_b in state.ocean_hexes:
-            return False
-                
-
-
-        else:
-            return True
-        
-        # contiguous - connected to either settlement or road
-        # can't cross another player's road or settlement
-
-class Node:
-    def __init__(self, hex_a, hex_b, hex_c):
-        sorted_hexes = sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s"))
-        self.hex_a = sorted_hexes[0]
-        self.hex_b = sorted_hexes[1]
-        self.hex_c = sorted_hexes[2]
-        self.player = None
-        self.town = None # city or settlement
-
-    def __repr__(self):
-        return f"Node({self.hex_a}, {self.hex_b}, {self.hex_c})"
-
-    def get_hexes(self):
-        return (self.hex_a, self.hex_b, self.hex_c)
-
-    def get_node_point(self):
-        node_list = list(hh.hex_corners_set(pointy, self.hex_a) & hh.hex_corners_set(pointy, self.hex_b) & hh.hex_corners_set(pointy, self.hex_c))
-        if len(node_list) != 0:
-            return node_list[0]
-    
-    def get_adj_edges(self, edges):
-        self_edges = [(self.hex_a, self.hex_b), (self.hex_a, self.hex_c), (self.hex_b, self.hex_c)]
-        adj_edges = []
-        for self_edge in self_edges:
-            for edge in edges:
-                if self_edge == edge.get_hexes():
-                    adj_edges.append(edge)
-        return adj_edges
-    
-
 
 
 def main():
@@ -171,24 +91,124 @@ class Button:
         print(f"toggle state: {self.toggle}")
 
 
+class ClientState:
+    def __init__(self):
+        # window size
+        # test on 2 monitor set-up?
+
+        moniter_id = pr.get_current_monitor()
+        if pr.get_monitor_width(moniter_id) >= 900 and pr.get_monitor_height(moniter_id) >= 750:
+            self.default_screen_w = 900
+            self.default_screen_h = 750
+        else:
+            print("monitor too small")
+        
+        # default values
+        self.default_screen_w = 900
+        self.default_screen_h = 750
+        
+        
+        # changeable values
+        self.screen_width = self.default_screen_w
+        self.screen_height = self.default_screen_h
+
+        # set previous for later
+        self.previous_screen_w = 0
+        self.previous_screen_h = 0
+
+        # multiplier for new screen size - must be float division since calculating %
+        self.screen_w_mult = 1
+        self.screen_h_mult = 1
+
+        self.pixel_mult = 1
 
 
-def main_test():
-    pr.init_window(screen_width, screen_height, "natac")
+        self.med_text_default = self.screen_width / 75 # 12
+        self.resize_client()
+
+        # buttons
+        button_division = 16
+        self.button_w = self.screen_width//button_division
+        self.button_h = self.screen_height//button_division
+        mode_button_names = ["move_robber", "build_road", "build_city", "build_settlement"]
+        self.buttons = {mode_button_names[i]: Button(pr.Rectangle(self.screen_width-(i+1)*(self.button_w+10), self.button_h, self.button_w, self.button_h), mode_button_names[i], mode=True) for i in range(4)}
+
+        # action_button_names = ["end_turn", "roll_dice"]
+        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(2.5*self.button_h), 2*self.button_w, self.button_h), "end_turn", action=True)
+        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(4*self.button_h), 2*self.button_w, self.button_h), "roll_dice", action=True)
+
+
+    def resize_client(self):
+        # pr.toggle_borderless_windowed()
+        if pr.get_screen_height() == 750:
+            pr.set_window_size(1440, 800)
+            pr.set_window_position(0, 0)
+        else:
+            pr.set_window_size(900, 750)
+            pr.set_window_position(275, 75)
+        
+        self.previous_screen_w = self.screen_width
+        self.previous_screen_h = self.screen_height
+
+        self.screen_width = pr.get_screen_width()
+        self.screen_height = pr.get_screen_height()
+        
+        # screen width = 1440, screen height = 900 borderless windowed
+        # screen width = 900, screen height = 750 default values
+
+        self.screen_w_mult = self.screen_width / self.default_screen_w
+        self.screen_h_mult = self.screen_height / self.default_screen_h
+        self.pixel_mult = (self.screen_w_mult + self.screen_h_mult) / 2
+
+        # # resize buttons
+        # button_scale = 18
+        # self.button_w = self.screen_width / button_scale
+        # self.button_h = self.screen_height / button_scale
+        # for i, button in enumerate(self.buttons.values()):
+        #     if button.mode:
+        #         button.rec = pr.Rectangle(self.screen_width-(i+1)*(self.button_w+10), self.button_h, self.button_w, self.button_h)
+        w_offset = int(self.screen_width//25 * self.screen_w_mult)
+        h_offset = int(self.screen_height//25 * self.screen_h_mult)
+        w_rec = int(self.screen_width//25 * self.screen_w_mult)
+        h_rec = int(self.screen_height//25 * self.screen_h_mult)
+        sq_size = int((self.screen_width//25))
+        print(f"{self.screen_h_mult}")
+        self.test_rec = pr.Rectangle((self.screen_width - w_offset), h_offset, sq_size, sq_size)
+        # self.test_rec = pr.Rectangle((self.screen_width - w_offset), h_offset, w_rec, h_rec)
+
+def test():
+    client = ClientState()
+    pr.init_window(client.screen_width, client.screen_height, "natac")
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
     pr.set_target_fps(60)
 
     while not pr.window_should_close():
         # user input/ update
+        if pr.is_key_pressed(pr.KeyboardKey.KEY_F):
+            client.resize_client()
+            # screen width = 1440, screen height = 900
+            # screen width = 900, screen height = 750
+            # 2 different ways to do multipliers:
+                # calculate current size from previous size and constantly grow/ shrink actual sizes of objects
+                # OR have initial size and a new size
+
+            # width mult should be 1.6
+            # height mult should be 1.2
+            # print(f"screen width = {pr.get_screen_width()}, screen height = {pr.get_screen_height()}")
+        
+        if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
+            print(f"x = {client.test_rec.x}, y = {client.test_rec.y}, width = {client.test_rec.width}, height = {client.test_rec.height}")
         
         # render
         pr.begin_drawing()
         pr.clear_background(pr.WHITE)
 
+        # test rec
+        pr.draw_rectangle_rec(client.test_rec, pr.BLACK)
 
         pr.end_drawing()
 
     pr.unload_font(pr.gui_get_font())
     pr.close_window()
 
-main_test()
+test()

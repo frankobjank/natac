@@ -1119,8 +1119,23 @@ class ClientState:
         self.id = id # for debug, start as "red" and shift to current_player_name every turn
 
         # window size
-        self.screen_width=900
-        self.screen_height=750
+        # default values
+        self.default_screen_w = 900
+        self.default_screen_h = 750
+        
+        # changeable values
+        self.screen_width = self.default_screen_w
+        self.screen_height = self.default_screen_h
+
+        # multiplier for new screen size - must be float division since calculating %
+        self.screen_w_mult = self.screen_width / self.default_screen_w
+        self.screen_h_mult = self.screen_height / self.default_screen_h
+
+        self.pixel_mult = (self.screen_height*self.screen_width) / (self.default_screen_w*self.default_screen_h)
+
+        self.med_text_default = self.screen_width / 75 # 12
+
+        # 900 / 75 = 12, 900 / 18 = 50
 
         # frames for rendering (set to 60 FPS in main())
         self.frame = 0
@@ -1153,24 +1168,25 @@ class ClientState:
 
         self.debug = True
 
-        self.menu_links = {"options": Button(pr.Rectangle(self.screen_width//20, self.screen_height//20, self.screen_width//25, self.screen_height//20), "options_link", pr.DARKGRAY)
-        }
+        self.menu_links = {"options": Button(pr.Rectangle(self.screen_width//20, self.screen_height//20, self.screen_width//25, self.screen_height//20), "options_link", pr.DARKGRAY)}
+
         self.options_menu = Menu(self, "Options", self.menu_links["options"], *["mute", "borderless_windowed", "close"])
 
         # buttons
-        # self.button_size = self.screen_width//22.5
-        button_size = 40
-        self.buttons=[
-            Button(pr.Rectangle(self.screen_width-50, 20, button_size, button_size), "move_robber", mode=True),
-            Button(pr.Rectangle(self.screen_width-100, 20, button_size, button_size), "build_road", mode=True),
-            Button(pr.Rectangle(self.screen_width-150, 20, button_size, button_size), "build_city", mode=True),
-            Button(pr.Rectangle(self.screen_width-200, 20, button_size, button_size), "build_settlement", mode=True),
-            Button(pr.Rectangle(150-2*button_size, self.screen_height-150, 2*button_size, button_size), "roll_dice", action=True),
-            Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 2*button_size, button_size), "end_turn", action=True)
-        ]
+        button_division = 16
+        self.button_w = self.screen_width//button_division
+        self.button_h = self.screen_height//button_division
+        mode_button_names = ["move_robber", "build_road", "build_city", "build_settlement"]
+        self.buttons = {mode_button_names[i]: Button(pr.Rectangle(self.screen_width-(i+1)*(self.button_w+10), self.button_h, self.button_w, self.button_h), mode_button_names[i], mode=True) for i in range(4)}
+
+        # action_button_names = ["end_turn", "roll_dice"]
+        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(2.5*self.button_h), 2*self.button_w, self.button_h), "end_turn", action=True)
+        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(4*self.button_h), 2*self.button_w, self.button_h), "roll_dice", action=True)
+
 
 
         # camera controls
+        # when changing size of screen, just zoom in?
         self.default_zoom = 0.9
         self.camera = pr.Camera2D()
         self.camera.target = pr.Vector2(0, 0)
@@ -1183,7 +1199,25 @@ class ClientState:
         for p in self.client_players.values():
             print(f"{p.name} hand: {p.hand}")
 
-    # CLIENT SET UP/ PROCESS DATA
+    def resize_client(self):
+        pr.toggle_borderless_windowed()
+        self.screen_width = pr.get_screen_width()
+        self.screen_height = pr.get_screen_height()
+
+        self.screen_w_mult = self.screen_width / self.default_screen_w
+        self.screen_h_mult = self.screen_height / self.default_screen_h
+
+        # resize buttons
+        button_scale = 18
+        self.button_w = self.screen_width / button_scale
+        self.button_h = self.screen_height / button_scale
+        for i, button in enumerate(self.buttons.values()):
+            if button.mode:
+                button.rec = pr.Rectangle(self.screen_width-(i+1)*(self.button_w+10), self.button_h, self.button_w, self.button_h)
+                
+        # self.buttons.append(Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 2*self.button_w, self.button_h), "end_turn", action=True))
+        # self.buttons.append(Button(pr.Rectangle(self.screen_width//button_division-2*self.button_w, self.screen_height-self.screen_height//button_division, 2*self.button_w, self.button_h), "roll_dice", action=True))
+            
     def does_board_exist(self):
         if len(self.board) > 0:
             return True
@@ -1281,24 +1315,7 @@ class ClientState:
         
     def update_client_settings(self, user_input):
         if user_input == pr.KeyboardKey.KEY_F:
-            pr.toggle_borderless_windowed()
-            self.screen_width = pr.get_screen_width()
-            self.screen_height = pr.get_screen_height()
-            button_division = 16
-            self.button_w = self.screen_width//button_division
-            self.button_h = self.screen_height//button_division
-            button_names = ["move_robber", "build_road", "build_city", "build_settlement"]
-            self.buttons=[Button(pr.Rectangle(self.screen_width-(i+1)*(self.button_w+10), self.button_h, self.button_w, self.button_h), button_names[i], mode=True) for i in range(4)]
-
-            #     Button(pr.Rectangle(self.screen_width-(self.button_size+10), 20, self.button_w, self.button_size), "move_robber", mode=True),
-            #     Button(pr.Rectangle(self.screen_width-2*(self.button_size+10), 20, self.button_size, self.button_size), "build_road", mode=True),
-            #     Button(pr.Rectangle(self.screen_width-3*(self.button_size+10), 20, self.button_size, self.button_size), "build_city", mode=True),
-            #     Button(pr.Rectangle(self.screen_width-4*(self.button_size+10), 20, self.button_size, self.button_size), "build_settlement", mode=True),
-
-            # ]
-            self.buttons.append(Button(pr.Rectangle(self.screen_width-150, self.screen_height-150, 2*self.button_w, self.button_h), "end_turn", action=True))
-            self.buttons.append(Button(pr.Rectangle(self.screen_width//button_division-2*self.button_w, self.screen_height-self.screen_height//button_division, 2*self.button_w, self.button_h), "roll_dice", action=True))
-
+            self.resize_client()
 
         elif user_input == pr.KeyboardKey.KEY_E:
             self.debug = not self.debug # toggle
@@ -1308,12 +1325,13 @@ class ClientState:
 
 
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-            for button in self.buttons:
-                if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                    # optins menu buttons (mute, fullscreen)
-                    pass
-                else:
-                    button.hover = False
+            if self.options_menu.visible == True:
+                for button_object in self.buttons.values():
+                    if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
+                        # optins menu buttons (mute, fullscreen)
+                        pass
+                    else:
+                        button_object.hover = False
 
             # enter game/ change settings in client
             pass
@@ -1326,26 +1344,28 @@ class ClientState:
             print("board does not exist")
             return
         
+        # tells server and self to print debug
         if user_input == pr.KeyboardKey.KEY_W:
             self.print_debug()
             action = "print_debug"
 
         # defining button highlight if mouse is over it
-        for button in self.buttons:
-            if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                # special cases for roll_dice, end_turn
+        for button_object in self.buttons.values():
+            if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
+                # special cases for roll_dice, end_turn - only allow roll_dice
                 if self.mode == "roll_dice":
-                    if button.name == "roll_dice":
-                        button.hover = True
+                    if button_object.name == "roll_dice":
+                        button_object.hover = True
                     else:
-                        button.hover = False
-                else:
-                    if button.name == "roll_dice":
-                        button.hover = False
+                        button_object.hover = False
+                elif self.mode != "roll_dice":
+                    if button_object.name == "roll_dice":
+                        button_object.hover = False
                     else:
-                        button.hover = True
+                        button_object.hover = True
             else:
-                button.hover = False
+                button_object.hover = False
+
 
 
         # reset current hex, edge, node
@@ -1388,12 +1408,12 @@ class ClientState:
             action = "end_turn"
         
         elif user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-            for button in self.buttons:
-                if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
-                    if button.mode:
-                        requested_mode = button.name
-                    elif button.action:
-                        action = button.name
+            for button_object in self.buttons.values():
+                if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
+                    if button_object.mode:
+                        requested_mode = button_object.name
+                    elif button_object.action:
+                        action = button_object.name
 
 
 
@@ -1618,34 +1638,33 @@ class ClientState:
             debug_4 = f"mode: {self.mode}"
             pr.draw_text_ex(pr.gui_get_font(), debug_4, pr.Vector2(5, 65), 15, 0, pr.BLACK)
 
-        for button in self.buttons:
-            pr.draw_rectangle_rec(button.rec, button.color)
-            pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
+        for button_object in self.buttons.values():
+            pr.draw_rectangle_rec(button_object.rec, button_object.color)
+            pr.draw_rectangle_lines_ex(button_object.rec, 1, pr.BLACK)
             
-            # draw text on buttons
-            # action buttons
-            if button.name == "roll_dice":
-                rf.draw_dice(self.dice, button.rec)
-                # draw line between dice
-                pr.draw_line_ex((int(button.rec.x + button.rec.width//2), int(button.rec.y)), (int(button.rec.x + button.rec.width//2), int(button.rec.y+button.rec.height)), 2, pr.BLACK)
-            elif button.name == "end_turn":
-                pr.draw_text_ex(pr.gui_get_font(), "End Turn", (button.rec.x+5, button.rec.y+12), 12, 0, pr.BLACK)
-            
-            # mode buttons
-            elif button.name == "build_road":
-                pr.draw_text_ex(pr.gui_get_font(), "road", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
-            elif button.name == "build_city":
-                pr.draw_text_ex(pr.gui_get_font(), "city", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
-            elif button.name == "build_settlement":
-                pr.draw_text_ex(pr.gui_get_font(), "sett", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
-            elif button.name == "move_robber":
-                pr.draw_text_ex(pr.gui_get_font(), "robr", (button.rec.x+3, button.rec.y+12), 12, 0, pr.BLACK)
-
             # hover - self.hover needed because state must determine if action will be allowed
-            if button.hover:
+            if button_object.hover:
                 outer_offset = 2
-                outer_rec = pr.Rectangle(button.rec.x-outer_offset, button.rec.y-outer_offset, button.rec.width+2*outer_offset, button.rec.height+2*outer_offset)
+                outer_rec = pr.Rectangle(button_object.rec.x-outer_offset, button_object.rec.y-outer_offset, button_object.rec.width+2*outer_offset, button_object.rec.height+2*outer_offset)
                 pr.draw_rectangle_lines_ex(outer_rec, 5, pr.BLACK)
+
+        # draw text on buttons
+        # action buttons
+        rf.draw_dice(self.dice, self.buttons["roll_dice"].rec)
+        # draw line between dice
+        pr.draw_line_ex((int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y)), (int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y+self.buttons["roll_dice"].rec.height)), 2, pr.BLACK)
+
+        pr.draw_text_ex(pr.gui_get_font(), "End Turn", (self.buttons["end_turn"].rec.x+5, self.buttons["end_turn"].rec.y+12), 12, 0, pr.BLACK)
+            
+        # mode buttons
+        pr.draw_text_ex(pr.gui_get_font(), "road", (self.buttons["build_road"].rec.x+3, self.buttons["build_road"].rec.y+12), 12, 0, pr.BLACK)
+
+        pr.draw_text_ex(pr.gui_get_font(), "city", (self.buttons["build_city"].rec.x+3, self.buttons["build_city"].rec.y+12), 12, 0, pr.BLACK)
+
+        pr.draw_text_ex(pr.gui_get_font(), "sett", (self.buttons["build_settlement"].rec.x+3, self.buttons["build_settlement"].rec.y+12), 12, 0, pr.BLACK)
+
+        pr.draw_text_ex(pr.gui_get_font(), "robr", (self.buttons["move_robber"].rec.x+3, self.buttons["move_robber"].rec.y+12), 12, 0, pr.BLACK)
+
 
 
         for player_name, player_object in self.client_players.items():
@@ -1683,7 +1702,7 @@ def run_client():
     print("starting client")
 
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
-    pr.init_window(c_state.screen_width, c_state.screen_height, "Natac")
+    pr.init_window(c_state.default_screen_w, c_state.default_screen_h, "Natac")
     pr.set_target_fps(60)
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
 
@@ -1712,8 +1731,6 @@ def run_server():
         s_state.server_to_client()
 
 
-
-
 def run_combined():
     s_state = ServerState(combined=True)
     print("starting server")
@@ -1723,7 +1740,7 @@ def run_combined():
     print("starting client")
 
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
-    pr.init_window(c_state.screen_width, c_state.screen_height, "Natac")
+    pr.init_window(c_state.default_screen_w, c_state.default_screen_h, "Natac")
     pr.set_target_fps(60)
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
 
