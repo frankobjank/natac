@@ -211,4 +211,10 @@ def test():
     pr.unload_font(pr.gui_get_font())
     pr.close_window()
 
-test()
+# test()
+
+lst = []
+new_lst = ["fds", "f"]
+new_lst += lst
+
+print(new_lst)

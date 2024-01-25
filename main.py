@@ -2,7 +2,7 @@ import random
 import math
 import socket
 import json
-from collections import namedtuple
+from collections import namedtuple, deque
 from operator import attrgetter
 import pyray as pr
 import hex_helper as hh
@@ -139,32 +139,32 @@ class Edge:
 
 
     def build_check_road(self, s_state):
-        # print("build_check_road")
+        print("build_check_road")
         if s_state.current_player_name == None:
             return False
         # check if edge is owned
         if self.player != None:
-            # if self.player == s_state.players[s_state.current_player_name]:
-                # print("location already owned by you")
-            # else:
-                # print("location already owned by another player")
+            if self.player == s_state.players[s_state.current_player_name]:
+                print("location already owned by you")
+            else:
+                print("location already owned by another player")
             return False
 
         # check num_roads
         if s_state.players[s_state.current_player_name].num_roads >= 15:
-            # print("no available roads")
+            print("no available roads")
             return
 
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes:
-            # print("can't build in ocean")
+            print("can't build in ocean")
             return False
         
         # home check. if adj node is a same-player town, return True
         self_nodes = self.get_adj_nodes(s_state.board.nodes)
         for node in self_nodes:
             if node.player == s_state.current_player_name:
-                # print("building next to settlement")
+                print("building next to settlement")
                 return True
         
         # contiguous check. if no edges are not owned by player, break
@@ -176,7 +176,7 @@ class Edge:
                 origin_edges.append(edge)
 
         if len(origin_edges) == 0: # non-contiguous
-            # print("non-contiguous")
+            print("non-contiguous")
             return False
         # origin shows what direction road is going
         # if multiple origins, check if origin node has opposing settlement blocking path
@@ -199,14 +199,14 @@ class Edge:
                 break
             # origin node blocked by another player
             elif origin_node.player != None and origin_node.player != s_state.current_player_name:
-                # print("adjacent node blocked by settlement, checking others")
+                print("adjacent node blocked by settlement, checking others")
                 blocked_count += 1
                 
             if blocked_count == len(origin_edges):
-                # print("all routes blocked")
+                print("all routes blocked")
                 return False
             
-        # print("no conflicts")
+        print("no conflicts, building road")
         return True
         
         # contiguous - connected to either settlement or road
@@ -258,49 +258,49 @@ class Node:
         return adj_nodes
 
     def build_check_settlement(self, s_state):
-        # print("build_check_settlement")
+        print("build_check_settlement")
 
         if s_state.current_player_name == None:
             return False
 
         # check if player owns node
         if self.player != None:
-            # if self.player == s_state.players[s_state.current_player_name]:
-            #     print("location already owned by you")
-            # else:
-            #     print("location already owned by another player")
+            if self.player == s_state.players[s_state.current_player_name]:
+                print("location already owned by you")
+            else:
+                print("location already owned by another player")
             return False
         
         # check if town is None
         if self.town != None:
-            # print("this location must be empty")
+            print("this location must be empty")
             return False
 
         # check num_settlements
         if s_state.players[s_state.current_player_name].num_settlements >= 5:
-            # print("no available settlements")
+            print("no available settlements")
             return False
         
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes and self.hexes[2] in s_state.board.ocean_hexes:
-            # print("can't build in ocean")
+            print("can't build in ocean")
             return False
         
         # get 3 adjacent nodes and make sure no town is built there
         adj_nodes = self.get_adj_nodes_from_node(s_state.board.nodes)
         for node in adj_nodes:
             if node.town == "settlement":
-                # print("too close to settlement")
+                print("too close to settlement")
                 return False
             elif node.town == "city":
-                # print("too close to city")
+                print("too close to city")
                 return False
 
             
         adj_edges = self.get_adj_edges(s_state.board.edges)
         # is node adjacent to at least 1 same-colored road
         if all(edge.player != s_state.current_player_name for edge in adj_edges):
-            # print("no adjacent roads")
+            print("no adjacent roads")
             return False
         
         # if between opponent's road
@@ -309,24 +309,26 @@ class Node:
             adj_edge_players.remove(s_state.current_player_name)
             if adj_edge_players[0] == adj_edge_players[1]:
                 if None not in adj_edge_players and s_state.current_player_name not in adj_edge_players:
-                    # print("can't build in middle of road")
+                    print("can't build in middle of road")
                     return False
-                
+        
+        print("no conflicts, building settlement")
         return True
     
     def build_check_city(self, s_state):
         if self.town != "settlement":
-            # print("this location must be a settlement")
+            print("this location must be a settlement")
             return False
         
         if self.player != s_state.current_player_name:
-            # print("owned by someone else")
+            print("owned by someone else")
             return False
 
         if s_state.players[s_state.current_player_name].num_cities >= 4:
-            # print("no available cities")
+            print("no available cities")
             return False
-
+        
+        print("no conflicts, building city")
         return True
 
 
@@ -348,7 +350,7 @@ class Board:
 
         # 25 development cards: 14 knight cards, 5 victory point cards, 2 road building, 2 year of plenty, and 2 monopoly
         self.dev_cards = {
-            "knight": 14, 
+            "knight": 14,
             "victory_point": 5,
             "road_building": 2, 
             "year_of_plenty": 2, 
@@ -646,7 +648,10 @@ class ServerState:
             self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
             self.socket.bind((local_IP, local_port))
         
-        self.log_msg = ""
+        self.private_log = []
+        self.public_log = []
+        # for server logs
+        self.log_msgs = []
 
         # BOARD
         self.board = None
@@ -695,8 +700,14 @@ class ServerState:
         self.player_order = [name for name in self.players.keys()]
         self.player_order.sort(key=lambda player_name: self.players[player_name].order)
 
+        # DEBUG - start each player with 10 of every resource
+        for player_object in self.players.values():
+            for r in player_object.hand.keys():
+                player_object.hand[r] = 10
+
     def is_server_full(self, max_players=4):
         if len(self.player_order) >= max_players:
+            self.log_msgs.append("server cannot accept any more players")
             print("server cannot accept any more players")
             return True
         else:
@@ -715,6 +726,7 @@ class ServerState:
         order = len(self.player_order)
         self.players[name] = Player(name, order)
         self.player_order.append(name)
+        print(f"adding Player {name}")
             
     def randomize_player_order(self):
         player_names = [name for name in self.players.keys()]
@@ -727,80 +739,63 @@ class ServerState:
 
     # build functions
     def build_settlement(self, location_node):
+        self.mode = None # immediately switch off build mode
         location_node.town = "settlement"
         location_node.player = self.current_player_name
         self.players[location_node.player].num_settlements += 1
         if location_node.port:
             self.players[location_node.player].ports.append(location_node.port)
-        for resource in ["wheat", "sheep", "brick", "wood"]:
-            self.players[self.current_player_name].hand[resource] -= 1
+        self.pay_for("settlement")
 
 
     def build_city(self, location_node):
+        self.mode = None # immediately switch off build mode
         location_node.town = "city"
         self.players[location_node.player].num_settlements -= 1
         self.players[location_node.player].num_cities += 1
-        for resource in ["ore", "ore", "ore", "wheat", "wheat"]:
-            self.players[self.current_player_name].hand[resource] -= 1
+        self.pay_for("city")
 
     def build_road(self, location_edge):
+        self.mode = None # immediately switch off build mode
         location_edge.player = self.current_player_name
         self.players[self.current_player_name].num_roads += 1
-        for resource in ["brick", "wood"]:
-            self.players[self.current_player_name].hand[resource] -= 1
+        self.pay_for("road")
 
     def buy_dev_card(self):
-        for resource in ["ore", "wheat", "sheep"]:
-            self.players[self.current_player_name].hand[resource] -= 1
+        # add random dev card to hand
+        self.pay_for("dev_card")
         
-
-    def move_robber(self, location_hex=None):
-        # random for debuging
-        if location_hex == None:
-            while self.robber_move_check(location_hex) != True:
-                location_hex = self.board.land_hexes[random.randint(1, 19)]
-        self.board.robber_hex = location_hex
-        self.mode = None # only one robber move at a time
-
-    def robber_move_check(self, location_hex):
-        if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
-            return True
-        return False
-
+    def pay_for(self, item):
+        for resource, count in building_costs[item].items():
+            self.players[self.current_player_name].hand[resource] -= count
+    
     def cost_check(self, item):
-        building_costs = {
-            "road": {"wood": 1, "brick": 1},
-            "settlement": {"wheat": 1, "sheep": 1, "wood": 1, "brick": 1},
-            "city": {"ore": 3, "wheat": 2},
-            "dev_card": {"ore": 1, "wheat": 1, "sheep": 1}
-        }
-
+        # global constant building_costs
         cost = building_costs[item]
         hand = self.players[self.current_player_name].hand
         
         if all(hand[resource] >= cost[resource] for resource in cost.keys()):
             return True
         
-        print(f"{self.current_player_name} does not have enough resources for a {item}")
+        msg = f"{self.current_player_name} does not have enough resources for a {item}"
+        self.private_log.append(msg)
+        print(msg)
         return False
             
+    def move_robber(self, location_hex=None):
+        self.mode = None # only one robber move at a time
+        # random for debuging
+        if location_hex == None:
+            while self.robber_move_check(location_hex) != True:
+                location_hex = self.board.land_hexes[random.randint(1, 19)-1]
+        self.board.robber_hex = location_hex
+
+    def robber_move_check(self, location_hex):
+        if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
+            return True
+        return False
+
         
-
-    # def remove_town(self, location_node):
-    #     location_node.player = None
-    #     location_node.town = None
-    #     if location_node.port:
-    #         self.players[location_node.player].ports.remove(location_node.port)
-
-    #     if location_node.town == "settlement":
-    #         self.players[location_node.player].num_settlements -= 1
-    #     elif location_node.town == "city":
-    #         self.players[location_node.player].num_cities -= 1
-
-    # def remove_road(self, location_edge):
-    #     location_edge.player = None
-    #     self.players[location_edge.player].num_roads -= 1
-
     def distribute_resources(self):
         token_indices = [i for i, token in enumerate(self.board.tokens) if token == (self.die1 + self.die2)]
 
@@ -865,6 +860,8 @@ class ServerState:
 
             victory_points.append(player_object.victory_points)
 
+        self.log_msgs
+
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
             "ports_ordered": self.board.ports_ordered,
@@ -879,6 +876,8 @@ class ServerState:
             "turn_num": self.turn_num,
             "mode": self.mode,
             "hover": self.hover,
+            "public_log": self.public_log,
+            "private_log": self.private_log,
             "current_player": self.current_player_name,
             "player_order": self.player_order,
             "victory_points": victory_points,
@@ -907,36 +906,41 @@ class ServerState:
         self.hover = False
         
         self.debug = client_request["debug"]
-        
+
+        # toggle mode if the same kind, else change server mode to match client mode
         if self.turn_num >= 0:
             # check build_costs to determine if mode is valid
-            if client_request["mode"] == "build_road" or self.mode == "build road":
+            if client_request["mode"] == "build_road":
                 if not self.cost_check("road"):
+                    self.mode = None
                     return
             elif client_request["mode"] == "build_settlement":
                 if not self.cost_check("settlement"):
+                    self.mode = None
                     return
             elif client_request["mode"] == "build_city":
                 if not self.cost_check("city"):
+                    self.mode = None
                     return
 
-        # toggle mode if the same kind, else change server mode to match client mode
         if client_request["mode"] != None:
             if self.mode == client_request["mode"]:
                 self.mode = None
             else:
                 self.mode = client_request["mode"]
 
-        # force roll_dice before doing anything else except play soldier (in which case mode will shift to move_robber and must go back to roll_dice after robber is moved, could do with an dice_override var or something...)
+        # force roll_dice before doing anything else except play soldier (in which case mode will shift to move_robber and must go back to roll_dice after robber is moved, could do with a soldier_flag or something...)
         if self.dice_rolls == self.turn_num:
             self.mode = "roll_dice"
 
         if client_request["action"] == "roll_dice" and self.mode == "roll_dice":
             # only allow roll if # rolls = turn_num
-            assert self.dice_rolls == self.turn_num, "dice rolls should equal num_turns"
+            # could put under perform_roll()
+            assert self.dice_rolls == self.turn_num, "dice_rolls should equal num_turns"
             self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
             self.dice_rolls += 1
             self.mode = None
+            self.public_log.append(f"{self.current_player_name} rolled a {self.die1 + self.die2}.")
             if self.die1 + self.die2 != 7:
                 self.distribute_resources()
             elif self.die1 + self.die2 == 7:
@@ -944,20 +948,22 @@ class ServerState:
                 self.mode = "move_robber"
                 if self.debug == True:
                     self.move_robber()
+                self.public_log.append(f"{self.current_player_name} must move the robber.")
             return
         
 
         elif client_request["action"] == "end_turn":
             # only allow if # rolls > turn_num
+            assert self.dice_rolls - self.turn_num == 1, "dice_rolls should be 1 greater than num_turns"
             # increment turn number and set new current_player
-            if self.mode != None:
-                return
-            if self.dice_rolls > self.turn_num:
-                self.turn_num += 1
-                self.mode = "roll_dice"
-                for player_name, player_object in self.players.items():
-                    if self.turn_num % len(self.players) == player_object.order:
-                        self.current_player_name = player_name
+            # if self.dice_rolls > self.turn_num:
+            self.public_log.append(f"{self.current_player_name} is ending their turn.")
+            self.turn_num += 1
+            self.mode = "roll_dice"
+            for player_name, player_object in self.players.items():
+                if self.turn_num % len(self.players) == player_object.order:
+                    self.current_player_name = player_name
+                    self.public_log.append(f"It is now {self.current_player_name}'s turn.")
             return
         
         elif client_request["action"] == "print_debug":
@@ -971,8 +977,9 @@ class ServerState:
         
         if self.mode == "return_cards":
             pass
-
-        # only calculate location hexes if location is > 0
+        
+        # board change - use client_request["location"]
+            # only calculate location hexes if location is > 0
         if all(hex == None for hex in client_request["location"].values()):
             return
         
@@ -1006,8 +1013,8 @@ class ServerState:
             location_hex = hex_a
 
         if location_node:
-            # settlement build_check
-            if self.mode == "build_settlement" and location_node.build_check_settlement(self): # self in build_check is s_state
+            # settlement build_check - self in build_check is s_state
+            if self.mode == "build_settlement" and location_node.build_check_settlement(self):
                 self.hover = True
                 if client_request["action"] == "build_settlement":
                     self.build_settlement(location_node)
@@ -1064,12 +1071,6 @@ class ServerState:
             return msg_to_send
 
 
-
-
-    def add_card(self):
-        # add card
-        # resize and reorder the hand
-        pass
 
     def remove_card(self):
         # for returning cards on a 7, put cards on an overlay like the options menu so no overlapping cards to select
@@ -1172,9 +1173,8 @@ class ClientState:
         self.current_hex_3 = None
 
 
-        # could change to hover_button and hover_board to cover both types and chamge from bool
-        self.hover_board = None
-        self.hover_button = None
+        # could change from bool to actual object/ button
+        self.hover = False # hover for non-buttons - gets updated from server
 
         # PLAYERS - undecided if a Player class is needed for client
         self.client_players = {} # use ClientPlayer class
@@ -1202,8 +1202,13 @@ class ClientState:
         self.buttons = {mode_button_names[i]: Button(pr.Rectangle(self.screen_width-(i+1)*(self.button_w+10), self.button_h, self.button_w, self.button_h), mode_button_names[i], mode=True) for i in range(4)}
 
         # action_button_names = ["end_turn", "roll_dice"]
-        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(2.5*self.button_h), 2*self.button_w, self.button_h), "end_turn", action=True)
-        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(4*self.button_h), 2*self.button_w, self.button_h), "roll_dice", action=True)
+        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(5*self.button_h), 2*self.button_w, self.button_h), "end_turn", action=True)
+        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(7*self.button_h), 2*self.button_w, self.button_h), "roll_dice", action=True)
+
+
+        # log
+        self.log_msgs = deque()
+        # self.log_box = pr.Rectangle()
 
 
 
@@ -1237,8 +1242,8 @@ class ClientState:
                 button.rec = pr.Rectangle(self.screen_width-(i+1)*(self.button_w+10), self.button_h, self.button_w, self.button_h)
         
         # set roll_dice and end_turn manually
-        self.buttons["roll_dice"].rec = pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(4*self.button_h), 2*self.button_w, self.button_h)
-        self.buttons["end_turn"].rec = pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(2.5*self.button_h), 2*self.button_w, self.button_h)
+        self.buttons["roll_dice"].rec = pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(7*self.button_h), 2*self.button_w, self.button_h)
+        self.buttons["end_turn"].rec = pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(5*self.button_h), 2*self.button_w, self.button_h)
                 
 
             
@@ -1399,8 +1404,6 @@ class ClientState:
         
         all_hexes = self.board["land_hexes"] + self.board["ocean_hexes"]
 
-        requested_mode = None
-        action = ""
         
 
 
@@ -1424,6 +1427,9 @@ class ClientState:
                     break
 
         
+        action = ""
+        requested_mode = None
+
         # selecting action using button/keyboard
         if user_input == pr.KeyboardKey.KEY_D:
             action = "roll_dice"
@@ -1442,8 +1448,11 @@ class ClientState:
 
 
             # checking board selections for building town, road, moving robber
-            if self.current_hex_3 and self.mode == "build_town":
-                action = "build_town"
+            if self.current_hex_3 and self.mode == "build_settlement":
+                action = "build_settlement"
+            
+            elif self.current_hex_3 and self.mode == "build_city":
+                action = "build_city"
             
             elif self.current_hex_2 and self.mode == "build_road":
                 action = "build_road"
@@ -1485,6 +1494,11 @@ class ClientState:
         elif combined == True:
             return msg_to_send
 
+    def add_card(self):
+        # add card
+        # resize and reorder the hand
+        pass
+    
     # unpack server response and update state
     def update_client(self, encoded_server_response):
         # ocean_hexes : [[0, -3], [1, -3],
@@ -1501,6 +1515,8 @@ class ClientState:
         # current_player : self.current_player
         # hover : bool
         # mode : None || "move_robber"
+        # public_log : ["Player built road", "Player Received Development Card"]
+        # private_log : ["Received Knight Development Card!"]
         # order : ["red", "white"]
         # victory points
         # hands
@@ -1518,6 +1534,16 @@ class ClientState:
         # MODE/HOVER
         self.mode = server_response["mode"]
         self.hover = server_response["hover"]
+
+
+        if self.id == self.current_player_name:
+            self.log_msgs += server_response["private_log"]
+        self.log_msgs += server_response["public_log"]
+
+
+        # cap log at 50 entries
+        while len(self.log_msgs)>50:
+            self.log_msgs = self.log_msgs[1:]
         
         # PLAYERS
         # check if player(s) exist on server
@@ -1596,7 +1622,7 @@ class ClientState:
                         pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
         # if self.debug == True:
-        if self.hover_board == True:
+        if self.hover:
             self.render_mouse_hover()
 
         # draw roads, settlements, cities
@@ -1621,7 +1647,7 @@ class ClientState:
     def render_mouse_hover(self):
         # self.hover could prob be replaced with other logic about current player, mode
         # highlight current node if building is possible
-        if self.current_hex_3 and self.mode == "build_town":
+        if self.current_hex_3 and self.mode == "build_settlement" or self.mode == "build_city":
             node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
             pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
 
