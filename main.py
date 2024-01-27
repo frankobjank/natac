@@ -1688,7 +1688,8 @@ class ClientState:
             pr.end_mode_2d()
 
         if self.debug == True:        
-            debug_1 = f"World mouse at: ({int(self.world_position.x)}, {int(self.world_position.y)})"
+            # debug_1 = f"World mouse at: ({int(self.world_position.x)}, {int(self.world_position.y)})"
+            debug_1 = f"Screen mouse at: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})"
             pr.draw_text_ex(pr.gui_get_font(), debug_1, pr.Vector2(5, 5), 15, 0, pr.BLACK)
             if self.current_player_name:
                 debug_2 = f"Current player = {self.current_player_name}"
@@ -1756,6 +1757,7 @@ class ClientState:
         
         # pr.draw_rectangle_lines(0, 0, self.screen_width, self.screen_height, pr.RED)
         # pr.draw_line(self.screen_width//2, 0, self.screen_width//2, self.screen_height, pr.BLACK)
+        pr.draw_line(0, 900, self.screen_width, self.screen_height, pr.BLACK)
         # for i in range(10):
             # pr.draw_text_ex(pr.gui_get_font(), f"{i*100}", (self.screen_width//2, i*100), 10, 1, pr.BLACK)
         
