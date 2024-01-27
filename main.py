@@ -145,18 +145,22 @@ class Edge:
         # check if edge is owned
         if self.player != None:
             if self.player == s_state.players[s_state.current_player_name]:
+                s_state.private_log.append("This location is already owned by you.")
                 print("location already owned by you")
             else:
+                s_state.private_log.append("This location is owned by another player.")
                 print("location already owned by another player")
             return False
 
         # check num_roads
         if s_state.players[s_state.current_player_name].num_roads >= 15:
+            s_state.private_log.append("You ran out of roads (max 15).")
             print("no available roads")
             return
 
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes:
+            s_state.private_log.append("You can't build in the ocean.")
             print("can't build in ocean")
             return False
         
@@ -164,6 +168,7 @@ class Edge:
         self_nodes = self.get_adj_nodes(s_state.board.nodes)
         for node in self_nodes:
             if node.player == s_state.current_player_name:
+                s_state.public_log.append(f"{s_state.current_player_name} built a road.")
                 print("building next to settlement")
                 return True
         
@@ -176,6 +181,7 @@ class Edge:
                 origin_edges.append(edge)
 
         if len(origin_edges) == 0: # non-contiguous
+            s_state.private_log.append(f"You must build adjacent to one of your roads.")
             print("non-contiguous")
             return False
         # origin shows what direction road is going
@@ -203,9 +209,11 @@ class Edge:
                 blocked_count += 1
                 
             if blocked_count == len(origin_edges):
+                s_state.private_log.append(f"You cannot build there; all routes are blocked.")
                 print("all routes blocked")
                 return False
-            
+        
+        s_state.public_log.append(f"{s_state.current_player_name} built a road.")
         print("no conflicts, building road")
         return True
         
@@ -652,6 +660,11 @@ class ServerState:
         self.public_log = []
         # for server logs
         self.log_msgs = []
+        
+        # use this for an undo button??? can store actions like "Player {name} built road"
+        # might be too hard to literally undo every action.. maybe there is a trick to it. Like restoring from an old game state. could store history of packets as a 'save file'-ish thing. can learn about how save files are created. after every message, check if action was made, then only add the new data to the next entry, so you can "rebuild" the game starting at packet 1, then modifying the values according to the new data
+        # could start with prototype save file in test.py
+        self.history = []
 
         # BOARD
         self.board = None
@@ -903,8 +916,6 @@ class ServerState:
             return
             # only time input from other players would be needed is for trades and returning cards when 7 is rolled
         
-        self.hover = False
-        
         self.debug = client_request["debug"]
 
         # toggle mode if the same kind, else change server mode to match client mode
@@ -1004,39 +1015,38 @@ class ServerState:
                     if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
                         location_node = node
 
+            if client_request["action"] == "build_settlement":
+                if location_node.build_check_settlement(self):
+                    self.build_settlement(location_node)
+            elif client_request["action"] == "build_city":
+                if location_node.build_check_city(self):
+                    self.build_city(location_node)
+
         elif location_hexes["hex_b"] != None and self.mode == "build_road":
             for edge in self.board.edges:
                 if edge.hexes == sort_hexes([hex_a, hex_b]):
                     location_edge = edge
-        
-        elif location_hexes["hex_a"] != None and self.mode == "move_robber":
-            location_hex = hex_a
 
-        if location_node:
-            # settlement build_check - self in build_check is s_state
-            if self.mode == "build_settlement" and location_node.build_check_settlement(self):
-                self.hover = True
-                if client_request["action"] == "build_settlement":
-                    self.build_settlement(location_node)
-            # city build_check
-            elif self.mode == "build_city" and location_node.build_check_city(self):
-                self.hover = True
-                if client_request["action"] == "build_city":
-                    self.build_city(location_node)
-            
-        elif location_edge and self.mode == "build_road":
-            # road build check
-            if location_edge.build_check_road(self):
-                self.hover = True
-                if client_request["action"] == "build_road":
+            if client_request["action"] == "build_road":
+                if location_edge.build_check_road(self):
                     self.build_road(location_edge)
 
-        elif location_hex and self.mode == "move_robber":
-            # check for valid hex (any land hex that is not current robber hex)
-            if self.robber_move_check(location_hex):
-                self.hover = True
-                if client_request["action"] == "move_robber":
+        elif location_hexes["hex_a"] != None:
+            location_hex = hex_a
+            if self.mode == "move_robber" and client_request["action"] == "move_robber":
+                if self.robber_move_check(location_hex):
                     self.move_robber(location_hex)
+
+            
+        # elif location_edge:
+        #     # road build check
+        #     if self.mode == "build_road" and location_edge.build_check_road(self) and client_request["action"] == "build_road":
+        #         self.build_road(location_edge)
+
+        # elif location_hex:
+            # check for valid hex (any land hex that is not current robber hex)
+            # if self.mode == "move_robber" and self.robber_move_check(location_hex) and client_request["action"] == "move_robber":
+                # self.move_robber(location_hex)
 
         # calc longest road
         max(player_object.num_roads for player_object in self.players.values())
@@ -1136,6 +1146,7 @@ class ClientPlayer:
 
 class ClientState:
     def __init__(self, id="red"):
+        print("starting client")
         # Networking
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.msg_number = 0
@@ -1151,10 +1162,10 @@ class ClientState:
         self.screen_height = self.default_screen_h
 
         # multiplier for new screen size - must be float division since calculating %
-        self.screen_w_mult = self.screen_width / self.default_screen_w
-        self.screen_h_mult = self.screen_height / self.default_screen_h
+        # self.screen_w_mult = self.screen_width / self.default_screen_w
+        # self.screen_h_mult = self.screen_height / self.default_screen_h
 
-        self.pixel_mult = (self.screen_height*self.screen_width) / (self.default_screen_w*self.default_screen_h)
+        # self.pixel_mult = (self.screen_height*self.screen_width) / (self.default_screen_w*self.default_screen_h)
 
         self.med_text_default = self.screen_width / 75 # 12
 
@@ -1194,22 +1205,9 @@ class ClientState:
 
         self.options_menu = Menu(self, "Options", self.menu_links["options"], *["mute", "borderless_windowed", "close"])
 
-        # buttons
-        self.button_division = 17
-        self.button_w = self.screen_width//self.button_division
-        self.button_h = self.screen_height//self.button_division
-        mode_button_names = ["move_robber", "build_road", "build_city", "build_settlement"]
-        self.buttons = {mode_button_names[i]: Button(pr.Rectangle(self.screen_width-(i+1)*(self.button_w+10), self.button_h, self.button_w, self.button_h), mode_button_names[i], mode=True) for i in range(4)}
-
-        # action_button_names = ["end_turn", "roll_dice"]
-        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(5*self.button_h), 2*self.button_w, self.button_h), "end_turn", action=True)
-        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(7*self.button_h), 2*self.button_w, self.button_h), "roll_dice", action=True)
-
-
-        # log
+        self.buttons = {}
+        self.log_box = None
         self.log_msgs = deque()
-        # self.log_box = pr.Rectangle()
-
 
 
         # camera controls
@@ -1226,25 +1224,42 @@ class ClientState:
         for p in self.client_players.values():
             print(f"{p.name} hand: {p.hand}")
 
-    def resize_client(self):
-        pr.toggle_borderless_windowed()
+    def init_buttons(self):
         self.screen_width = pr.get_screen_width()
         self.screen_height = pr.get_screen_height()
+        print(self.screen_height)
 
-        self.screen_w_mult = self.screen_width / self.default_screen_w
-        self.screen_h_mult = self.screen_height / self.default_screen_h
+        screen_w_mult = self.screen_width / self.default_screen_w
+        screen_h_mult = self.screen_height / self.default_screen_h
 
-        # resize buttons
-        self.button_w = self.screen_width//self.button_division
-        self.button_h = self.screen_height//self.button_division # 80 * self.screen_h_mult
-        for i, button in enumerate(self.buttons.values()):
-            if button.mode:
-                button.rec = pr.Rectangle(self.screen_width-(i+1)*(self.button_w+10), self.button_h, self.button_w, self.button_h)
+        # buttons
+        button_division = 17
+        button_w = self.screen_width//button_division
+        button_h = self.screen_height//button_division
+        mode_button_names = ["move_robber", "build_road", "build_city", "build_settlement"]
+        self.buttons = {mode_button_names[i]: Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+10), button_h, button_w, button_h), mode_button_names[i], mode=True) for i in range(4)}
+
+        # action_button_names = ["end_turn", "roll_dice"]
+        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(5*button_h), 2*button_w, button_h), "end_turn", action=True)
+        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(7*button_h), 2*button_w, button_h), "roll_dice", action=True)
+
+
+        # log
+        logbox_w = self.screen_width/3
+        logbox_h = self.screen_height/7
+        offset = 40
+        logbox_x = self.screen_width-logbox_w-offset*screen_w_mult
+        logbox_y = self.screen_height-logbox_h-offset*screen_h_mult
+        self.log_box = pr.Rectangle(logbox_x, logbox_y, logbox_w, logbox_h)
+        print(self.screen_height-(self.log_box.y+self.log_box.height))
         
-        # set roll_dice and end_turn manually
-        self.buttons["roll_dice"].rec = pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(7*self.button_h), 2*self.button_w, self.button_h)
-        self.buttons["end_turn"].rec = pr.Rectangle(self.screen_width-(2.5*self.button_w), self.screen_height-(5*self.button_h), 2*self.button_w, self.button_h)
-                
+        # self.log_box = pr.Rectangle(self.screen_width-logbox_w-(logbox_offset*screen_w_mult), self.screen_height-logbox_h-(logbox_offset*screen_h_mult), logbox_w, logbox_h)
+        
+
+    def resize_client(self):
+        pr.toggle_borderless_windowed()
+        self.init_buttons()
+
 
             
     def does_board_exist(self):
@@ -1318,7 +1333,6 @@ class ClientState:
 
     # GAME LOOP FUNCTIONS
     def get_user_input(self):
-        
         self.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), self.camera)
 
         if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
@@ -1533,17 +1547,16 @@ class ClientState:
 
         # MODE/HOVER
         self.mode = server_response["mode"]
-        self.hover = server_response["hover"]
 
 
-        if self.id == self.current_player_name:
-            self.log_msgs += server_response["private_log"]
-        self.log_msgs += server_response["public_log"]
+        # if self.id == self.current_player_name:
+            # self.log_msgs += server_response["private_log"]
+        # self.log_msgs += server_response["public_log"]
 
 
         # cap log at 50 entries
-        while len(self.log_msgs)>50:
-            self.log_msgs = self.log_msgs[1:]
+        # while len(self.log_msgs)>50:
+            # self.log_msgs = self.log_msgs[1:]
         
         # PLAYERS
         # check if player(s) exist on server
@@ -1621,9 +1634,7 @@ class ClientState:
                         midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
                         pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
-        # if self.debug == True:
-        if self.hover:
-            self.render_mouse_hover()
+        self.render_mouse_hover()
 
         # draw roads, settlements, cities
         for edge in self.board["road_edges"]:
@@ -1647,9 +1658,10 @@ class ClientState:
     def render_mouse_hover(self):
         # self.hover could prob be replaced with other logic about current player, mode
         # highlight current node if building is possible
-        if self.current_hex_3 and self.mode == "build_settlement" or self.mode == "build_city":
+        if self.current_hex_3 and self.mode == "build_settlement":
             node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
             pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
+        # could highlight settlement when building city
 
         # highlight current edge if building is possible
         elif self.current_hex_2 and self.mode == "build_road":
@@ -1715,7 +1727,11 @@ class ClientState:
 
         pr.draw_text_ex(pr.gui_get_font(), "robr", (self.buttons["move_robber"].rec.x+3, self.buttons["move_robber"].rec.y+12), 12, 0, pr.BLACK)
 
-
+        # FLAG LOG MSGS
+        # print(self.log_msgs)
+        pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
+        # for i, msg in enumerate(self.log_msgs):
+            # pr.draw_text_ex(pr.gui_get_font(), msg, (self.screen_width/8, self.screen_height/9+(i*20)), 4, 0, pr.BLACK)
 
         for player_name, player_object in self.client_players.items():
             # draw player markers
@@ -1724,24 +1740,25 @@ class ClientState:
             pr.draw_rectangle_rec(player_object.marker.rec, player_object.marker.color)
             pr.draw_rectangle_lines_ex(player_object.marker.rec, 1, pr.BLACK)
             
-            # draw hands w text - evens are horizontal
-            if player_object.order == 0 or player_object.order == 2:
-                for i, (key, value) in enumerate(player_object.hand.items()):
-                    pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x+50, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
-            # odds are vertical
-            elif player_object.order == 1:
-                for i, (key, value) in enumerate(player_object.hand.items()):
-                    pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x+50, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
-            elif player_object.order == 3:
+
+            if player_object.order == 3:
                 for i, (key, value) in enumerate(player_object.hand.items()):
                     pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x-70, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
-            
+            else:
+                for i, (key, value) in enumerate(player_object.hand.items()):
+                    pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x+50, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
+
 
             # hightlight current player
             if player_name == self.current_player_name:
                 pr.draw_rectangle_lines_ex(player_object.marker.rec, 4, pr.BLACK)
 
-                
+        
+        # pr.draw_rectangle_lines(0, 0, self.screen_width, self.screen_height, pr.RED)
+        # pr.draw_line(self.screen_width//2, 0, self.screen_width//2, self.screen_height, pr.BLACK)
+        # for i in range(10):
+            # pr.draw_text_ex(pr.gui_get_font(), f"{i*100}", (self.screen_width//2, i*100), 10, 1, pr.BLACK)
+        
         pr.end_drawing()
 
 
@@ -1749,7 +1766,7 @@ class ClientState:
 
 def run_client():
     c_state = ClientState()
-    print("starting client")
+    c_state.init_buttons()
 
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
     pr.init_window(c_state.default_screen_w, c_state.default_screen_h, "Natac")
@@ -1787,7 +1804,7 @@ def run_combined():
     s_state.initialize_game() # initialize board, players
     
     c_state = ClientState()
-    print("starting client")
+    c_state.init_buttons()
 
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
     pr.init_window(c_state.default_screen_w, c_state.default_screen_h, "Natac")
