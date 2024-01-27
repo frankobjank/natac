@@ -649,6 +649,7 @@ class Player:
 
 class ServerState:
     def __init__(self, combined=False, debug=True):
+        print("starting server")
         # NETWORKING
         self.msg_number = 0
         self.combined = combined
@@ -873,7 +874,7 @@ class ServerState:
 
             victory_points.append(player_object.victory_points)
 
-        self.log_msgs
+
 
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
@@ -901,6 +902,14 @@ class ServerState:
         return to_json(packet).encode()
 
     def update_server(self, client_request) -> None:
+        # empty private_log and public_log and keep record in log_msgs
+        while len(self.private_log) > 0:
+            self.log_msgs.append(self.private_log.pop(0))
+            
+        while len(self.public_log) > 0:
+            self.log_msgs.append(self.public_log.pop(0))
+
+
         if client_request == None or len(client_request) == 0:
             return
         
@@ -965,7 +974,12 @@ class ServerState:
 
         elif client_request["action"] == "end_turn":
             # only allow if # rolls > turn_num
-            assert self.dice_rolls - self.turn_num == 1, "dice_rolls should be 1 greater than num_turns"
+            # assert self.dice_rolls - self.turn_num == 1, "dice_rolls should be 1 greater than num_turns"
+            # change from assert so it wouldn't crash the server
+            if self.dice_rolls - self.turn_num != 1:
+                print(self.dice_rolls)
+                print("dice_rolls should be 1 greater than num_turns")
+                return
             # increment turn number and set new current_player
             # if self.dice_rolls > self.turn_num:
             self.public_log.append(f"{self.current_player_name} is ending their turn.")
@@ -1152,9 +1166,9 @@ class ClientState:
         self.msg_number = 0
         self.id = id # for debug, start as "red" and shift to current_player_name every turn
 
-        # window size
+        # display size = (1440, 900)
         # default values
-        self.default_screen_w = 1080
+        self.default_screen_w = 1100
         self.default_screen_h = 750
         
         # changeable values
@@ -1217,7 +1231,7 @@ class ClientState:
 
         # action_button_names = ["end_turn", "roll_dice"]
         self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(5*button_h), 2*button_w, button_h), "end_turn", action=True)
-        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(7*button_h), 2*button_w, button_h), "roll_dice", action=True)
+        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(7*button_h), 2*button_w, button_w), "roll_dice", action=True)
 
 
         # log
@@ -1236,7 +1250,7 @@ class ClientState:
         self.default_zoom = 0.9
         self.camera = pr.Camera2D()
         self.camera.target = pr.Vector2(0, 0)
-        self.camera.offset = pr.Vector2(self.screen_width/2.5, self.screen_height/2)
+        self.camera.offset = pr.Vector2(self.screen_width/2.7, self.screen_height/2)
         self.camera.rotation = 0.0
         self.camera.zoom = self.default_zoom
     
@@ -1346,7 +1360,7 @@ class ClientState:
             elif order == 2:
                 marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*3, 20, marker_size, marker_size), name)
             elif order == 3:
-                marker = Marker(pr.Rectangle(self.screen_width-50, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
+                marker = Marker(pr.Rectangle(self.screen_width//1.45, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
             
             self.client_players[name] = ClientPlayer(name, order, marker)
 
@@ -1568,10 +1582,12 @@ class ClientState:
         # MODE/HOVER
         self.mode = server_response["mode"]
 
-
-        # if self.id == self.current_player_name:
-            # self.log_msgs += server_response["private_log"]
-        # self.log_msgs += server_response["public_log"]
+        past_deque_len = len(self.log_msgs)
+        if self.id == self.current_player_name:
+            self.log_msgs += server_response["private_log"]
+        self.log_msgs += server_response["public_log"]
+        if len(self.log_msgs) > past_deque_len:
+            print(self.log_msgs)
 
 
         # cap log at 50 entries
@@ -1748,11 +1764,12 @@ class ClientState:
 
         pr.draw_text_ex(pr.gui_get_font(), "robr", (self.buttons["move_robber"].rec.x+3, self.buttons["move_robber"].rec.y+12), 12, 0, pr.BLACK)
 
-        # FLAG LOG MSGS
-        # print(self.log_msgs)
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
+        # if len(self.log_msgs) > 5:
+            # self.log_msgs = self.log_msgs[:-5]
+        offset = self.med_text_default/2
         for i, msg in enumerate(self.log_msgs):
-            pr.draw_text_ex(pr.gui_get_font(), msg, (self.screen_width/8, self.screen_height/9+(i*20)), 4, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x, self.log_box.y+self.log_box.height-(i*self.med_text_default-offset)), self.med_text_default, 0, pr.BLACK)
 
         for player_name, player_object in self.client_players.items():
             # draw player markers
@@ -1805,7 +1822,7 @@ def run_client():
 
 def run_server():
     s_state = ServerState(combined=False) # initialize socket
-    print("starting server")
+
     s_state.initialize_game() # initialize board, players
     while True:
         # receives msg, updates s_state, then sends message
@@ -1814,7 +1831,7 @@ def run_server():
 
 def run_combined():
     s_state = ServerState(combined=True)
-    print("starting server")
+    
     s_state.initialize_game() # initialize board, players
     
     c_state = ClientState()
