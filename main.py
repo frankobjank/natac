@@ -1154,7 +1154,7 @@ class ClientState:
 
         # window size
         # default values
-        self.default_screen_w = 900
+        self.default_screen_w = 1080
         self.default_screen_h = 750
         
         # changeable values
@@ -1205,8 +1205,29 @@ class ClientState:
 
         self.options_menu = Menu(self, "Options", self.menu_links["options"], *["mute", "borderless_windowed", "close"])
 
+
         self.buttons = {}
-        self.log_box = None
+
+        # buttons
+        button_division = 17
+        button_w = self.screen_width//button_division
+        button_h = self.screen_height//button_division
+        mode_button_names = ["move_robber", "build_road", "build_city", "build_settlement"]
+        self.buttons = {mode_button_names[i]: Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+10), button_h, button_w, button_h), mode_button_names[i], mode=True) for i in range(4)}
+
+        # action_button_names = ["end_turn", "roll_dice"]
+        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(5*button_h), 2*button_w, button_h), "end_turn", action=True)
+        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(7*button_h), 2*button_w, button_h), "roll_dice", action=True)
+
+
+        # log
+        logbox_w = self.screen_width/3
+        logbox_h = self.screen_height/7
+        offset = 40
+        logbox_x = self.screen_width-logbox_w-offset
+        logbox_y = self.screen_height-logbox_h-offset
+        self.log_box = pr.Rectangle(logbox_x, logbox_y, logbox_w, logbox_h)
+
         self.log_msgs = deque()
 
 
@@ -1215,7 +1236,7 @@ class ClientState:
         self.default_zoom = 0.9
         self.camera = pr.Camera2D()
         self.camera.target = pr.Vector2(0, 0)
-        self.camera.offset = pr.Vector2(self.screen_width/2, self.screen_height/2)
+        self.camera.offset = pr.Vector2(self.screen_width/2.5, self.screen_height/2)
         self.camera.rotation = 0.0
         self.camera.zoom = self.default_zoom
     
@@ -1227,7 +1248,6 @@ class ClientState:
     def init_buttons(self):
         self.screen_width = pr.get_screen_width()
         self.screen_height = pr.get_screen_height()
-        print(self.screen_height)
 
         screen_w_mult = self.screen_width / self.default_screen_w
         screen_h_mult = self.screen_height / self.default_screen_h
@@ -1251,7 +1271,6 @@ class ClientState:
         logbox_x = self.screen_width-logbox_w-offset*screen_w_mult
         logbox_y = self.screen_height-logbox_h-offset*screen_h_mult
         self.log_box = pr.Rectangle(logbox_x, logbox_y, logbox_w, logbox_h)
-        print(self.screen_height-(self.log_box.y+self.log_box.height))
         
         # self.log_box = pr.Rectangle(self.screen_width-logbox_w-(logbox_offset*screen_w_mult), self.screen_height-logbox_h-(logbox_offset*screen_h_mult), logbox_w, logbox_h)
         
@@ -1358,7 +1377,8 @@ class ClientState:
         
     def update_client_settings(self, user_input):
         if user_input == pr.KeyboardKey.KEY_F:
-            self.resize_client()
+            # self.resize_client()
+            print("resize not available right now")
 
         elif user_input == pr.KeyboardKey.KEY_E:
             self.debug = not self.debug # toggle
@@ -1731,8 +1751,8 @@ class ClientState:
         # FLAG LOG MSGS
         # print(self.log_msgs)
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
-        # for i, msg in enumerate(self.log_msgs):
-            # pr.draw_text_ex(pr.gui_get_font(), msg, (self.screen_width/8, self.screen_height/9+(i*20)), 4, 0, pr.BLACK)
+        for i, msg in enumerate(self.log_msgs):
+            pr.draw_text_ex(pr.gui_get_font(), msg, (self.screen_width/8, self.screen_height/9+(i*20)), 4, 0, pr.BLACK)
 
         for player_name, player_object in self.client_players.items():
             # draw player markers
@@ -1753,13 +1773,6 @@ class ClientState:
             # hightlight current player
             if player_name == self.current_player_name:
                 pr.draw_rectangle_lines_ex(player_object.marker.rec, 4, pr.BLACK)
-
-        
-        # pr.draw_rectangle_lines(0, 0, self.screen_width, self.screen_height, pr.RED)
-        # pr.draw_line(self.screen_width//2, 0, self.screen_width//2, self.screen_height, pr.BLACK)
-        pr.draw_line(0, 900, self.screen_width, self.screen_height, pr.BLACK)
-        # for i in range(10):
-            # pr.draw_text_ex(pr.gui_get_font(), f"{i*100}", (self.screen_width//2, i*100), 10, 1, pr.BLACK)
         
         pr.end_drawing()
 
@@ -1768,7 +1781,6 @@ class ClientState:
 
 def run_client():
     c_state = ClientState()
-    c_state.init_buttons()
 
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
     pr.init_window(c_state.default_screen_w, c_state.default_screen_h, "Natac")
@@ -1806,7 +1818,6 @@ def run_combined():
     s_state.initialize_game() # initialize board, players
     
     c_state = ClientState()
-    c_state.init_buttons()
 
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
     pr.init_window(c_state.default_screen_w, c_state.default_screen_h, "Natac")
