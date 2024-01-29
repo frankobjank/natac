@@ -213,8 +213,8 @@ def test():
 
 # test()
 
-lst = []
-new_lst = ["fds", "f"]
-new_lst += lst
+
+new_lst = ["fds", "f", "34", "2525", "4", "242", "5626"]
+new_lst = new_lst[-2:]
 
 print(new_lst)

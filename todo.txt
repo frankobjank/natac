@@ -79,3 +79,9 @@ to change for rendering client:
     add box around turn buttons to group them
     change dice button to say roll dice and display dice roll separately so they can be displayed as squares
     add log box either in between or below the button boxes
+
+
+elements requiring multiple players:
+    return_cards -> can only continue (to move_robber) once all players have finished returning cards
+
+figure out way to get multiple clients to join server to test out gameplay features like returning cards, stealing, building, trading, playing dev_cards
