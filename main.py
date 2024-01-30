@@ -649,10 +649,10 @@ class Player:
         # settlements/ cities
         self.victory_points = self.num_cities*2 + self.num_settlements
         # largest army/ longest road
-        if self.longest_road:
-            self.victory_points += 2
-        if self.largest_army:
-            self.victory_points += 2
+        # if self.longest_road:
+            # self.victory_points += 2
+        # if self.largest_army:
+            # self.victory_points += 2
         # development cards
         self.victory_points += self.dev_cards["victory_point"]
 
@@ -886,7 +886,8 @@ class ServerState:
         elif self.die1 + self.die2 == 7:
             for player_name, player_object in self.players.items():
                 if player_object.get_hand_size() > 7:
-                    self.cards_to_return[player_name]: player_object.get_hand_size()
+                    
+                    self.cards_to_return[player_name] = player_object.get_hand_size()//2
                     self.mode = "return_cards"
                     self.public_log.append(f"Waiting for {player_name} to return cards.")
 
@@ -936,9 +937,7 @@ class ServerState:
                 dev_card_hand.append(num)
             dev_cards.append(dev_card_hand)
 
-            victory_points.append(player_object.victory_points)
-
-
+            victory_points.append(player_object.get_victory_points())
 
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
@@ -987,13 +986,12 @@ class ServerState:
 
         # receive input from non-current player for testing return_cards
         if self.mode == "return_cards":
-            print(client_request["card"])
-            if client_request["card"]:
+            if client_request["card"] != None:
                 if self.players[client_request["id"]].hand[client_request["card"]] > 0:
                     self.players[client_request["id"]].hand[client_request["card"]] -= 1
-
+                    self.cards_to_return[client_request["id"]] -= 1
                     # check if all players have 7 or fewer
-                    if all(7 >= player_object.get_hand_size() for player_object in self.players.values()):
+                    if all(cards_left == 0 for cards_left in self.cards_to_return.values()):
                         self.mode = "move_robber"
             # either continue returning cards or change mode to move_robber
             return
@@ -1228,8 +1226,18 @@ class ClientPlayer:
         self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.dev_cards = {"knight": 0, "victory_point": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0}
         self.visible_knights = 0
-        self.num_dev_cards = 0
         self.victory_points = 0
+
+    def get_hand_size(self, dev_card=False):
+        hand_size = 0
+        if dev_card:
+            for num in self.dev_cards.values():
+                hand_size += num
+        else:
+            for num in self.hand.values():
+                hand_size += num
+        return hand_size
+
 
 class ClientState:
     def __init__(self, id="red"):
@@ -1644,7 +1652,7 @@ class ClientState:
 
         # eventually one client will only be able to control one player; for debug client presents itself as current_player
         # if self.debug == True:
-        self.id = self.current_player_name
+        # self.id = self.current_player_name
 
         client_request["id"] = self.id
         client_request["action"] = action
@@ -1731,6 +1739,9 @@ class ClientState:
             # initialize client_players if they don't exist
             if len(self.client_players) == 0:
                 self.client_initialize_players()
+            # add players as they connect to server
+            if len(self.player_order) > len(self.client_players):
+                self.client_initialize_players()
 
 
             # unpack hands, dev_cards, victory points
@@ -1741,15 +1752,14 @@ class ClientState:
             for order, name in enumerate(self.player_order):
                 # assign victory points
                 self.client_players[name].victory_points = server_response["victory_points"][order]
-                # construct hand and get num_cards
+                # construct hand
                 for position, number in enumerate(server_response["hands"][order]):
-                    # print(f"{name} has {number} {hand_to_resource[position]}")
+                    # client knows all players' hands but only displays self.id .. 
+                    # if self.id == name:
                     self.client_players[name].hand[hand_to_resource[position]] = number
-                    # self.client_players[name].num_cards += number
-                # construct dev_cards hand and get num_dev_cards
+                # construct dev_cards hand
                 for position, number in enumerate(server_response["dev_cards"][order]):
                     self.client_players[name].dev_cards[dev_card_order[position]] = number
-                    # self.client_players[name].num_dev_cards += number
                 
 
 
@@ -1862,7 +1872,7 @@ class ClientState:
             pr.draw_text_ex(pr.gui_get_font(), debug_2, pr.Vector2(5, 25), 15, 0, pr.BLACK)
             debug_3 = f"Turn number: {self.turn_num}"
             pr.draw_text_ex(pr.gui_get_font(), debug_3, pr.Vector2(5, 45), 15, 0, pr.BLACK)
-            debug_4 = f"mode: {self.mode}"
+            debug_4 = f"Mode: {self.mode}"
             pr.draw_text_ex(pr.gui_get_font(), debug_4, pr.Vector2(5, 65), 15, 0, pr.BLACK)
 
         for button_object in self.buttons.values():
@@ -1896,7 +1906,7 @@ class ClientState:
         if len(self.log_msgs) > 7:
             self.log_msgs = self.log_msgs[-7:]
 
-        pr.draw_text_ex(pr.gui_get_font(), "O for ore, T for wheat, S for sheep, W for wood, B for brick", (self.screen_width/2, 0), 12, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), "O - ore\nT - wheat\nS - sheep\nW - wood\nB - brick", (self.screen_width/1.6, 15), 12, 0, pr.BLACK)
 
         for i, msg in enumerate(self.log_msgs):
             pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text_default, self.log_box.y+(i*self.med_text_default)), self.med_text_default, 0, pr.BLACK)
@@ -1908,18 +1918,27 @@ class ClientState:
             pr.draw_rectangle_rec(player_object.marker.rec, player_object.marker.color)
             pr.draw_rectangle_lines_ex(player_object.marker.rec, 1, pr.BLACK)
             
-
-            if player_object.order == 3:
-                for i, (key, value) in enumerate(player_object.hand.items()):
-                    pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x-70, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
+            # draw hands
+            if self.id == player_name:
+                if player_object.order == 3:
+                    for i, (key, value) in enumerate(player_object.hand.items()):
+                        pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x-70, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
+                else:
+                    for i, (key, value) in enumerate(player_object.hand.items()):
+                        pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x+50, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
             else:
-                for i, (key, value) in enumerate(player_object.hand.items()):
-                    pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x+50, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), f"{player_object.get_hand_size()}", (player_object.marker.rec.x+70, player_object.marker.rec.y), 12, 0, pr.BLACK)
 
 
             # hightlight current player
             if player_name == self.current_player_name:
                 pr.draw_rectangle_lines_ex(player_object.marker.rec, 4, pr.BLACK)
+
+        # players' victory points
+        for i, player_name in enumerate(reversed(self.player_order)):
+            pr.draw_text_ex(pr.gui_get_font(), f"{player_name}: {self.client_players[player_name].victory_points}", (10, self.screen_height-15*(i+2)), 12, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), "Scores:", (10, self.screen_height-15*(len(self.client_players)+2)), 12, 0, pr.BLACK)
+
         
         pr.end_drawing()
 
