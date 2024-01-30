@@ -2,7 +2,7 @@ import random
 import math
 import socket
 import json
-from collections import namedtuple, deque
+from collections import namedtuple
 from operator import attrgetter
 import pyray as pr
 import hex_helper as hh
@@ -695,7 +695,8 @@ class ServerState:
         # TURNS
         self.die1 = 0
         self.die2 = 0
-        self.turn_num = -1 # start game after first end_turn is pressed
+        # self.turn_num = -1 # start game after first end_turn is pressed
+        self.turn_num = 0
         self.dice_rolls = 0
         self.mode = None
 
@@ -959,7 +960,8 @@ class ServerState:
             "player_order": self.player_order,
             "victory_points": victory_points,
             "hands": hands,
-            "dev_cards": dev_cards
+            "dev_cards": dev_cards,
+            "cards_to_return": self.cards_to_return
         }
 
         return to_json(packet).encode()
@@ -983,6 +985,8 @@ class ServerState:
         if client_request == None or len(client_request) == 0:
             return
         
+        if self.turn_num == 0 and len(self.player_order) > 0:
+            self.current_player_name = self.player_order[0]
 
         # receive input from non-current player for testing return_cards
         if self.mode == "return_cards":
@@ -998,7 +1002,6 @@ class ServerState:
     
         if self.mode == "trading":
             pass
-
 
         # if receiving input from non-current player, return
         # will be useful for single-player client
@@ -1123,19 +1126,6 @@ class ServerState:
                 if self.robber_move_check(location_hex):
                     self.move_robber(location_hex)
 
-            
-        # elif location_edge:
-        #     # road build check
-        #     if self.mode == "build_road" and location_edge.build_check_road(self) and client_request["action"] == "build_road":
-        #         self.build_road(location_edge)
-
-        # elif location_hex:
-            # check for valid hex (any land hex that is not current robber hex)
-            # if self.mode == "move_robber" and self.robber_move_check(location_hex) and client_request["action"] == "move_robber":
-                # self.move_robber(location_hex)
-
-        # calc longest road
-        max(player_object.num_roads for player_object in self.players.values())
         
 
 
@@ -1535,6 +1525,8 @@ class ClientState:
     def build_client_request(self, user_input):
         # SPLIT THIS INTO SECTIONS BASED ON MODE - so if mode == "move_robber", put all the move_robber code there. then mode == "return_cards", put all the return cards code there. I think this will help greatly with implementing different functionality based on what's happening in the game
 
+        # PUT 3 HEX LOOPS IN SEPARATE FUNCTION - if move_robber: return first hex. if build_road: return 2 hexes. if build_city/settlement: return 3 hexes
+
         # client_request = {"id": "client ID", "action": "move_robber", "location": Hex, Node or Edge, "mode": "move_robber", "debug": bool, "card": card}
         self.msg_number += 1
         client_request = {}
@@ -1627,16 +1619,6 @@ class ClientState:
             action = "end_turn"
         
         elif user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-            for button_object in self.buttons.values():
-                if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
-                    if button_object.mode:
-                        requested_mode = button_object.name
-                    elif button_object.action:
-                        action = button_object.name
-            
-
-
-
             # checking board selections for building town, road, moving robber
             if self.current_hex_3 and self.mode == "build_settlement":
                 action = "build_settlement"
@@ -1649,6 +1631,15 @@ class ClientState:
 
             elif self.current_hex and self.mode == "move_robber":
                 action = "move_robber"
+
+            # checking button input
+            for button_object in self.buttons.values():
+                if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
+                    if button_object.mode:
+                        requested_mode = button_object.name
+                    elif button_object.action:
+                        action = button_object.name
+
 
         # eventually one client will only be able to control one player; for debug client presents itself as current_player
         # if self.debug == True:
@@ -1712,6 +1703,7 @@ class ClientState:
         # victory points
         # hands
         # development_cards
+        # cards_to_return : {"red": 3, "white": 1}
 
         server_response = json.loads(encoded_server_response)
 
@@ -1760,6 +1752,12 @@ class ClientState:
                 # construct dev_cards hand
                 for position, number in enumerate(server_response["dev_cards"][order]):
                     self.client_players[name].dev_cards[dev_card_order[position]] = number
+
+            # calc if player needs to keep returning cards
+            # PUT THIS ON SERVER SIDE --- have server keep track of modes for ALL players  
+            # if server_response["cards_to_return"]:
+                # if server_response["cards_to_return"][self.id] > 0:
+                    # self.mode = "return_cards"
                 
 
 

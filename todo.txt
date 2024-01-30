@@ -85,3 +85,9 @@ elements requiring multiple players:
     return_cards -> can only continue (to move_robber) once all players have finished returning cards
 
 figure out way to get multiple clients to join server to test out gameplay features like returning cards, stealing, building, trading, playing dev_cards
+
+
+OVERALL QUESTION: should server send different response to each client? or same one and then processed by client?
+    for returning cards, return_card mode should be determined by server. Maybe make a return mode for all clients like self.mode = {"red": "return_cards", "white": None}
+
+    change dice_roll button to not hover while it's not client_player's turn
