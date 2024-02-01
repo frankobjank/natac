@@ -891,6 +891,8 @@ class ServerState:
                     self.cards_to_return[player_name] = player_object.get_hand_size()//2
                     self.mode = "return_cards"
                     self.public_log.append(f"Waiting for {player_name} to return cards.")
+                else:
+                    self.cards_to_return[player_name] = 0
 
             if self.mode != "return_cards":
                 self.mode = "move_robber"
@@ -975,7 +977,7 @@ class ServerState:
             self.log_msgs.append(self.public_log.pop(0))
 
 
-        # client_request["id"] = client ID (player name)
+        # client_request["name"] = client ID (player name)
         # client_request["action"] = action
         # client_request["location"] = {"hex_a": [1, -1, 0], "hex_b": [0, 0, 0], "hex_c": None}
         # client_request["mode"] = "move_robber" or "build_town" or "build_road" or "trading"
@@ -991,9 +993,9 @@ class ServerState:
         # receive input from non-current player for testing return_cards
         if self.mode == "return_cards":
             if client_request["card"] != None:
-                if self.players[client_request["id"]].hand[client_request["card"]] > 0:
-                    self.players[client_request["id"]].hand[client_request["card"]] -= 1
-                    self.cards_to_return[client_request["id"]] -= 1
+                if self.players[client_request["name"]].hand[client_request["card"]] > 0:
+                    self.players[client_request["name"]].hand[client_request["card"]] -= 1
+                    self.cards_to_return[client_request["name"]] -= 1
                     # check if all players have 7 or fewer
                     if all(cards_left == 0 for cards_left in self.cards_to_return.values()):
                         self.mode = "move_robber"
@@ -1005,7 +1007,7 @@ class ServerState:
 
         # if receiving input from non-current player, return
         # will be useful for single-player client
-        if client_request["id"] != self.current_player_name:
+        if client_request["name"] != self.current_player_name:
             return
             # only time input from other players would be needed is for trades and returning cards when 7 is rolled
         
@@ -1230,12 +1232,13 @@ class ClientPlayer:
 
 
 class ClientState:
-    def __init__(self, id="red"):
+    def __init__(self, name="red", combined=False):
         print("starting client")
         # Networking
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.msg_number = 0
-        self.id = id # for debug, start as "red" and shift to current_player_name every turn
+        self.name = name # for debug, start as "red" and shift to current_player_name every turn
+        self.combined = combined # combined client and server vs separate client and server, use for debug
 
         # display size = (1440, 900)
         # default values
@@ -1527,7 +1530,7 @@ class ClientState:
 
         # PUT 3 HEX LOOPS IN SEPARATE FUNCTION - if move_robber: return first hex. if build_road: return 2 hexes. if build_city/settlement: return 3 hexes
 
-        # client_request = {"id": "client ID", "action": "move_robber", "location": Hex, Node or Edge, "mode": "move_robber", "debug": bool, "card": card}
+        # client_request = {"name": "client ID", "action": "move_robber", "location": Hex, Node or Edge, "mode": "move_robber", "debug": bool, "card": card}
         self.msg_number += 1
         client_request = {}
 
@@ -1642,10 +1645,10 @@ class ClientState:
 
 
         # eventually one client will only be able to control one player; for debug client presents itself as current_player
-        # if self.debug == True:
-        # self.id = self.current_player_name
+        if self.debug == True:
+            self.name = self.current_player_name
 
-        client_request["id"] = self.id
+        client_request["name"] = self.name
         client_request["action"] = action
         client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
         client_request["mode"] = requested_mode
@@ -1717,7 +1720,7 @@ class ClientState:
         # MODE/HOVER
         self.mode = server_response["mode"]
 
-        if self.id == self.current_player_name:
+        if self.name == self.current_player_name:
             self.log_msgs += server_response["private_log"]
         self.log_msgs += server_response["public_log"]
 
@@ -1746,8 +1749,8 @@ class ClientState:
                 self.client_players[name].victory_points = server_response["victory_points"][order]
                 # construct hand
                 for position, number in enumerate(server_response["hands"][order]):
-                    # client knows all players' hands but only displays self.id .. 
-                    # if self.id == name:
+                    # client knows all players' hands but only displays self.name .. 
+                    # if self.name == name:
                     self.client_players[name].hand[hand_to_resource[position]] = number
                 # construct dev_cards hand
                 for position, number in enumerate(server_response["dev_cards"][order]):
@@ -1756,7 +1759,7 @@ class ClientState:
             # calc if player needs to keep returning cards
             # PUT THIS ON SERVER SIDE --- have server keep track of modes for ALL players  
             # if server_response["cards_to_return"]:
-                # if server_response["cards_to_return"][self.id] > 0:
+                # if server_response["cards_to_return"][self.name] > 0:
                     # self.mode = "return_cards"
                 
 
@@ -1917,7 +1920,7 @@ class ClientState:
             pr.draw_rectangle_lines_ex(player_object.marker.rec, 1, pr.BLACK)
             
             # draw hands
-            if self.id == player_name:
+            if self.name == player_name:
                 if player_object.order == 3:
                     for i, (key, value) in enumerate(player_object.hand.items()):
                         pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x-70, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
@@ -1943,8 +1946,8 @@ class ClientState:
 
 
 
-def run_client():
-    c_state = ClientState()
+def run_client(name):
+    c_state = ClientState(name=name)
 
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
     pr.init_window(c_state.default_screen_w, c_state.default_screen_h, "Natac")
@@ -1981,7 +1984,7 @@ def run_combined():
     
     s_state.initialize_game() # initialize board, players
     
-    c_state = ClientState()
+    c_state = ClientState(combined=True)
 
     # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
     pr.init_window(c_state.default_screen_w, c_state.default_screen_h, "Natac")
