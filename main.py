@@ -679,7 +679,7 @@ class ServerState:
         
         
         self.replying_to = "" # player recv_from and sending msg to
-        self.replied_to = []
+        self.replied = set()
         
         # self.private_log - now stored under players
         self.public_log = [] # [msg1, msg2, msg3]
@@ -766,9 +766,7 @@ class ServerState:
             return False
     
     def print_debug(self):
-        print("server:\n")
-        for p in self.players.values():
-            print(f"{p.name} hand: {p.hand}")
+        pass
 
 
     # adding players to server. order in terms of arrival, will rearrange later
@@ -925,6 +923,10 @@ class ServerState:
                 # if self.debug == True:
                     # self.move_robber()
 
+    def update_player_logs(self):
+        for player_ob in self.players.values():
+            player_ob.log += self.public_log
+        self.public_log = []
 
     def build_msg_to_client(self) -> bytes:
         town_nodes = []
@@ -949,7 +951,7 @@ class ServerState:
                 new_edge["player"] = edge.player
                 road_edges.append(new_edge)
 
-        # loop thru players and gather data for client
+        # loop thru players to build lhands, VPs, logs
         hands = []
         dev_cards = []
         victory_points = []
@@ -966,17 +968,14 @@ class ServerState:
 
             victory_points.append(player_object.get_victory_points())
 
-        abr_private_log = []
-        if len(self.replying_to) > 0:
-            while len(self.players[self.replying_to].log) > 0:
-                abr_private_log.append(self.players[self.replying_to].log.pop(0))
+
+        # abr_private_log = []
+        # if len(self.replying_to) > 0:
+            # while len(self.players[self.replying_to].log) > 0:
+                # abr_private_log.append(self.players[self.replying_to].log.pop(0))
         
-        # once msg is sent, add to self.replied_to
-        # if len(self.replied_to) == len(player_order): self.replied_to = [], self.public_log = []
-        
-        abr_public_log = self.public_log
-        if len(self.public_log) > 7:
-            abr_public_log = self.public_log[-7:]
+        # if len(self.public_log) > 7:
+            # abr_public_log = self.public_log[-7:]
 
         packet = {
             "name": self.replying_to,
@@ -993,9 +992,6 @@ class ServerState:
             "turn_num": self.turn_num,
             "mode": self.mode,
             "hover": self.hover,
-            "public_log": abr_public_log,
-            # Adding Player red. Adding Player white. red rolls 5.
-            "private_log": abr_private_log,
             "current_player": self.current_player_name,
             "player_order": self.player_order,
             "victory_points": victory_points,
@@ -1003,7 +999,7 @@ class ServerState:
             "dev_cards": dev_cards,
             "cards_to_return": self.cards_to_return
         }
-
+        
         return to_json(packet).encode()
 
     def update_server(self, client_request) -> None:
@@ -1193,12 +1189,21 @@ class ServerState:
         if len(msg_recv) > 2:
             packet_recv = json.loads(msg_recv) # loads directly from bytes
             self.update_server(packet_recv)
-
+            
+        self.update_player_logs()
         msg_to_send = self.build_msg_to_client()
 
         if combined == False:
             # use socket to respond
             self.socket.sendto(msg_to_send, address)
+            
+            # check if all clients have been updated, reset {replied} and log
+            self.replied.add(self.replying_to)
+            # if len(self.replied) == len(self.player_order):
+                # print("resetting replied and log")
+                # self.replied = set()
+                # self.public_log = []
+
         else:
             # or just return
             return msg_to_send
@@ -1284,6 +1289,7 @@ class ClientState:
         self.msg_number = 0
         self.name = name # for debug, start as "red" and shift to current_player_name every turn
         self.combined = combined # combined client and server vs separate client and server, use for debug
+        self.previous_packet = {}
 
         # display size = (1440, 900)
         # default values
@@ -1362,6 +1368,7 @@ class ClientState:
         self.log_box = pr.Rectangle(logbox_x, logbox_y, logbox_w, logbox_h)
 
         self.log_msgs = []
+        self.log_to_display = []
 
 
         # camera controls
@@ -1744,6 +1751,8 @@ class ClientState:
     
     # unpack server response and update state
     def update_client(self, encoded_server_response):
+        # name : self.name
+        # type : log, game state
         # ocean_hexes : [[0, -3], [1, -3],
         # ports_ordered :["three", None, "wheat", None, 
         # port_corners : [(5, 0), None,
@@ -1778,19 +1787,18 @@ class ClientState:
         # MODE/HOVER
         self.mode = server_response["mode"]
 
-        if self.name == self.current_player_name:
-            if len(self.log_msgs) == 0:
-                self.log_msgs += server_response["private_log"]
-            elif len(server_response["private_log"]) > 0 and self.log_msgs[-1] != server_response["private_log"][-1]:
-                self.log_msgs += server_response["private_log"]
 
-        if len(self.log_msgs) == 0:
-            self.log_msgs += server_response["public_log"]
-        elif len(server_response["public_log"]) > 0 and self.log_msgs[-1] != server_response["public_log"][-1]:
-            self.log_msgs += server_response["public_log"]
+
+
+        self.log_msgs += server_response["log"]
+
         
         if len(self.log_msgs) > 7:
-            self.log_msgs = self.log_msgs[-7:]
+            self.log_to_display = self.log_msgs[-7:]
+        else:
+            self.log_to_display = self.log_msgs
+
+        print(self.log_msgs)
 
         
         # PLAYERS
@@ -1831,7 +1839,6 @@ class ClientState:
             # if server_response["cards_to_return"]:
                 # if server_response["cards_to_return"][self.name] > 0:
                     # self.mode = "return_cards"
-                
 
 
 
@@ -1977,7 +1984,7 @@ class ClientState:
 
         pr.draw_text_ex(pr.gui_get_font(), "O - ore\nT - wheat\nS - sheep\nW - wood\nB - brick", (self.screen_width/1.6, 15), 12, 0, pr.BLACK)
 
-        for i, msg in enumerate(self.log_msgs):
+        for i, msg in enumerate(self.log_to_display):
             pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text_default, self.log_box.y+(i*self.med_text_default)), self.med_text_default, 0, pr.BLACK)
 
         for player_name, player_object in self.client_players.items():
@@ -2028,10 +2035,17 @@ def run_client(name):
 
         client_request = c_state.build_client_request(user_input)
 
-        server_response = c_state.client_to_server(client_request)
+        server_responses = []
 
-        if server_response != None:
-            c_state.update_client(server_response)
+        while True:
+            response = c_state.client_to_server(client_request)
+            if response == None:
+                break
+            else:
+                server_responses.append(response)
+
+        for response in server_responses:
+            c_state.update_client(response)
 
         c_state.render_client()
     pr.unload_font(pr.gui_get_font())
@@ -2109,6 +2123,6 @@ def test():
 
 # run_client("blue")
 # run_client("orange")
-run_client("white") # address = ('127.0.0.1', 55614)  address = ('127.0.0.1', 49896)
-# run_client("red") # address = ('127.0.0.1', 65213)  address = ('127.0.0.1', 55032)
+# run_client("white") # address = ('127.0.0.1', 55614)  address = ('127.0.0.1', 49896)
+run_client("red") # address = ('127.0.0.1', 65213)  address = ('127.0.0.1', 55032)
 # run_server()
