@@ -145,22 +145,22 @@ class Edge:
         # check if edge is owned
         if self.player != None:
             if self.player == s_state.players[s_state.current_player_name]:
-                s_state.private_log.append("This location is already owned by you.")
+                s_state.players[s_state.current_player_name].log.append("This location is already owned by you.")
                 print("location already owned by you")
             else:
-                s_state.private_log.append("This location is owned by another player.")
+                s_state.players[s_state.current_player_name].log.append("This location is owned by another player.")
                 print("location already owned by another player")
             return False
 
         # check num_roads
         if s_state.players[s_state.current_player_name].num_roads >= 15:
-            s_state.private_log.append("You ran out of roads (max 15).")
+            s_state.players[s_state.current_player_name].log.append("You ran out of roads (max 15).")
             print("no available roads")
             return
 
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes:
-            s_state.private_log.append("You can't build in the ocean.")
+            s_state.players[s_state.current_player_name].log.append("You can't build in the ocean.")
             print("can't build in ocean")
             return False
         
@@ -181,7 +181,7 @@ class Edge:
                 origin_edges.append(edge)
 
         if len(origin_edges) == 0: # non-contiguous
-            s_state.private_log.append(f"You must build adjacent to one of your roads.")
+            s_state.players[s_state.current_player_name].log.append(f"You must build adjacent to one of your roads.")
             print("non-contiguous")
             return False
         # origin shows what direction road is going
@@ -209,7 +209,7 @@ class Edge:
                 blocked_count += 1
                 
             if blocked_count == len(origin_edges):
-                s_state.private_log.append(f"You cannot build there. All routes are blocked.")
+                s_state.players[s_state.current_player_name].log.append(f"You cannot build there. All routes are blocked.")
                 print("all routes blocked")
                 return False
         
@@ -266,6 +266,7 @@ class Node:
         return adj_nodes
 
     def build_check_settlement(self, s_state):
+        # todo: add log statements
         print("build_check_settlement")
 
         if s_state.current_player_name == None:
@@ -634,6 +635,7 @@ class Player:
         self.num_settlements = 0 # for counting victory points
         self.num_roads = 0 # counting longest road
         self.ports = []
+        self.log = []
 
     def __repr__(self):
         return f"Player {self.name}: \nHand: {self.hand}, Victory points: {self.victory_points}"
@@ -675,8 +677,12 @@ class ServerState:
             self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
             self.socket.bind((local_IP, local_port))
         
-        self.private_log = []
-        self.public_log = []
+        
+        self.replying_to = "" # player recv_from and sending msg to
+        self.replied_to = []
+        
+        # self.private_log - now stored under players
+        self.public_log = [] # [msg1, msg2, msg3]
         # for server logs
         self.log_msgs = []
         
@@ -856,7 +862,7 @@ class ServerState:
             return True
         
         msg = f"{self.current_player_name} does not have enough resources for a {item}"
-        self.private_log.append(msg)
+        self.players[self.current_player_name].log.append(msg)
         print(msg)
         return False
             
@@ -960,14 +966,20 @@ class ServerState:
 
             victory_points.append(player_object.get_victory_points())
 
-        abr_private_log = self.private_log
+        abr_private_log = []
+        if len(self.replying_to) > 0:
+            while len(self.players[self.replying_to].log) > 0:
+                abr_private_log.append(self.players[self.replying_to].log.pop(0))
+        
+        # once msg is sent, add to self.replied_to
+        # if len(self.replied_to) == len(player_order): self.replied_to = [], self.public_log = []
+        
         abr_public_log = self.public_log
-        if len(self.private_log) > 7:
-            abr_private_log = self.private_log[-7:]
         if len(self.public_log) > 7:
             abr_public_log = self.public_log[-7:]
 
         packet = {
+            "name": self.replying_to,
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
             "ports_ordered": self.board.ports_ordered,
             "port_corners": self.board.port_corners,
@@ -982,6 +994,7 @@ class ServerState:
             "mode": self.mode,
             "hover": self.hover,
             "public_log": abr_public_log,
+            # Adding Player red. Adding Player white. red rolls 5.
             "private_log": abr_private_log,
             "current_player": self.current_player_name,
             "player_order": self.player_order,
@@ -1009,6 +1022,8 @@ class ServerState:
         # client_request["mode"] = "move_robber" or "build_town" or "build_road" or "trading"
         # client_request["debug"] = self.debug
         # client_request["card"] = card to return, card to play, 
+
+        self.replying_to = client_request["name"]
 
         if client_request == None or len(client_request) == 0:
             return
@@ -1820,8 +1835,6 @@ class ClientState:
 
 
 
-
-
     def render_board(self):
         # hex details - layout = type, size, origin
         size = 50
@@ -1864,7 +1877,8 @@ class ClientState:
                         midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
                         pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
-        self.render_mouse_hover()
+        if self.name == self.current_player_name:
+            self.render_mouse_hover()
 
         # draw roads, settlements, cities
         for edge in self.board["road_edges"]:
