@@ -567,51 +567,58 @@ class Board:
 
 
         for node in self.nodes:
-
-            for orange_node_hexes in orange_nodes_hexes:
-                if node.hexes == orange_node_hexes:
-                    s_state.players["orange"].num_settlements += 1
-                    node.player = "orange"
-                    node.town = "settlement"
+            if "orange" in s_state.players:
+                for orange_node_hexes in orange_nodes_hexes:
+                    if node.hexes == orange_node_hexes:
+                        s_state.players["orange"].num_settlements += 1
+                        node.player = "orange"
+                        node.town = "settlement"
             
-            for blue_node in blue_nodes:
-                if node.hexes[0] == blue_node.hexes[0] and node.hexes[1] == blue_node.hexes[1] and node.hexes[2] == blue_node.hexes[2]:
-                    s_state.players["blue"].num_settlements += 1
-                    node.player = "blue"
-                    node.town = "settlement"
+            if "blue" in s_state.players:
+                for blue_node in blue_nodes:
+                    if node.hexes[0] == blue_node.hexes[0] and node.hexes[1] == blue_node.hexes[1] and node.hexes[2] == blue_node.hexes[2]:
+                        s_state.players["blue"].num_settlements += 1
+                        node.player = "blue"
+                        node.town = "settlement"
 
-            for red_node in red_nodes:
-                if node.hexes[0] == red_node.hexes[0] and node.hexes[1] == red_node.hexes[1] and node.hexes[2] == red_node.hexes[2]:
-                    s_state.players["red"].num_settlements += 1
-                    node.player = "red"
-                    node.town = "settlement"
-
-            for white_node in white_nodes:
-                if node.hexes[0] == white_node.hexes[0] and node.hexes[1] == white_node.hexes[1] and node.hexes[2] == white_node.hexes[2]:
-                    s_state.players["white"].num_settlements += 1
-                    node.player = "white"
-                    node.town = "settlement"
+            if "red" in s_state.players:
+                for red_node in red_nodes:
+                    if node.hexes[0] == red_node.hexes[0] and node.hexes[1] == red_node.hexes[1] and node.hexes[2] == red_node.hexes[2]:
+                        s_state.players["red"].num_settlements += 1
+                        node.player = "red"
+                        node.town = "settlement"
+            
+            if "white" in s_state.players: 
+                for white_node in white_nodes:
+                    if node.hexes[0] == white_node.hexes[0] and node.hexes[1] == white_node.hexes[1] and node.hexes[2] == white_node.hexes[2]:
+                        s_state.players["white"].num_settlements += 1
+                        node.player = "white"
+                        node.town = "settlement"
 
         for edge in self.edges:
-            for orange_edge in orange_edges:
-                if edge.hexes[0] == orange_edge.hexes[0] and edge.hexes[1] == orange_edge.hexes[1]:
-                    s_state.players["orange"].num_roads += 1
-                    edge.player = "orange"
+            if "orange" in s_state.players:
+                for orange_edge in orange_edges:
+                    if edge.hexes[0] == orange_edge.hexes[0] and edge.hexes[1] == orange_edge.hexes[1]:
+                        s_state.players["orange"].num_roads += 1
+                        edge.player = "orange"
 
-            for blue_edge in blue_edges:
-                if edge.hexes[0] == blue_edge.hexes[0] and edge.hexes[1] == blue_edge.hexes[1]:
-                    s_state.players["blue"].num_roads += 1
-                    edge.player = "blue"
+            if "blue" in s_state.players:
+                for blue_edge in blue_edges:
+                    if edge.hexes[0] == blue_edge.hexes[0] and edge.hexes[1] == blue_edge.hexes[1]:
+                        s_state.players["blue"].num_roads += 1
+                        edge.player = "blue"
 
-            for red_edge in red_edges:
-                if edge.hexes[0] == red_edge.hexes[0] and edge.hexes[1] == red_edge.hexes[1]:
-                    s_state.players["red"].num_roads += 1
-                    edge.player = "red"
-
-            for white_edge in white_edges:
-                if edge.hexes[0] == white_edge.hexes[0] and edge.hexes[1] == white_edge.hexes[1]:
-                    s_state.players["white"].num_roads += 1
-                    edge.player = "white"
+            if "red" in s_state.players:
+                for red_edge in red_edges:
+                    if edge.hexes[0] == red_edge.hexes[0] and edge.hexes[1] == red_edge.hexes[1]:
+                        s_state.players["red"].num_roads += 1
+                        edge.player = "red"
+            
+            if "white" in s_state.players:
+                for white_edge in white_edges:
+                    if edge.hexes[0] == white_edge.hexes[0] and edge.hexes[1] == white_edge.hexes[1]:
+                        s_state.players["white"].num_roads += 1
+                        edge.player = "white"
 
 
 
@@ -683,10 +690,10 @@ class ServerState:
         self.hover = False # perform checks on server and pass back to client for rendering
 
         # PLAYERS
-        self.players = {}
-        self.current_player_name = None
-        self.player_order = []
-        self.cards_to_return = {} # player_name: num_cards
+        self.players = {} # {player_name: player_object}
+        self.current_player_name = None # name only
+        self.player_order = [] # list of player_names in order of their turns
+        self.cards_to_return = {} # {player_name: num_cards}
         self.road_building_counter = 0
         
         self.longest_road = None
@@ -700,6 +707,12 @@ class ServerState:
         self.dice_rolls = 0
         self.mode = None
 
+        self.all_actions = ["roll_dice", "end_turn", "move_robber", "build_road", "build_city", "build_settlement", "add_player", "return_cards", "print_debug"]
+        self.all_modes = ["move_robber", "build_road", "build_city", "build_settlement", "return_cards"]
+
+        self.queue = [] # could use this when a mode lasts longer than a single action.
+        # e.g. blue rolls 7, blue: return_cards and white: return_cards get added to queue, as well as blue: move_robber
+
 
         self.debug = debug
         if self.debug == True:
@@ -707,13 +720,13 @@ class ServerState:
 
     
     def initialize_game(self):
-        self.initialize_players("red", "white", "orange", "blue")
+        if self.combined:
+            self.initialize_dummy_players("red", "white", "orange", "blue")
         self.board = Board()
         self.board.initialize_board()
-        self.board.set_demo_settlements(self)
     
     # hardcoded players for debug
-    def initialize_players(self, name1=None, name2=None, name3=None, name4=None):
+    def initialize_dummy_players(self, name1=None, name2=None, name3=None, name4=None):
         order = 0
         if name1:
             self.players[name1] = Player(name1, order)
@@ -731,6 +744,8 @@ class ServerState:
         self.player_order = [name for name in self.players.keys()]
         self.player_order.sort(key=lambda player_name: self.players[player_name].order)
 
+        self.board.set_demo_settlements(self)
+
         # DEBUG - start each player with 1 of every resource
         for player_object in self.players.values():
             for r in player_object.hand.keys():
@@ -738,7 +753,7 @@ class ServerState:
 
     def is_server_full(self, max_players=4):
         if len(self.player_order) >= max_players:
-            self.log_msgs.append("server cannot accept any more players")
+            self.public_log.append("server cannot accept any more players")
             print("server cannot accept any more players")
             return True
         else:
@@ -752,12 +767,15 @@ class ServerState:
 
     # adding players to server. order in terms of arrival, will rearrange later
     def add_player(self, name):
-        if self.is_server_full():
+        if self.is_server_full() == True:
             return
         order = len(self.player_order)
         self.players[name] = Player(name, order)
         self.player_order.append(name)
+        self.public_log.append(f"adding Player {name}")
         print(f"adding Player {name}")
+        self.board.set_demo_settlements(self)
+
             
     def randomize_player_order(self):
         player_names = [name for name in self.players.keys()]
@@ -942,6 +960,13 @@ class ServerState:
 
             victory_points.append(player_object.get_victory_points())
 
+        abr_private_log = self.private_log
+        abr_public_log = self.public_log
+        if len(self.private_log) > 7:
+            abr_private_log = self.private_log[-7:]
+        if len(self.public_log) > 7:
+            abr_public_log = self.public_log[-7:]
+
         packet = {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
             "ports_ordered": self.board.ports_ordered,
@@ -956,8 +981,8 @@ class ServerState:
             "turn_num": self.turn_num,
             "mode": self.mode,
             "hover": self.hover,
-            "public_log": self.public_log,
-            "private_log": self.private_log,
+            "public_log": abr_public_log,
+            "private_log": abr_private_log,
             "current_player": self.current_player_name,
             "player_order": self.player_order,
             "victory_points": victory_points,
@@ -970,14 +995,15 @@ class ServerState:
 
     def update_server(self, client_request) -> None:
         # empty private_log and public_log and keep record in log_msgs
-        while len(self.private_log) > 0:
-            self.log_msgs.append(self.private_log.pop(0))
+        # while len(self.private_log) > 7:
+            # self.log_msgs.append(self.private_log.pop(0))
             
-        while len(self.public_log) > 0:
-            self.log_msgs.append(self.public_log.pop(0))
+        # while len(self.public_log) > 7:
+        #     self.log_msgs.append(self.public_log.pop(0))
 
 
-        # client_request["name"] = client ID (player name)
+
+        # client_request["name"] = player name
         # client_request["action"] = action
         # client_request["location"] = {"hex_a": [1, -1, 0], "hex_b": [0, 0, 0], "hex_c": None}
         # client_request["mode"] = "move_robber" or "build_town" or "build_road" or "trading"
@@ -985,6 +1011,12 @@ class ServerState:
         # client_request["card"] = card to return, card to play, 
 
         if client_request == None or len(client_request) == 0:
+            return
+        
+        # self.server_verify_data(client_request["action"], client_request["mode"])
+        
+        if client_request["action"] == "add_player" and not client_request["name"] in self.players:
+            self.add_player(client_request["name"])
             return
         
         if self.turn_num == 0 and len(self.player_order) > 0:
@@ -1010,6 +1042,16 @@ class ServerState:
         if client_request["name"] != self.current_player_name:
             return
             # only time input from other players would be needed is for trades and returning cards when 7 is rolled
+        
+        if "debug" not in client_request or "mode" not in client_request or "location" not in client_request:
+            return
+
+        # verify actions and mode
+        # if not client_request["action"] in self.all_actions and len(client_request["action"]) == 0:
+            # print(f"{client_request['action']} not in list of valid actions")
+        
+        if not client_request["mode"] in self.all_modes and client_request["mode"] != None:
+            print(f"{client_request['mode']} not in list of valid modes")
         
         self.debug = client_request["debug"]
 
@@ -1041,28 +1083,19 @@ class ServerState:
             self.mode = "roll_dice"
 
         if client_request["action"] == "roll_dice" and self.mode == "roll_dice":
-            # only allow roll if # rolls = turn_num
-            # could put under perform_roll()
-            # assert self.dice_rolls == self.turn_num, "dice_rolls should equal num_turns"
             if self.dice_rolls == self.turn_num:
                 self.perform_roll()
-            else:
-                print("dice_rolls should equal num_turns")
             return
         
 
         elif client_request["action"] == "end_turn":
             # only allow if # rolls > turn_num
             if self.turn_num >= self.dice_rolls:
-                print(self.dice_rolls)
-                print("dice_rolls should be 1 greater than num_turns")
                 return
             # don't allow end_turn while move_robber or return_cards is active
             if self.mode == "move_robber" or self.mode == "return_cards":
                 return
             # increment turn number and set new current_player
-            # if self.dice_rolls > self.turn_num:
-            # self.public_log.append(f"{self.current_player_name} is ending their turn.")
             self.turn_num += 1
             self.mode = "roll_dice"
             for player_name, player_object in self.players.items():
@@ -1143,15 +1176,12 @@ class ServerState:
 
         # update server if msg_recv is not 0b'' (empty)
         if len(msg_recv) > 2:
-            # print(f"Message from client: {msg_recv.decode()}")
             packet_recv = json.loads(msg_recv) # loads directly from bytes
             self.update_server(packet_recv)
 
-        # respond to client
         msg_to_send = self.build_msg_to_client()
 
         if combined == False:
-            print(len(msg_to_send))
             # use socket to respond
             self.socket.sendto(msg_to_send, address)
         else:
@@ -1232,7 +1262,7 @@ class ClientPlayer:
 
 
 class ClientState:
-    def __init__(self, name="red", combined=False):
+    def __init__(self, name, combined=False):
         print("starting client")
         # Networking
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -1422,21 +1452,31 @@ class ClientState:
         q, r = server_response["robber_hex"]
         self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
 
-    def client_initialize_players(self):
+    def client_initialize_player(self, name, order):
+        marker_size = self.screen_width / 25
+        marker = None
+        # red - bottom
+        if order == 0:
+            marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*3, self.screen_height-20-marker_size, marker_size, marker_size), name)
+        # white - left
+        elif order == 1:
+            marker = Marker(pr.Rectangle(50-marker_size, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
+        # orange - top
+        elif order == 2:
+            marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*3, 20, marker_size, marker_size), name)
+        # blue - right
+        elif order == 3:
+            marker = Marker(pr.Rectangle(self.screen_width//1.45, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
+
+        self.client_players[name] = ClientPlayer(name, order, marker)
+
+
+
+    def client_initialize_dummy_players(self):
         # define player markers based on player_order that comes in from server
-        marker_size = 40
         for order, name in enumerate(self.player_order):
-            marker = None
-            if order == 0:
-                marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*3, self.screen_height-20-marker_size, marker_size, marker_size), name)
-            elif order == 1:
-                marker = Marker(pr.Rectangle(50-marker_size, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
-            elif order == 2:
-                marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*3, 20, marker_size, marker_size), name)
-            elif order == 3:
-                marker = Marker(pr.Rectangle(self.screen_width//1.45, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
-            
-            self.client_players[name] = ClientPlayer(name, order, marker)
+            self.client_initialize_player(name, order)
+
 
     # GAME LOOP FUNCTIONS
     def get_user_input(self):
@@ -1533,6 +1573,12 @@ class ClientState:
         # client_request = {"name": "client ID", "action": "move_robber", "location": Hex, Node or Edge, "mode": "move_robber", "debug": bool, "card": card}
         self.msg_number += 1
         client_request = {}
+
+        # before player initiated
+        if not self.name in self.client_players:
+            client_request["name"] = self.name
+            client_request["action"] = "add_player"
+            return client_request
 
         if not self.does_board_exist():
             print("board does not exist")
@@ -1645,8 +1691,8 @@ class ClientState:
 
 
         # eventually one client will only be able to control one player; for debug client presents itself as current_player
-        if self.debug == True:
-            self.name = self.current_player_name
+        # if self.debug == True:
+            # self.name = self.current_player_name
 
         client_request["name"] = self.name
         client_request["action"] = action
@@ -1670,9 +1716,6 @@ class ClientState:
                 msg_recv, address = self.socket.recvfrom(buffer_size, socket.MSG_DONTWAIT)
             except BlockingIOError:
                 return None
-            
-            if self.debug == True:
-                print(f"Received from server {msg_recv}")
             
             return msg_recv
 
@@ -1721,8 +1764,18 @@ class ClientState:
         self.mode = server_response["mode"]
 
         if self.name == self.current_player_name:
-            self.log_msgs += server_response["private_log"]
-        self.log_msgs += server_response["public_log"]
+            if len(self.log_msgs) == 0:
+                self.log_msgs += server_response["private_log"]
+            elif len(server_response["private_log"]) > 0 and self.log_msgs[-1] != server_response["private_log"][-1]:
+                self.log_msgs += server_response["private_log"]
+
+        if len(self.log_msgs) == 0:
+            self.log_msgs += server_response["public_log"]
+        elif len(server_response["public_log"]) > 0 and self.log_msgs[-1] != server_response["public_log"][-1]:
+            self.log_msgs += server_response["public_log"]
+        
+        if len(self.log_msgs) > 7:
+            self.log_msgs = self.log_msgs[-7:]
 
         
         # PLAYERS
@@ -1731,12 +1784,14 @@ class ClientState:
             self.player_order = server_response["player_order"]
             self.current_player_name = server_response["current_player"]
 
-            # initialize client_players if they don't exist
-            if len(self.client_players) == 0:
-                self.client_initialize_players()
-            # add players as they connect to server
-            if len(self.player_order) > len(self.client_players):
-                self.client_initialize_players()
+            # initialize all players at once for combined
+            if self.combined == True and len(self.client_players) == 0:
+                self.client_initialize_dummy_players()
+
+            # or add players as they connect to server
+            elif len(self.player_order) > len(self.client_players):
+                for i, name in enumerate(self.player_order):
+                    self.client_initialize_player(name=name, order=i)
 
 
             # unpack hands, dev_cards, victory points
@@ -1888,9 +1943,10 @@ class ClientState:
 
         # draw text on buttons
         # action buttons
-        rf.draw_dice(self.dice, self.buttons["roll_dice"].rec)
-        # draw line between dice
-        pr.draw_line_ex((int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y)), (int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y+self.buttons["roll_dice"].rec.height)), 2, pr.BLACK)
+        if len(self.dice) > 0:
+            rf.draw_dice(self.dice, self.buttons["roll_dice"].rec)
+            # draw line between dice
+            pr.draw_line_ex((int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y)), (int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y+self.buttons["roll_dice"].rec.height)), 2, pr.BLACK)
 
         pr.draw_text_ex(pr.gui_get_font(), "End Turn", (self.buttons["end_turn"].rec.x+5, self.buttons["end_turn"].rec.y+12), 12, 0, pr.BLACK)
             
@@ -1904,8 +1960,6 @@ class ClientState:
         pr.draw_text_ex(pr.gui_get_font(), "robr", (self.buttons["move_robber"].rec.x+3, self.buttons["move_robber"].rec.y+12), 12, 0, pr.BLACK)
 
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
-        if len(self.log_msgs) > 7:
-            self.log_msgs = self.log_msgs[-7:]
 
         pr.draw_text_ex(pr.gui_get_font(), "O - ore\nT - wheat\nS - sheep\nW - wood\nB - brick", (self.screen_width/1.6, 15), 12, 0, pr.BLACK)
 
@@ -1947,10 +2001,10 @@ class ClientState:
 
 
 def run_client(name):
-    c_state = ClientState(name=name)
+    c_state = ClientState(name=name, combined=False)
 
-    # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
-    pr.init_window(c_state.default_screen_w, c_state.default_screen_h, "Natac")
+    # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
+    pr.init_window(c_state.default_screen_w, c_state.default_screen_h, f"Natac - {name}")
     pr.set_target_fps(60)
     pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
 
@@ -2025,10 +2079,6 @@ def test():
     
 
 
-# run_server()
-# run_client()
-run_combined()
-# test()
 
 # 3 ways to play:
 # computer to computer
@@ -2036,3 +2086,15 @@ run_combined()
 # "client" to "server" encoding and decoding within same program
 
 # once board is initiated, all server has to send back is update on whatever has been updated 
+
+# python -c "from your_module import your_function; your_function()"
+
+
+# test()
+# run_combined()
+
+# run_client("blue")
+# run_client("orange")
+run_client("white") # address = ('127.0.0.1', 55614)  address = ('127.0.0.1', 49896)
+# run_client("red") # address = ('127.0.0.1', 65213)  address = ('127.0.0.1', 55032)
+# run_server()
