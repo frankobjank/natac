@@ -624,7 +624,7 @@ class Board:
 
 
 class Player:
-    def __init__(self, name, order):
+    def __init__(self, name, order, address="local"):
         self.name = name
         self.order = order
         self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
@@ -635,7 +635,7 @@ class Player:
         self.num_settlements = 0 # for counting victory points
         self.num_roads = 0 # counting longest road
         self.ports = []
-        self.log = []
+        self.address = address
 
     def __repr__(self):
         return f"Player {self.name}: \nHand: {self.hand}, Victory points: {self.victory_points}"
@@ -677,14 +677,6 @@ class ServerState:
             self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
             self.socket.bind((local_IP, local_port))
         
-        
-        self.replying_to = "" # player recv_from and sending msg to
-        self.replied = set()
-        
-        # self.private_log - now stored under players
-        self.public_log = [] # [msg1, msg2, msg3]
-        # for server logs
-        self.log_msgs = []
         
         # use this for an undo button??? can store actions like "Player {name} built road"
         # might be too hard to literally undo every action.. maybe there is a trick to it. Like restoring from an old game state. could store history of packets as a 'save file'-ish thing. can learn about how save files are created. after every message, check if action was made, then only add the new data to the next entry, so you can "rebuild" the game starting at packet 1, then modifying the values according to the new data
@@ -768,16 +760,16 @@ class ServerState:
     def print_debug(self):
         pass
 
-
     # adding players to server. order in terms of arrival, will rearrange later
-    def add_player(self, name):
+    def add_player(self, name, address):
         if self.is_server_full() == True:
             return
         order = len(self.player_order)
-        self.players[name] = Player(name, order)
+        self.players[name] = Player(name, order, address)
         self.player_order.append(name)
-        self.public_log.append(f"adding Player {name}")
-        print(f"adding Player {name}")
+        msg = f"adding Player {name}"
+        self.socket.sendall(msg.encode())
+        print(msg)
         self.board.set_demo_settlements(self)
 
             
@@ -923,12 +915,7 @@ class ServerState:
                 # if self.debug == True:
                     # self.move_robber()
 
-    def update_player_logs(self):
-        for player_ob in self.players.values():
-            player_ob.log += self.public_log
-        self.public_log = []
-
-    def build_msg_to_client(self) -> bytes:
+    def package_state_for_client(self) -> bytes:
         town_nodes = []
         road_edges = []
         
@@ -968,17 +955,7 @@ class ServerState:
 
             victory_points.append(player_object.get_victory_points())
 
-
-        # abr_private_log = []
-        # if len(self.replying_to) > 0:
-            # while len(self.players[self.replying_to].log) > 0:
-                # abr_private_log.append(self.players[self.replying_to].log.pop(0))
-        
-        # if len(self.public_log) > 7:
-            # abr_public_log = self.public_log[-7:]
-
         packet = {
-            "name": self.replying_to,
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
             "ports_ordered": self.board.ports_ordered,
             "port_corners": self.board.port_corners,
@@ -1002,15 +979,7 @@ class ServerState:
         
         return to_json(packet).encode()
 
-    def update_server(self, client_request) -> None:
-        # empty private_log and public_log and keep record in log_msgs
-        # while len(self.private_log) > 7:
-            # self.log_msgs.append(self.private_log.pop(0))
-            
-        # while len(self.public_log) > 7:
-        #     self.log_msgs.append(self.public_log.pop(0))
-
-
+    def update_server(self, client_request, address) -> None:
 
         # client_request["name"] = player name
         # client_request["action"] = action
@@ -1019,15 +988,13 @@ class ServerState:
         # client_request["debug"] = self.debug
         # client_request["card"] = card to return, card to play, 
 
-        self.replying_to = client_request["name"]
-
         if client_request == None or len(client_request) == 0:
             return
         
         # self.server_verify_data(client_request["action"], client_request["mode"])
         
         if client_request["action"] == "add_player" and not client_request["name"] in self.players:
-            self.add_player(client_request["name"])
+            self.add_player(client_request["name"], address)
             return
         
         if self.turn_num == 0 and len(self.player_order) > 0:
@@ -1188,21 +1155,13 @@ class ServerState:
         # update server if msg_recv is not 0b'' (empty)
         if len(msg_recv) > 2:
             packet_recv = json.loads(msg_recv) # loads directly from bytes
-            self.update_server(packet_recv)
+            self.update_server(packet_recv, address)
             
-        self.update_player_logs()
-        msg_to_send = self.build_msg_to_client()
+        msg_to_send = self.package_state_for_client()
 
         if combined == False:
             # use socket to respond
             self.socket.sendto(msg_to_send, address)
-            
-            # check if all clients have been updated, reset {replied} and log
-            self.replied.add(self.replying_to)
-            # if len(self.replied) == len(self.player_order):
-                # print("resetting replied and log")
-                # self.replied = set()
-                # self.public_log = []
 
         else:
             # or just return
