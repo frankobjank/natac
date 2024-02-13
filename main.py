@@ -7,7 +7,7 @@ from operator import attrgetter
 import pyray as pr
 import hex_helper as hh
 import rendering_functions as rf
-
+import sys
 
 # UI_SCALE constant for changing scale (fullscreen)
 
@@ -145,22 +145,25 @@ class Edge:
         # check if edge is owned
         if self.player != None:
             if self.player == s_state.players[s_state.current_player_name]:
-                s_state.players[s_state.current_player_name].log.append("This location is already owned by you.")
-                print("location already owned by you")
+                msg = "This location is already owned by you."
+                s_state.socket.sendto(msg.encode(), s_state.players[s_state.current_player_name].address)
+                print(msg)
             else:
-                s_state.players[s_state.current_player_name].log.append("This location is owned by another player.")
-                print("location already owned by another player")
+                msg = "This location is owned by another player."
+                s_state.socket.sendto(msg.encode(), s_state.players[s_state.current_player_name].address)
+                print(msg)
             return False
 
         # check num_roads
         if s_state.players[s_state.current_player_name].num_roads >= 15:
-            s_state.players[s_state.current_player_name].log.append("You ran out of roads (max 15).")
+            s_state.socket.sendto("You ran out of roads (max 15).".encode(), s_state.players[s_state.current_player_name].address)            
+            s_state.socket.sendto("You ran out of roads (max 15).".encode(), s_state.players[s_state.current_player_name].address)            
             print("no available roads")
             return
 
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes:
-            s_state.players[s_state.current_player_name].log.append("You can't build in the ocean.")
+            s_state.socket.sendto("You can't build in the ocean.".encode(), s_state.players[s_state.current_player_name].address)
             print("can't build in ocean")
             return False
         
@@ -168,7 +171,7 @@ class Edge:
         self_nodes = self.get_adj_nodes(s_state.board.nodes)
         for node in self_nodes:
             if node.player == s_state.current_player_name:
-                s_state.public_log.append(f"{s_state.current_player_name} built a road.")
+                s_state.socket.sendall(f"{s_state.current_player_name} built a road.".encode())
                 print("building next to settlement")
                 return True
         
@@ -705,8 +708,8 @@ class ServerState:
         self.dice_rolls = 0
         self.mode = None
 
-        self.all_actions = ["roll_dice", "end_turn", "move_robber", "build_road", "build_city", "build_settlement", "add_player", "return_cards", "print_debug"]
-        self.all_modes = ["move_robber", "build_road", "build_city", "build_settlement", "return_cards"]
+        # self.all_actions = ["roll_dice", "end_turn", "move_robber", "build_road", "build_city", "build_settlement", "add_player", "return_cards", "print_debug"]
+        # self.all_modes = ["move_robber", "build_road", "build_city", "build_settlement", "return_cards"]
 
         self.queue = [] # could use this when a mode lasts longer than a single action.
         # e.g. blue rolls 7, blue: return_cards and white: return_cards get added to queue, as well as blue: move_robber
@@ -749,9 +752,9 @@ class ServerState:
             for r in player_object.hand.keys():
                 player_object.hand[r] = 1
 
-    def is_server_full(self, max_players=4):
+    def is_server_full(self, address, max_players=4):
         if len(self.player_order) >= max_players:
-            self.public_log.append("server cannot accept any more players")
+            self.socket.sendto("server cannot accept any more players".encode(), address)
             print("server cannot accept any more players")
             return True
         else:
@@ -762,15 +765,17 @@ class ServerState:
 
     # adding players to server. order in terms of arrival, will rearrange later
     def add_player(self, name, address):
-        if self.is_server_full() == True:
+        if self.is_server_full(address) == True:
             return
         order = len(self.player_order)
         self.players[name] = Player(name, order, address)
         self.player_order.append(name)
-        msg = f"adding Player {name}"
-        self.socket.sendall(msg.encode())
-        print(msg)
         self.board.set_demo_settlements(self)
+        
+        # send msg to clients
+        for name, p_object in self.players.items():
+            self.socket.sendto(f"adding Player {name}".encode(), p_object.address)
+
 
             
     def randomize_player_order(self):
@@ -1726,8 +1731,6 @@ class ClientState:
         # current_player : self.current_player
         # hover : bool
         # mode : None || "move_robber"
-        # public_log : ["Player built road", "Player Received Development Card"]
-        # private_log : ["Received Knight Development Card!"]
         # order : ["red", "white"]
         # victory points
         # hands
@@ -2074,14 +2077,23 @@ def test():
 
 # once board is initiated, all server has to send back is update on whatever has been updated 
 
-# python -c "from your_module import your_function; your_function()"
+# sys.argv = list of args passed thru command line
+cmd_line_input = sys.argv[-1]
 
+# test_players = ["red", "white", "orange", "blue"]
+if cmd_line_input == "client":
+    run_client("blue")
+elif cmd_line_input == "orange":
+    run_client("orange")
+elif cmd_line_input == "white":
+    run_client("white")
+elif cmd_line_input == "red":
+    run_client("red")
+elif cmd_line_input == "server":
+    run_server()
 
-# test()
-# run_combined()
+elif cmd_line_input == "test":
+    test()
 
-# run_client("blue")
-# run_client("orange")
-# run_client("white") # address = ('127.0.0.1', 55614)  address = ('127.0.0.1', 49896)
-run_client("red") # address = ('127.0.0.1', 65213)  address = ('127.0.0.1', 55032)
-# run_server()
+elif cmd_line_input == "combined":
+    run_combined()
