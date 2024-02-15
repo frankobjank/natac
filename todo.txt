@@ -91,3 +91,19 @@ OVERALL QUESTION: should server send different response to each client? or same 
     for returning cards, return_card mode should be determined by server. Maybe make a return mode for all clients like self.mode = {"red": "return_cards", "white": None}
 
     change dice_roll button to not hover while it's not client_player's turn
+
+
+
+Sequence of returning cards:
+roll 7
+global return_cards mode for everyone
+send log
+server calcs how many each player must return
+
+clients select cards to be returned. change is reflected on clients (i.e. moving them away from the main hand or drawing 3->2 when adding card to selection)
+do not allow selection to go above num cards to return
+allow client to submit choice when num cards reaches correct number
+
+server receives choice - again check if it's the number they needed to return, then subtract the cards. check if any players are left in cards to return dict (or if any value is > 0 in that dict)
+if yes -> do nothing
+if no -> change mode to move_robber

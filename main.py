@@ -8,6 +8,7 @@ import pyray as pr
 import hex_helper as hh
 import rendering_functions as rf
 import sys
+from enum import Enum
 
 # UI_SCALE constant for changing scale (fullscreen)
 
@@ -42,6 +43,13 @@ Point = namedtuple("Point", ["x", "y"])
 
 LandTile = namedtuple("LandTile", ["hex", "terrain", "token"])
 OceanTile = namedtuple("OceanTile", ["hex", "port", "port_corners"])
+
+# class Resource(Enum):
+#     ORE = 1
+#     WHEAT = 2
+#     SHEEP = 3
+#     WOOD = 4
+#     BRICK = 5
 
 def vector2_round(vector2):
     return pr.Vector2(int(vector2.x), int(vector2.y))
@@ -904,7 +912,7 @@ class ServerState:
                             player_object = self.players[node.player]
                             resource = terrain_to_resource[tile.terrain]
                             # ITSOVER9000
-                            # player_object.hand[resource] += 9
+                            player_object.hand[resource] += 9
                             player_object.hand[resource] += 1
                             if node.town == "city":
                                 player_object.hand[resource] += 1
@@ -923,8 +931,7 @@ class ServerState:
                 if hand_size > 7:
                     self.cards_to_return[player_name] = hand_size//2
                     self.mode = "return_cards"
-                    self.send_broadcast("log", f"Waiting for {player_name} to return cards.")    
-                    # self.public_log.append(f"Waiting for {player_name} to return cards.")
+                    self.send_broadcast("log", f"Waiting for {player_name} to return cards.")
                 else:
                     self.cards_to_return[player_name] = 0
 
@@ -1655,7 +1662,7 @@ class ClientState:
             # treat cards as an overlay? could magnify cards and put it over center, like options menu
         
         # keys to resources
-        keys_to_resources = {pr.KeyboardKey.KEY_O: "ore", pr.KeyboardKey.KEY_T: "wheat", pr.KeyboardKey.KEY_S: "sheep", pr.KeyboardKey.KEY_W: "wood", pr.KeyboardKey.KEY_B: "brick"}
+        keys_to_resources = {pr.KeyboardKey.KEY_ONE: "ore", pr.KeyboardKey.KEY_TWO: "wheat", pr.KeyboardKey.KEY_THREE: "sheep", pr.KeyboardKey.KEY_FOUR: "wood", pr.KeyboardKey.KEY_FIVE: "brick"}
         
         if self.mode == "return_cards" and user_input in keys_to_resources:
             card = keys_to_resources[user_input]
@@ -1967,7 +1974,7 @@ class ClientState:
 
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
 
-        pr.draw_text_ex(pr.gui_get_font(), "O - ore\nT - wheat\nS - sheep\nW - wood\nB - brick", (self.screen_width/1.6, 15), 12, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), "1 - ore\n2 - wheat\n3 - sheep\n4 - wood\n5 - brick", (self.screen_width/1.6, 15), 12, 0, pr.BLACK)
 
         for i, msg in enumerate(self.log_to_display):
             pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text_default, self.log_box.y+(i*self.med_text_default)), self.med_text_default, 0, pr.BLACK)
