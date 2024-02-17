@@ -117,4 +117,4 @@ server not picking up non current player input even for return_cards
 <!-- left arrow should undo right arrow -->
 <!-- only show selected cards in render if value > 0 -->
 server needs to hash selected_cards differently - set up for dict instead of list
-add marker if player still has cards to return
+<!-- add marker if player still has cards to return -->

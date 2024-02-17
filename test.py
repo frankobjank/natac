@@ -214,7 +214,7 @@ def test():
 # test()
 
 
-new_lst = ["fds", "f", "34", "2525", "4", "242", "5626"]
-new_lst = new_lst[-2:]
+dct = {"fds": 8, "f": 1, "34": 2}
 
-print(new_lst)
+
+print(sum(dct.values()))
