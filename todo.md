@@ -107,3 +107,14 @@ allow client to submit choice when num cards reaches correct number
 server receives choice - again check if it's the number they needed to return, then subtract the cards. check if any players are left in cards to return dict (or if any value is > 0 in that dict)
 if yes -> do nothing
 if no -> change mode to move_robber
+
+
+
+
+server not picking up non current player input even for return_cards
+<!-- make arrow even length from resource name -->
+<!-- can't go below 0 value on selected_cards -->
+<!-- left arrow should undo right arrow -->
+<!-- only show selected cards in render if value > 0 -->
+server needs to hash selected_cards differently - set up for dict instead of list
+add marker if player still has cards to return

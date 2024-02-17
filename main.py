@@ -969,6 +969,7 @@ class ServerState:
         hands = []
         dev_cards = []
         victory_points = []
+        cards_to_return = []
         for player_name, player_object in self.players.items():
             # pack actual hand for recipient
             if recipient == player_name:
@@ -981,14 +982,28 @@ class ServerState:
                 for num in player_object.dev_cards.values():
                     dev_card_hand.append(num)
                 dev_cards.append(dev_card_hand)
-            
+
+                if self.mode == "return_cards":
+                    cards_to_return.append(self.cards_to_return[player_name])
+
+
             # pack num cards for other players
             else:
                 hands.append([sum(player_object.hand.values())])
                 dev_cards.append([sum(player_object.dev_cards.values())])
+                
+                # recipient only gets True/False flag for the other players
+                if self.mode == "return_cards":
+                    if self.cards_to_return[player_name] > 0:
+                        cards_to_return.append(1) 
+                    else:
+                        cards_to_return.append(0)
+
 
 
             victory_points.append(player_object.get_victory_points())
+        
+
 
         packet = {
             "name": recipient,
@@ -1011,7 +1026,7 @@ class ServerState:
             "victory_points": victory_points,
             "hands": hands,
             "dev_cards": dev_cards,
-            "cards_to_return": self.cards_to_return
+            "cards_to_return": cards_to_return
         }
         
         return to_json(packet).encode()
@@ -1023,7 +1038,7 @@ class ServerState:
         # client_request["location"] = {"hex_a": [1, -1, 0], "hex_b": [0, 0, 0], "hex_c": None}
         # client_request["mode"] = "move_robber" or "build_town" or "build_road" or "trading"
         # client_request["debug"] = self.debug
-        # client_request["card"] = card to return, card to play, 
+        # client_request["cards"] = card to return, card to play, 
 
         if client_request == None or len(client_request) == 0:
             return
@@ -1038,10 +1053,10 @@ class ServerState:
             self.current_player_name = self.player_order[0]
 
         # receive input from non-current player for testing return_cards
-        if self.mode == "return_cards":
-            if client_request["card"] != None:
-                if self.players[client_request["name"]].hand[client_request["card"]] > 0:
-                    self.players[client_request["name"]].hand[client_request["card"]] -= 1
+        if self.mode == "return_cards" and client_request["action"] == "submit":
+            if len(client_request["cards"]) == self.cards_to_return[client_request["name"]]:
+                if self.players[client_request["name"]].hand[client_request["cards"]] > 0:
+                    self.players[client_request["name"]].hand[client_request["cards"]] -= 1
                     self.cards_to_return[client_request["name"]] -= 1
                     # check if all players have 7 or fewer
                     if all(cards_left == 0 for cards_left in self.cards_to_return.values()):
@@ -1053,10 +1068,9 @@ class ServerState:
             pass
 
         # if receiving input from non-current player, return
-        # will be useful for single-player client
+        # only time input from other players would be needed is for trades and returning cards when 7 is rolled
         if client_request["name"] != self.current_player_name:
             return
-            # only time input from other players would be needed is for trades and returning cards when 7 is rolled
         
         if "debug" not in client_request or "mode" not in client_request or "location" not in client_request:
             return
@@ -1300,17 +1314,6 @@ class ClientState:
         # 2nd frame counter to keep track of when animations should start/ end
         self.frame_start = 0
 
-        # selecting via mouse
-        self.world_position = None
-
-        self.current_hex = None
-        self.current_hex_2 = None
-        self.current_hex_3 = None
-
-
-        # could change from bool to actual object/ button
-        self.hover = False # hover for non-buttons - gets updated from server
-
         # PLAYERS - undecided if a Player class is needed for client
         self.client_players = {} # use ClientPlayer class
         self.player_order = [] # use len(player_order) to get num_players
@@ -1322,6 +1325,28 @@ class ClientState:
         self.dice = [] 
         self.turn_num = -1
         self.mode = None # can be move_robber, build_town, build_road, trading, roll dice
+
+        # selecting via mouse
+        self.world_position = None
+
+        self.current_hex = None
+        self.current_hex_2 = None
+        self.current_hex_3 = None
+        
+
+        # could change from bool to actual object/ button
+        self.hover = False # hover for non-buttons - gets updated from server
+
+        # CONSTANTS
+        self.resource_cards = ["ore", "wheat", "sheep", "wood", "brick"]
+        self.dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
+
+
+        self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        self.cards_to_return = {}
+        # selecting with arrow keys for now
+        self.card_index = 0
+        self.highlighted_player = None
 
         self.debug = True
 
@@ -1366,9 +1391,7 @@ class ClientState:
         self.camera.zoom = self.default_zoom
     
     def print_debug(self):
-        print("client:\n")
-        for p in self.client_players.values():
-            print(f"{p.name} hand: {p.hand}")
+        print(f"selected cards = {self.selected_cards}\ncards_to_return = {self.cards_to_return}")
 
     # def init_buttons(self):
     #     self.screen_width = pr.get_screen_width()
@@ -1473,11 +1496,9 @@ class ClientState:
             marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*3, 20, marker_size, marker_size), name)
         # blue - right
         elif order == 3:
-            marker = Marker(pr.Rectangle(self.screen_width//1.45, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
+            marker = Marker(pr.Rectangle(self.screen_width//1.60, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
 
         self.client_players[name] = ClientPlayer(name, order, marker)
-
-
 
     def client_initialize_dummy_players(self):
         # define player markers based on player_order that comes in from server
@@ -1491,10 +1512,31 @@ class ClientState:
 
         if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
             return pr.MouseButton.MOUSE_BUTTON_LEFT
+        
+        # space and enter for selecting with keyboard keys
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ENTER):
+            return pr.KeyboardKey.KEY_ENTER
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_SPACE):
+            return pr.KeyboardKey.KEY_SPACE
+
+
+        # directional keys
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_UP):
+            return pr.KeyboardKey.KEY_UP
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_DOWN):
+            return pr.KeyboardKey.KEY_DOWN
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_LEFT):
+            return pr.KeyboardKey.KEY_LEFT
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_RIGHT):
+            return pr.KeyboardKey.KEY_RIGHT
 
         # toggle debug
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_E):
             return pr.KeyboardKey.KEY_E
+        # toggle return cards for debug
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
+            return pr.KeyboardKey.KEY_R
+
 
         # toggle fullscreen
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_F):
@@ -1508,45 +1550,30 @@ class ClientState:
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_C):
             return pr.KeyboardKey.KEY_C
         
+        # 0 for print debug
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ZERO):
+            return pr.KeyboardKey.KEY_ZERO
+        
         # Ore
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_O):
-            return pr.KeyboardKey.KEY_O
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ONE):
+            return pr.KeyboardKey.KEY_ONE
         # Wheat
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_T):
-            return pr.KeyboardKey.KEY_T
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_TWO):
+            return pr.KeyboardKey.KEY_TWO
         # Sheep
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_S):
-            return pr.KeyboardKey.KEY_S
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_THREE):
+            return pr.KeyboardKey.KEY_THREE
         # Wood
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_W):
-            return pr.KeyboardKey.KEY_W
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_FOUR):
+            return pr.KeyboardKey.KEY_FOUR
         # Brick
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_B):
-            return pr.KeyboardKey.KEY_B
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_FIVE):
+            return pr.KeyboardKey.KEY_FIVE
 
         # p = pause/options menu
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_P):
             return pr.KeyboardKey.KEY_P
 
-        # 0 for print debug
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ZERO):
-            return pr.KeyboardKey.KEY_ZERO
-        
-        # 1-4 for switching players in combined client
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ONE):
-            return pr.KeyboardKey.KEY_ONE
-        # 0 for print debug
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_TWO):
-            return pr.KeyboardKey.KEY_TWO
-        # 0 for print debug
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_THREE):
-            return pr.KeyboardKey.KEY_THREE
-        # 0 for print debug
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_FOUR):
-            return pr.KeyboardKey.KEY_FOUR
-        
-
-        
         
     def update_client_settings(self, user_input):
         if user_input == pr.KeyboardKey.KEY_F:
@@ -1579,18 +1606,46 @@ class ClientState:
 
         # client_request = {"name": "client ID", "action": "move_robber", "location": Hex, Node or Edge, "mode": "move_robber", "debug": bool, "card": card}
         self.msg_number += 1
-        client_request = {}
+        client_request = {"name": self.name}
 
         # before player initiated
         if not self.name in self.client_players:
-            client_request["name"] = self.name
             client_request["action"] = "add_player"
             return client_request
 
         if not self.does_board_exist():
             print("board does not exist")
             return
+        
+        if user_input == pr.KeyboardKey.KEY_R:
+            client_request["mode"] = "return_cards"
+            return client_request
 
+        # selecting cards
+        if self.mode == "return_cards":
+            # select new cards if num cards_to_return is above num selected_cards
+            if self.cards_to_return["name"] > sum(self.selected_cards.values):
+                if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
+                    self.card_index -= 1
+                elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 4:
+                    self.card_index += 1
+                # if resource in hand - resource in selected > 0, move to selected cards
+                elif user_input == pr.KeyboardKey.KEY_RIGHT:
+                    if (self.client_players[self.name].hand[self.resource_cards[self.card_index]] - self.selected_cards[self.resource_cards[self.card_index]])> 0:
+                        self.selected_cards[self.resource_cards[self.card_index]] += 1
+                # if resource in selected > 0, move back to hand
+                elif user_input == pr.KeyboardKey.KEY_LEFT:
+                    if self.selected_cards[self.resource_cards[self.card_index]] > 0:
+                        self.selected_cards[self.resource_cards[self.card_index]] -= 1
+
+            # selected enough cards to return, can submit to server
+            if self.cards_to_return["name"] == sum(self.selected_cards.values) and (user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE):
+                client_request["action"] = "submit"
+                client_request["cards"] = self.selected_cards
+
+            return client_request
+        
+        # selecting board/ buttons
 
         # reset current hex, edge, node
         self.current_hex = None
@@ -1599,18 +1654,7 @@ class ClientState:
 
         action = ""
         requested_mode = None
-        card = None
 
-
-        # # switch between players in combined client
-        # if user_input == pr.KeyboardKey.KEY_ONE:
-        #     self.current_player_name = "red"
-        # elif user_input == pr.KeyboardKey.KEY_TWO:
-        #     self.current_player_name = "white"
-        # elif user_input == pr.KeyboardKey.KEY_THREE:
-        #     self.current_player_name = "orange"
-        # elif user_input == pr.KeyboardKey.KEY_FOUR:
-        #     self.current_player_name = "blue"
 
         # tells server and self to print debug
         if user_input == pr.KeyboardKey.KEY_ZERO:
@@ -1662,13 +1706,13 @@ class ClientState:
             # treat cards as an overlay? could magnify cards and put it over center, like options menu
         
         # keys to resources
-        keys_to_resources = {pr.KeyboardKey.KEY_ONE: "ore", pr.KeyboardKey.KEY_TWO: "wheat", pr.KeyboardKey.KEY_THREE: "sheep", pr.KeyboardKey.KEY_FOUR: "wood", pr.KeyboardKey.KEY_FIVE: "brick"}
+        # keys_to_resources = {pr.KeyboardKey.KEY_ONE: "ore", pr.KeyboardKey.KEY_TWO: "wheat", pr.KeyboardKey.KEY_THREE: "sheep", pr.KeyboardKey.KEY_FOUR: "wood", pr.KeyboardKey.KEY_FIVE: "brick"}
         
-        if self.mode == "return_cards" and user_input in keys_to_resources:
-            card = keys_to_resources[user_input]
+            
+
             
         # selecting action using button/keyboard
-        elif user_input == pr.KeyboardKey.KEY_D:
+        if user_input == pr.KeyboardKey.KEY_D:
             action = "roll_dice"
         
         elif user_input == pr.KeyboardKey.KEY_C:
@@ -1701,15 +1745,11 @@ class ClientState:
         # if self.debug == True:
             # self.name = self.current_player_name
 
-        client_request["name"] = self.name
         client_request["action"] = action
         client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
         client_request["mode"] = requested_mode
         client_request["debug"] = self.debug
-        client_request["card"] = card
-                        
-        # if len(client_request) > 0 and self.debug == True:
-            # print(f"client request = {client_request}. Msg {self.msg_number}")
+
         return client_request
 
     def client_to_server(self, client_request, combined=False):
@@ -1756,7 +1796,7 @@ class ClientState:
         # victory points
         # hands
         # development_cards
-        # cards_to_return : {"red": 3, "white": 1}
+        # cards_to_return : {"red": 3, "white": 1} use 1 if waiting, 0 if not (i.e. True/False)
 
         server_response = json.loads(encoded_server_response)
 
@@ -1792,6 +1832,7 @@ class ClientState:
         if len(server_response["player_order"]) > 0:
             self.player_order = server_response["player_order"]
             self.current_player_name = server_response["current_player"]
+            self.cards_to_return = server_response["cards_to_return"]
 
             # initialize all players at once for combined
             if self.combined == True and len(self.client_players) == 0:
@@ -1805,33 +1846,19 @@ class ClientState:
 
             # unpack hands, dev_cards, victory points
             # UNPACK WITH PLAYER ORDER SINCE NAMES WERE REMOVED TO SAVE BYTES IN SERVER_RESPONSE
-            dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
-            hand_to_resource = ["ore", "wheat", "sheep", "wood", "brick"]
+
             # server_response["hands"] = # [[2, 0, 1, 0, 0], [2, 0, 1, 0, 0], [2, 0, 1, 0, 0], [2, 0, 1, 0, 0]] -> [[2], [5], [1], [2, 1, 0, 0, 0]]
+            # server_response["cards_to_return"] = [5, 1, 0, 0] (5 for self, True for P2, False for P3 and P4)
             for order, name in enumerate(self.player_order):
                 # assign victory points
                 self.client_players[name].victory_points = server_response["victory_points"][order]
                 # construct hand
                 for position, number in enumerate(server_response["hands"][order]):
                     if self.name == name:
-                        self.client_players[name].hand[hand_to_resource[position]] = number
+                        self.client_players[name].hand[self.resource_cards[position]] = number
                         self.client_players[name].hand_size = sum(server_response["hands"][order])
                     else:
                         self.client_players[name].hand_size = number
-                # construct dev_cards hand
-                # for position, number in enumerate(server_response["dev_cards"][order]):
-                #     if self.name == name:
-                #         self.client_players[name].dev_cards[dev_card_order[position]] = number
-                #         self.client_players[name].dev_cards_size = sum(self.client_players[name].dev_cards.values())
-                #     else:
-                #         self.client_players[name].dev_cards_size = server_response["dev_cards"][position]
-
-            # calc if player needs to keep returning cards
-            # PUT THIS ON SERVER SIDE --- have server keep track of modes for ALL players  
-            # if server_response["cards_to_return"]:
-                # if server_response["cards_to_return"][self.name] > 0:
-                    # self.mode = "return_cards"
-
 
 
     def render_board(self):
@@ -1974,7 +2001,7 @@ class ClientState:
 
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
 
-        pr.draw_text_ex(pr.gui_get_font(), "1 - ore\n2 - wheat\n3 - sheep\n4 - wood\n5 - brick", (self.screen_width/1.6, 15), 12, 0, pr.BLACK)
+        # pr.draw_text_ex(pr.gui_get_font(), "1 - ore\n2 - wheat\n3 - sheep\n4 - wood\n5 - brick", (self.screen_width/1.6, 15), 12, 0, pr.BLACK)
 
         for i, msg in enumerate(self.log_to_display):
             pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text_default, self.log_box.y+(i*self.med_text_default)), self.med_text_default, 0, pr.BLACK)
@@ -1986,20 +2013,17 @@ class ClientState:
             pr.draw_rectangle_rec(player_object.marker.rec, player_object.marker.color)
             pr.draw_rectangle_lines_ex(player_object.marker.rec, 1, pr.BLACK)
 
-            # draw hands
-            if self.name == player_name:
-                if player_object.order == 3:
-                    for i, (key, value) in enumerate(player_object.hand.items()):
-                        pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x-70, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
-                else:
-                    for i, (key, value) in enumerate(player_object.hand.items()):
-                        pr.draw_text_ex(pr.gui_get_font(), f"{key}: {value}", (player_object.marker.rec.x+50, player_object.marker.rec.y+(i*10)), 10, 0, pr.BLACK)
-            else:
-                pr.draw_text_ex(pr.gui_get_font(), f"{player_object.hand_size}", (player_object.marker.rec.x+70, player_object.marker.rec.y), 12, 0, pr.BLACK)
+
+            rf.draw_hands(self, player_name, player_object)
+    
 
             # hightlight current player
             if player_name == self.current_player_name:
                 pr.draw_rectangle_lines_ex(player_object.marker.rec, 4, pr.BLACK)
+
+            # draw "waiting" if wating on player to return cards
+            if self.cards_to_return[player_name] > 0:
+                pr.draw_text
 
         # players' victory points
         for i, player_name in enumerate(reversed(self.player_order)):
