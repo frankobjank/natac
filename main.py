@@ -371,6 +371,8 @@ class Board:
         self.port_corners = []
         self.ports_ordered = []
 
+        self.all_hexes = []
+
         self.edges = []
         self.nodes = []
         self.robber_hex = None
@@ -1454,6 +1456,8 @@ class ClientState:
         self.board["land_hexes"] = []
         for h in server_response["land_hexes"]:
             self.board["land_hexes"].append(hh.set_hex(h[0], h[1], -h[0]-h[1]))
+        
+        self.board["all_hexes"] = self.board["land_hexes"] + self.board["ocean_hexes"]
 
         # create OceanTile namedtuple with hex, port
         self.board["ocean_tiles"] = []
@@ -1622,7 +1626,7 @@ class ClientState:
 
         # PUT 3 HEX LOOPS IN SEPARATE FUNCTION - if move_robber: return first hex. if build_road: return 2 hexes. if build_city/settlement: return 3 hexes
 
-        # client_request = {"name": "client ID", "action": "move_robber", "location": Hex, Node or Edge, "mode": "move_robber", "debug": bool, "card": card}
+
         self.msg_number += 1
 
         # before player initiated
@@ -1634,34 +1638,6 @@ class ClientState:
             return
 
 
-        # selecting cards
-        if self.mode == "return_cards":
-            if self.client_players[self.name].cards_to_return == 0:
-                return self.client_request_to_dict()
-            # select new cards if num cards_to_return is above num selected_cards
-            if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
-                self.card_index -= 1
-            elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 4:
-                self.card_index += 1
-            # if resource in hand - resource in selected > 0, move to selected cards
-            elif user_input == pr.KeyboardKey.KEY_RIGHT:
-                if (self.client_players[self.name].hand[self.resource_cards[self.card_index]] - self.selected_cards[self.resource_cards[self.card_index]])> 0:
-                    if self.client_players[self.name].cards_to_return > sum(self.selected_cards.values()):
-                        self.selected_cards[self.resource_cards[self.card_index]] += 1
-            # if resource in selected > 0, move back to hand
-            elif user_input == pr.KeyboardKey.KEY_LEFT:
-                if self.selected_cards[self.resource_cards[self.card_index]] > 0:
-                    self.selected_cards[self.resource_cards[self.card_index]] -= 1
-
-            # selected enough cards to return, can submit to server
-            if user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
-                if self.client_players[self.name].cards_to_return == sum(self.selected_cards.values()):
-                    return self.client_request_to_dict(action="submit", cards=self.selected_cards)
-                else:
-                    print("need to select more cards")
-            
-            # end function with no client_request if nothing is submitted
-            return
         
         # selecting board/ buttons
 
@@ -1693,36 +1669,57 @@ class ClientState:
             else:
                 button_object.hover = False
 
-        
-        all_hexes = self.board["land_hexes"] + self.board["ocean_hexes"]
 
 
         # defining current_hex, current_edge, current_node
         # check radius for current hex
-        for hex in all_hexes:
+        for hex in self.board["all_hexes"]:
             if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hex), 60):
                 self.current_hex = hex
                 break
         # 2nd loop for edges - current_hex_2
-        for hex in all_hexes:
+        for hex in self.board["all_hexes"]:
             if self.current_hex != hex:
                 if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hex), 60):
                     self.current_hex_2 = hex
                     break
         # 3rd loop for nodes - current_hex_3
-        for hex in all_hexes:
+        for hex in self.board["all_hexes"]:
             if self.current_hex != hex and self.current_hex_2 != hex:
                 if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hex), 60):
                     self.current_hex_3 = hex
                     break
 
 
-        # future implementation - turn cards into temp buttons? 
-            # treat cards as an overlay? could magnify cards and put it over center, like options menu
-        
-        # keys to resources
-        # keys_to_resources = {pr.KeyboardKey.KEY_ONE: "ore", pr.KeyboardKey.KEY_TWO: "wheat", pr.KeyboardKey.KEY_THREE: "sheep", pr.KeyboardKey.KEY_FOUR: "wood", pr.KeyboardKey.KEY_FIVE: "brick"}
-        
+        # selecting cards
+        if self.mode == "return_cards":
+            if self.client_players[self.name].cards_to_return == 0:
+                return self.client_request_to_dict()
+            # select new cards if num cards_to_return is above num selected_cards
+            if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
+                self.card_index -= 1
+            elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 4:
+                self.card_index += 1
+            # if resource in hand - resource in selected > 0, move to selected cards
+            elif user_input == pr.KeyboardKey.KEY_RIGHT:
+                if (self.client_players[self.name].hand[self.resource_cards[self.card_index]] - self.selected_cards[self.resource_cards[self.card_index]])> 0:
+                    if self.client_players[self.name].cards_to_return > sum(self.selected_cards.values()):
+                        self.selected_cards[self.resource_cards[self.card_index]] += 1
+            # if resource in selected > 0, move back to hand
+            elif user_input == pr.KeyboardKey.KEY_LEFT:
+                if self.selected_cards[self.resource_cards[self.card_index]] > 0:
+                    self.selected_cards[self.resource_cards[self.card_index]] -= 1
+
+            # selected enough cards to return, can submit to server
+            if user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
+                if self.client_players[self.name].cards_to_return == sum(self.selected_cards.values()):
+                    return self.client_request_to_dict(action="submit", cards=self.selected_cards)
+                else:
+                    print("need to select more cards")
+            
+            # end function with no client_request if nothing is submitted
+            return
+
             
 
             
@@ -1755,12 +1752,8 @@ class ClientState:
                     elif button_object.action:
                         return self.client_request_to_dict(action=button_object.name)
 
-
-        # eventually one client will only be able to control one player; for debug client presents itself as current_player
-        # if self.debug == True:
-            # self.name = self.current_player_name
-
-        # return
+        if self.combined == True:
+            self.name = self.current_player_name
 
     def client_to_server(self, client_request, combined=False):
         msg_to_send = json.dumps(client_request).encode()
@@ -1786,6 +1779,7 @@ class ClientState:
     
     # unpack server response and update state
     def update_client(self, encoded_server_response):
+        
         # name : self.name
         # kind : log, game state
         # ocean_hexes : [[0, -3], [1, -3],
