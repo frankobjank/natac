@@ -18,9 +18,9 @@ game_color_dict = {
     "move_robber": pr.RAYWHITE,
     "build_road": pr.RAYWHITE,
     "build_town": pr.RAYWHITE,
-    "build_settlement": pr.RAYWHITE,
     "build_city": pr.RAYWHITE,
-    "delete": pr.RED,
+    "build_settlement": pr.RAYWHITE,
+    "trading": pr.RAYWHITE,
     "roll_dice": pr.RAYWHITE,
     "end_turn": pr.RAYWHITE,
 
@@ -216,7 +216,7 @@ def draw_hands(c_state, player_name, player_object):
     x_offset = c_state.screen_width//20
     size = c_state.screen_width//100
     if c_state.name == player_name:
-        if c_state.mode == "return_cards":
+        if c_state.mode == "return_cards" and player_object.cards_to_return > 0:
             for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
                 # if current card_index, draw in red
                 if i == c_state.card_index:
