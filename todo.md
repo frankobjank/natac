@@ -94,29 +94,7 @@ OVERALL QUESTION: should server send different response to each client? or same 
 
 
 
-Sequence of returning cards:
-roll 7
-global return_cards mode for everyone
-send log
-server calcs how many each player must return
-
-clients select cards to be returned. change is reflected on clients (i.e. moving them away from the main hand or drawing 3->2 when adding card to selection)
-do not allow selection to go above num cards to return
-allow client to submit choice when num cards reaches correct number
-
-server receives choice - again check if it's the number they needed to return, then subtract the cards. check if any players are left in cards to return dict (or if any value is > 0 in that dict)
-if yes -> do nothing
-if no -> change mode to move_robber
-
-
-
-
-<!-- make arrow even length from resource name -->
-<!-- can't go below 0 value on selected_cards -->
-<!-- left arrow should undo right arrow -->
-<!-- only show selected cards in render if value > 0 -->
-<!-- server needs to hash selected_cards differently - set up for dict instead of list -->
-<!-- add marker if player still has cards to return -->
-
-server not picking up non current player input even for return_cards?
-make sure 'submit' action & cards_to_return dict is working, server did not seem to recognize submit and remove the right cards
+Sequence of stealing:
+check which non-self players are adjacent
+give current player option between those adjacent players
+choose player and have server pick a random card from them to add to current player's hand

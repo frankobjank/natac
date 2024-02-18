@@ -273,7 +273,6 @@ class Node:
         return adj_nodes
 
     def build_check_settlement(self, s_state):
-        # todo: add log statements
         print("build_check_settlement")
 
         if s_state.current_player_name == None:
@@ -370,8 +369,6 @@ class Board:
         self.ocean_hexes = []
         self.port_corners = []
         self.ports_ordered = []
-
-        self.all_hexes = []
 
         self.edges = []
         self.nodes = []
@@ -647,9 +644,9 @@ class Player:
     def __init__(self, name, order, address="local"):
         self.name = name
         self.order = order
-        # self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # ITSOVER9000
-        self.hand = {"ore": 5, "wheat": 4, "sheep": 3, "wood": 2, "brick": 1}
+        # self.hand = {"ore": 5, "wheat": 4, "sheep": 3, "wood": 2, "brick": 1}
         self.cards_to_return = 0
         self.trade_offer = {}
         self.dev_cards = {"knight": 0, "victory_point": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0}
@@ -710,6 +707,7 @@ class ServerState:
         self.players = {} # {player_name: player_object}
         self.current_player_name = None # name only
         self.player_order = [] # list of player_names in order of their turns
+        self.to_steal_from = []
         self.road_building_counter = 0
         
         self.longest_road = None
@@ -718,16 +716,9 @@ class ServerState:
         # TURNS
         self.die1 = 0
         self.die2 = 0
-        # self.turn_num = -1 # start game after first end_turn is pressed
         self.turn_num = 0
         self.dice_rolls = 0
         self.mode = None
-
-        # self.all_actions = ["roll_dice", "end_turn", "move_robber", "build_road", "build_city", "build_settlement", "add_player", "return_cards", "print_debug"]
-        # self.all_modes = ["move_robber", "build_road", "build_city", "build_settlement", "return_cards"]
-
-        self.queue = [] # could use this when a mode lasts longer than a single action.
-        # e.g. blue rolls 7, blue: return_cards and white: return_cards get added to queue, as well as blue: move_robber
 
 
         self.debug = debug
@@ -886,7 +877,29 @@ class ServerState:
         self.send_to_player(self.current_player_name, "log", f"You do not have enough resources for: {item}")
     
         return False
+
+    def steal_card(self, from_player: str, to_player: str):
+        card_index = random.randint(0, sum(self.players[from_player].hand.values()-1))
+        chosen_card = None
+        for card_type, num_cards in self.players[from_player].hand.items():
+            card_index -= num_cards
+            # stop when card_index reaches 0 or below
+            if 0 >= card_index:
+                chosen_card = card_type
+        
+        self.players[from_player].hand[chosen_card] -= 1
+        self.players[to_player].hand[chosen_card] += 1
+        self.send_broadcast("log", f"{to_player} stole a card from {from_player}")
+
+    def transfer_cards(self, from_player: str, to_player: str, cards: dict):
+        pass
             
+            
+
+
+
+
+
     def move_robber(self, location_hex=None):
         self.mode = None # only one robber move at a time
         # random for debuging
@@ -894,6 +907,27 @@ class ServerState:
             while self.robber_move_check(location_hex) != True:
                 location_hex = self.board.land_hexes[random.randint(1, 19)-1]
         self.board.robber_hex = location_hex
+        
+        adj_players = []
+        for node in self.board.nodes:
+            # if node is associated with player and contains the robber hex, add to list
+            if self.board.robber_hex in node.hexes and node.player != None:
+                adj_players.append(node.player)
+        
+        # if no adj players, do nothing
+        if len(adj_players) == 0:
+            return
+        # if only one player, steal random card if they have any 
+        elif len(adj_players) == 1:
+            if sum(self.players[adj_players[0]].hand.values()) > 0:
+                self.steal_card(adj_players[0], self.current_player_name)
+        # if more than one player, change mode to steal and get player to select
+        elif len(adj_players) > 1:
+            self.mode = "steal"
+            self.to_steal_from = adj_players
+
+
+
 
     def robber_move_check(self, location_hex):
         if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
@@ -913,13 +947,15 @@ class ServerState:
                 for hex in node.hexes:
                     for tile in tiles:
                         if hex == tile.hex and hex != self.board.robber_hex:
-                            player_object = self.players[node.player]
-                            resource = terrain_to_resource[tile.terrain]
+                            # player_object = self.players[node.player]
+                            # resource = terrain_to_resource[tile.terrain]
+                            # old syntax - don't need the alias
+                            # player_object.hand[resource] += 1
                             # ITSOVER9000
-                            # player_object.hand[resource] += 9
-                            player_object.hand[resource] += 1
+                            # self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 9
+                            self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
                             if node.town == "city":
-                                player_object.hand[resource] += 1
+                                self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
 
 
     def perform_roll(self):
@@ -1029,7 +1065,8 @@ class ServerState:
             "victory_points": victory_points,
             "hands": hands,
             "dev_cards": dev_cards,
-            "cards_to_return": cards_to_return
+            "cards_to_return": cards_to_return,
+            "to_steal_from": self.to_steal_from
         }
         
         return to_json(packet).encode()
@@ -1042,6 +1079,7 @@ class ServerState:
         # client_request["mode"] = "move_robber" or "build_town" or "build_road" or "trading"
         # client_request["debug"] = self.debug
         # client_request["cards"] = card to return, card to play, 
+        # client_request["selected_player"] = other player name
 
         if client_request == None or len(client_request) == 0:
             return
@@ -1350,11 +1388,14 @@ class ClientState:
         self.resource_cards = ["ore", "wheat", "sheep", "wood", "brick"]
         self.dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
 
-
+        # for return_cards
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # selecting with arrow keys for now
         self.card_index = 0
-        self.highlighted_player = None
+
+        self.to_steal_from = [] # player names
+        self.selected_player = ""
+        self.player_index = 0
 
         self.debug = True
 
@@ -1515,7 +1556,7 @@ class ClientState:
         for order, name in enumerate(self.player_order):
             self.client_initialize_player(name, order)
 
-    def client_request_to_dict(self, mode=None, action=None, cards=None):
+    def client_request_to_dict(self, mode=None, action=None, cards=None, player=None):
         client_request = {"name": self.name}
         client_request["debug"] = self.debug
         client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
@@ -1523,6 +1564,7 @@ class ClientState:
         client_request["mode"] = mode
         client_request["action"] = action
         client_request["cards"] = cards
+        client_request["selected_player"] = player
 
         return client_request
 
@@ -1720,6 +1762,9 @@ class ClientState:
             # end function with no client_request if nothing is submitted
             return
 
+        if self.mode == "steal":
+            self.to_steal_from = []
+            self.selected_player
             
 
             
@@ -1801,6 +1846,7 @@ class ClientState:
         # hands : [[2], [5], [1], [2, 1, 0, 0, 0]]
         # development_cards
         # cards_to_return : [3, 1, 0, 0] use 1 if waiting, 0 if not (i.e. True/False)
+        # to_steal_from : []
 
         server_response = json.loads(encoded_server_response)
 
@@ -1829,6 +1875,9 @@ class ClientState:
 
         # MODE/HOVER
         self.mode = server_response["mode"]
+        
+        # misc
+        self.to_steal_from = server_response["to_steal_from"]
 
 
         # PLAYERS
@@ -2041,6 +2090,14 @@ class ClientState:
                 if player_name != self.name:
                     if player_object.cards_to_return > 0:
                         pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.marker.rec.x, player_object.marker.rec.y - 20), 12, 0, pr.BLACK)
+
+            # for current player, highlight possible targets and selected player
+            if self.mode == "steal" and player_name == self.name and len(self.to_steal_from) > 0:
+                for player_name in self.to_steal_from:
+                    pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name], 10), 4, pr.GRAY)
+                if self.selected_player:
+                    pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[self.selected_player], 10), 4, pr.GREEN)
+
                 
 
         # players' victory points

@@ -214,7 +214,7 @@ def draw_return_cards(c_state, player_object, card_type, num_cards, i, x_offset,
 
 def draw_hands(c_state, player_name, player_object):
     x_offset = c_state.screen_width//20
-    size = c_state.screen_width//100
+    size = c_state.screen_width//85
     if c_state.name == player_name:
         if c_state.mode == "return_cards" and player_object.cards_to_return > 0:
             for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
@@ -239,6 +239,8 @@ def draw_hands(c_state, player_name, player_object):
     elif c_state.name != player_name:
         pr.draw_text_ex(pr.gui_get_font(), f"{player_object.hand_size}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y), 12, 0, pr.BLACK)
 
+def get_outer_rec(rec, offset):
+    return pr.Rectangle(rec.x-offset, rec.y-offset, rec.width+2*offset, rec.height+2*offset)
 
 
 # DEBUG
