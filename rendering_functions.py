@@ -201,33 +201,42 @@ def draw_dice(dice, button_rec:pr.Rectangle):
             pr.draw_circle(die_center_x+die_corner_offset+die2_x_offset, die_center_y, dot_size, pr.BLACK)
             pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y, dot_size, pr.BLACK)
 
-def draw_hands(self, player_name, player_object):
-    x_offset = 60
-    size = 10
-    if self.name == player_name:
-        if self.mode == "return_cards":
+
+
+def draw_return_cards(c_state, player_object, card_type, num_cards, i, x_offset, size, color):
+    card_type_display = card_type
+    while 5 > len(card_type_display):
+        card_type_display += " "
+    pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards - c_state.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y+(i*size)), size, 0, color)
+    if c_state.selected_cards[card_type] > 0:
+        pr.draw_text_ex(pr.gui_get_font(), f" -> {c_state.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset+(size*6), player_object.marker.rec.y+(i*size)), size, 0, color)
+
+
+def draw_hands(c_state, player_name, player_object):
+    x_offset = c_state.screen_width//20
+    size = c_state.screen_width//100
+    if c_state.name == player_name:
+        if c_state.mode == "return_cards":
             for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
-                # text_len_x = pr.measure_text_ex(pr.gui_get_font(), f"{card_type}: {num_cards}", size, 0).x
                 # if current card_index, draw in red
-                if i == self.card_index:
-                    pr.draw_text_ex(pr.gui_get_font(), f"{card_type}: {num_cards - self.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y+(i*size)), size, 0, pr.RED)
-                    if self.selected_cards[card_type] > 0:
-                        pr.draw_text_ex(pr.gui_get_font(), f" -> {self.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset+(size*12), player_object.marker.rec.y+(i*size)), size, 0, pr.RED)
+                if i == c_state.card_index:
+                    draw_return_cards(c_state, player_object, card_type, num_cards, i, x_offset, size, pr.WHITE)
                 # not current card index, draw in black
                 else:
-                    if self.selected_cards[card_type] > 0:
-                        pr.draw_text_ex(pr.gui_get_font(), f" -> {self.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset+(size*12), player_object.marker.rec.y+(i*size)), size, 0, pr.BLACK)
+                    draw_return_cards(c_state, player_object, card_type, num_cards, i, x_offset, size, pr.BLACK)
 
-                    pr.draw_text_ex(pr.gui_get_font(), f"{card_type}: {num_cards-self.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y+(i*size)), size, 0, pr.BLACK)
-        elif self.mode == "trading":
+        elif c_state.mode == "trading":
             pass
 
         else:
             for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
-                pr.draw_text_ex(pr.gui_get_font(), f"{card_type}: {num_cards}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y+(i*size)), size, 0, pr.BLACK)
+                card_type_display = card_type
+                while 5 > len(card_type_display):
+                    card_type_display += " "
+                pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y+(i*size)), size, 0, pr.BLACK)
 
     # hand size for all other players
-    elif self.name != player_name:
+    elif c_state.name != player_name:
         pr.draw_text_ex(pr.gui_get_font(), f"{player_object.hand_size}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y), 12, 0, pr.BLACK)
 
 

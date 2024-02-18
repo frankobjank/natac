@@ -111,10 +111,12 @@ if no -> change mode to move_robber
 
 
 
-server not picking up non current player input even for return_cards
 <!-- make arrow even length from resource name -->
 <!-- can't go below 0 value on selected_cards -->
 <!-- left arrow should undo right arrow -->
 <!-- only show selected cards in render if value > 0 -->
-server needs to hash selected_cards differently - set up for dict instead of list
+<!-- server needs to hash selected_cards differently - set up for dict instead of list -->
 <!-- add marker if player still has cards to return -->
+
+server not picking up non current player input even for return_cards?
+make sure 'submit' action & cards_to_return dict is working, server did not seem to recognize submit and remove the right cards

@@ -697,6 +697,9 @@ class ServerState:
         self.board = None
         self.hover = False # perform checks on server and pass back to client for rendering
 
+        self.resource_cards = ["ore", "wheat", "sheep", "wood", "brick"]
+        self.dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
+
         # PLAYERS
         self.players = {} # {player_name: player_object}
         self.current_player_name = None # name only
@@ -1054,11 +1057,11 @@ class ServerState:
 
         # receive input from non-current player for testing return_cards
         if self.mode == "return_cards" and client_request["action"] == "submit":
-            if len(client_request["cards"]) == self.cards_to_return[client_request["name"]]:
+            if sum(client_request["cards"].values()) == self.cards_to_return[client_request["name"]]:
                 self.cards_to_return[client_request["name"]] = 0
-                for card_type, num_cards in self.players[client_request["name"]].hand.items():
+                for card_type in self.resource_cards:
                     if client_request["cards"][card_type] > 0:
-                        num_cards -= client_request["cards"][card_type]
+                        self.players[client_request["name"]].hand[card_type] -= client_request["cards"][card_type]
                 
                 # outside of loop, check if players have returned cards
                 if sum(self.cards_to_return.values()) == 0:
@@ -1634,23 +1637,26 @@ class ClientState:
         # selecting cards
         if self.mode == "return_cards":
             # select new cards if num cards_to_return is above num selected_cards
-            if self.cards_to_return[self.name] > sum(self.selected_cards.values()):
-                if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
-                    self.card_index -= 1
-                elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 4:
-                    self.card_index += 1
-                # if resource in hand - resource in selected > 0, move to selected cards
-                elif user_input == pr.KeyboardKey.KEY_RIGHT:
-                    if (self.client_players[self.name].hand[self.resource_cards[self.card_index]] - self.selected_cards[self.resource_cards[self.card_index]])> 0:
+            if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
+                self.card_index -= 1
+            elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 4:
+                self.card_index += 1
+            # if resource in hand - resource in selected > 0, move to selected cards
+            elif user_input == pr.KeyboardKey.KEY_RIGHT:
+                if (self.client_players[self.name].hand[self.resource_cards[self.card_index]] - self.selected_cards[self.resource_cards[self.card_index]])> 0:
+                    if self.cards_to_return[self.name] > sum(self.selected_cards.values()):
                         self.selected_cards[self.resource_cards[self.card_index]] += 1
-                # if resource in selected > 0, move back to hand
-                elif user_input == pr.KeyboardKey.KEY_LEFT:
-                    if self.selected_cards[self.resource_cards[self.card_index]] > 0:
-                        self.selected_cards[self.resource_cards[self.card_index]] -= 1
+            # if resource in selected > 0, move back to hand
+            elif user_input == pr.KeyboardKey.KEY_LEFT:
+                if self.selected_cards[self.resource_cards[self.card_index]] > 0:
+                    self.selected_cards[self.resource_cards[self.card_index]] -= 1
 
             # selected enough cards to return, can submit to server
-            if self.cards_to_return[self.name] == sum(self.selected_cards.values()) and (user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE):
-                return self.client_request_to_dict(action="submit", cards=self.selected_cards)
+            if user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
+                if self.cards_to_return[self.name] == sum(self.selected_cards.values()):
+                    return self.client_request_to_dict(action="submit", cards=self.selected_cards)
+                else:
+                    print("need to select more cards")
             
             # end function with no client_request if nothing is submitted
             return
