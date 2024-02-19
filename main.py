@@ -936,6 +936,7 @@ class ServerState:
 
         # if more than one player, change mode to steal and get player to select
         self.mode = "steal"
+        self.to_steal_from = targets
 
 
 
