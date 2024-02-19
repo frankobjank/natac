@@ -644,7 +644,7 @@ class Player:
     def __init__(self, name, order, address="local"):
         self.name = name
         self.order = order
-        self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 3}
         # ITSOVER9000
         # self.hand = {"ore": 5, "wheat": 4, "sheep": 3, "wood": 2, "brick": 1}
         self.cards_to_return = 0
@@ -758,8 +758,8 @@ class ServerState:
             for r in player_object.hand.keys():
                 player_object.hand[r] = 1
 
-    def is_server_full(self, address, max_players=4):
-        if len(self.player_order) >= max_players:
+    def is_server_full(self, name, address, max_players=4):
+        if name not in self.player_order and len(self.player_order) >= max_players:
             self.socket.sendto("Server cannot accept any more players.".encode(), address)
             print("server cannot accept any more players")
             return True
@@ -879,17 +879,23 @@ class ServerState:
         return False
 
     def steal_card(self, from_player: str, to_player: str):
-        card_index = random.randint(0, sum(self.players[from_player].hand.values()-1))
+        card_index = random.randint(0, sum(self.players[from_player].hand.values())-1)
         chosen_card = None
         for card_type, num_cards in self.players[from_player].hand.items():
+            # skip if none of that type present
+            if num_cards == 0:
+                continue
             card_index -= num_cards
             # stop when card_index reaches 0 or below
             if 0 >= card_index:
                 chosen_card = card_type
+                break
         
         self.players[from_player].hand[chosen_card] -= 1
         self.players[to_player].hand[chosen_card] += 1
         self.send_broadcast("log", f"{to_player} stole a card from {from_player}")
+        self.mode = None
+        
 
     def transfer_cards(self, from_player: str, to_player: str, cards: dict):
         pass
@@ -911,20 +917,25 @@ class ServerState:
         adj_players = []
         for node in self.board.nodes:
             # if node is associated with player and contains the robber hex, add to list
-            if self.board.robber_hex in node.hexes and node.player != None:
+            if self.board.robber_hex in node.hexes and node.player != None and node.player != self.current_player_name:
                 adj_players.append(node.player)
         
+        targets = []
         # if no adj players, do nothing
         if len(adj_players) == 0:
             return
-        # if only one player, steal random card if they have any 
-        elif len(adj_players) == 1:
-            if sum(self.players[adj_players[0]].hand.values()) > 0:
-                self.steal_card(adj_players[0], self.current_player_name)
+        
+        # check if adj players have any cards
+        for player_name in adj_players:
+            if sum(self.players[player_name].hand.values()) > 0:
+                targets.append(player_name)
+        
+        # if only one player in targets, steal random card
+        if len(targets) == 1:
+            self.steal_card(adj_players[0], self.current_player_name)
+
         # if more than one player, change mode to steal and get player to select
-        elif len(adj_players) > 1:
-            self.mode = "steal"
-            self.to_steal_from = adj_players
+        self.mode = "steal"
 
 
 
@@ -947,10 +958,6 @@ class ServerState:
                 for hex in node.hexes:
                     for tile in tiles:
                         if hex == tile.hex and hex != self.board.robber_hex:
-                            # player_object = self.players[node.player]
-                            # resource = terrain_to_resource[tile.terrain]
-                            # old syntax - don't need the alias
-                            # player_object.hand[resource] += 1
                             # ITSOVER9000
                             # self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 9
                             self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
@@ -1087,7 +1094,7 @@ class ServerState:
         # self.server_verify_data(client_request["action"], client_request["mode"])
         
         if client_request["action"] == "add_player":
-            if self.is_server_full(address) == True:
+            if self.is_server_full(client_request["name"], address) == True:
                 return
             else:
                 self.add_player(client_request["name"], address)
@@ -1116,6 +1123,11 @@ class ServerState:
         # if receiving input from non-current player, return
         # only time input from other players would be needed is for trades and returning cards when 7 is rolled
         if client_request["name"] != self.current_player_name:
+            return
+        
+        if self.mode == "steal":
+            if client_request["action"] == "submit":
+                self.steal_card(client_request["selected_player"], self.current_player_name)
             return
         
         if "debug" not in client_request or "mode" not in client_request or "location" not in client_request:
@@ -1394,8 +1406,7 @@ class ClientState:
         self.card_index = 0
 
         self.to_steal_from = [] # player names
-        self.selected_player = ""
-        self.player_index = 0
+        self.player_index = 0 # used for selecting
 
         self.debug = True
 
@@ -1762,9 +1773,20 @@ class ClientState:
             # end function with no client_request if nothing is submitted
             return
 
+        # adapted from "return_cards" mode actions, maybe will make an arrow keys for incrementing menu function
         if self.mode == "steal":
-            self.to_steal_from = []
-            self.selected_player
+            if self.player_index > 0 and (user_input == pr.KeyboardKey.KEY_UP or user_input == pr.KeyboardKey.KEY_LEFT):
+                self.player_index -= 1
+            elif self.player_index < len(self.to_steal_from)-1 and (user_input == pr.KeyboardKey.KEY_DOWN or user_input == pr.KeyboardKey.KEY_RIGHT):
+                self.player_index += 1
+
+            # selected enough cards to return, can submit to server
+            if user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
+                return self.client_request_to_dict(action="submit", player=self.to_steal_from[self.player_index])
+            
+            # end function with no client_request if nothing is submitted
+            return
+
             
 
             
@@ -2082,6 +2104,7 @@ class ClientState:
             if player_name == self.current_player_name:
                 pr.draw_rectangle_lines_ex(player_object.marker.rec, 4, pr.BLACK)
 
+
             # draw "waiting" for non-self players if wating on them to return cards
             if self.mode == "return_cards":
                 if player_name == self.name:
@@ -2091,12 +2114,16 @@ class ClientState:
                     if player_object.cards_to_return > 0:
                         pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.marker.rec.x, player_object.marker.rec.y - 20), 12, 0, pr.BLACK)
 
+
             # for current player, highlight possible targets and selected player
-            if self.mode == "steal" and player_name == self.name and len(self.to_steal_from) > 0:
-                for player_name in self.to_steal_from:
-                    pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name], 10), 4, pr.GRAY)
-                if self.selected_player:
-                    pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[self.selected_player], 10), 4, pr.GREEN)
+            if self.mode == "steal" and len(self.to_steal_from) > 0 and self.name == self.current_player_name:
+                for i, player_name in enumerate(self.to_steal_from):
+                    pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].marker.rec, 7), 4, pr.GRAY)
+                    if i == self.player_index:
+                        pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].marker.rec, 7), 4, pr.GREEN)
+
+
+
 
                 
 
