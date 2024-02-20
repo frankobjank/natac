@@ -98,3 +98,9 @@ Sequence of stealing:
 check which non-self players are adjacent
 give current player option between those adjacent players
 choose player and have server pick a random card from them to add to current player's hand
+
+
+Sequence of trading:
+Current player clicks trade to enter trading mode
+trading window can go above log on right side of screen
+player can put together offer, and announce what they want in return

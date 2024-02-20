@@ -8,6 +8,7 @@ import pyray as pr
 import hex_helper as hh
 import rendering_functions as rf
 import sys
+import time
 from enum import Enum
 
 # UI_SCALE constant for changing scale (fullscreen)
@@ -657,6 +658,7 @@ class Player:
         self.num_roads = 0 # counting longest road
         self.ports = []
         self.address = address
+        self.last_updated = time.time()
 
     def __repr__(self):
         return f"Player {self.name}: \nHand: {self.hand}, Victory points: {self.victory_points}"
@@ -771,7 +773,8 @@ class ServerState:
             self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), p_object.address)
     
     def send_to_player(self, name: str, kind: str, msg: str):
-        self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), self.players[name].address)
+        if type(msg) == str:
+            self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), self.players[name].address)
             
 
     def print_debug(self):
@@ -793,6 +796,7 @@ class ServerState:
         
         self.send_broadcast("log", f"Adding Player {name}.")
         self.send_to_player(name, "log", f"Welcome to natac.")
+        self.socket.sendto(self.package_board(), address)
 
 
             
@@ -894,18 +898,15 @@ class ServerState:
         self.players[from_player].hand[chosen_card] -= 1
         self.players[to_player].hand[chosen_card] += 1
         self.send_broadcast("log", f"{to_player} stole a card from {from_player}")
+        # reset mode and steal list
         self.mode = None
+        self.to_steal_from = []
         
 
     def transfer_cards(self, from_player: str, to_player: str, cards: dict):
         pass
             
             
-
-
-
-
-
     def move_robber(self, location_hex=None):
         self.mode = None # only one robber move at a time
         # random for debuging
@@ -920,7 +921,7 @@ class ServerState:
             if self.board.robber_hex in node.hexes and node.player != None and node.player != self.current_player_name:
                 adj_players.append(node.player)
         
-        targets = []
+        self.to_steal_from = []
         # if no adj players, do nothing
         if len(adj_players) == 0:
             return
@@ -928,15 +929,15 @@ class ServerState:
         # check if adj players have any cards
         for player_name in adj_players:
             if sum(self.players[player_name].hand.values()) > 0:
-                targets.append(player_name)
+                self.to_steal_from.append(player_name)
         
         # if only one player in targets, steal random card
-        if len(targets) == 1:
-            self.steal_card(adj_players[0], self.current_player_name)
-
+        if len(self.to_steal_from) == 1:
+            self.steal_card(self.to_steal_from.pop(), self.current_player_name)
         # if more than one player, change mode to steal and get player to select
-        self.mode = "steal"
-        self.to_steal_from = targets
+        elif len(self.to_steal_from) > 1:
+            self.mode = "steal"
+
 
 
 
@@ -990,7 +991,19 @@ class ServerState:
                 # if self.debug == True:
                     # self.move_robber()
 
-    def package_state_for_client(self, recipient) -> bytes:
+    def package_board(self):
+        packet = {
+            "kind": "board",
+            "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
+            "ports_ordered": self.board.ports_ordered,
+            "port_corners": self.board.port_corners,
+            "land_hexes": [hex[:2] for hex in self.board.land_hexes],
+            "terrains": self.board.terrains, # ordered from left-right, top-down
+            "tokens": self.board.tokens # shares order with land_hexes and terrains
+        }
+        return to_json(packet).encode()
+
+    def package_state(self, recipient) -> bytes:
         town_nodes = []
         road_edges = []
         
@@ -1055,12 +1068,6 @@ class ServerState:
         packet = {
             "name": recipient,
             "kind": "game_state",
-            "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
-            "ports_ordered": self.board.ports_ordered,
-            "port_corners": self.board.port_corners,
-            "land_hexes": [hex[:2] for hex in self.board.land_hexes],
-            "terrains": self.board.terrains, # ordered from left-right, top-down
-            "tokens": self.board.tokens, # shares order with land_hexes and terrains
             "town_nodes": town_nodes,
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex[:2],
@@ -1099,6 +1106,10 @@ class ServerState:
                 return
             else:
                 self.add_player(client_request["name"], address)
+
+        if client_request["action"] == "request board":
+            self.socket.sendto(self.package_board(), client_request["name"])
+            return
 
         
         if self.turn_num == 0 and len(self.player_order) > 0:
@@ -1139,7 +1150,7 @@ class ServerState:
         self.debug = client_request["debug"]
 
         # toggle mode if the same kind, else change server mode to match client mode
-        if self.turn_num >= 0:
+        if self.turn_num >= 0 and self.mode != "roll_dice":
             # check build_costs to determine if mode is valid
             if client_request["mode"] == "build_road":
                 if not self.cost_check("road"):
@@ -1245,8 +1256,6 @@ class ServerState:
                     self.move_robber(location_hex)
 
         
-
-
     def server_to_client(self, encoded_client_request=None, combined=False):
         self.msg_number += 1
         msg_recv = ""
@@ -1262,16 +1271,18 @@ class ServerState:
             packet_recv = json.loads(msg_recv) # loads directly from bytes
             self.update_server(packet_recv, address)
             
-        # msg_to_send = self.package_state_for_client()
 
         if combined == False:
             # use socket to respond
             for p_name, p_object in self.players.items():
-                self.socket.sendto(self.package_state_for_client(p_name), p_object.address)
+                
+                if time.time() - p_object.last_updated > 1.2:
+                    self.socket.sendto(self.package_state(p_name), p_object.address)
+                    p_object.last_updated = time.time()
 
         else:
             # or just return
-            return self.package_state_for_client("combined")
+            return self.package_state("combined")
 
 
 
@@ -1706,24 +1717,6 @@ class ClientState:
             self.print_debug()
             return self.client_request_to_dict(action="print_debug")
 
-        # defining button highlight if mouse is over it
-        for button_object in self.buttons.values():
-            if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
-                # special cases for roll_dice, end_turn - only allow roll_dice
-                if self.mode == "roll_dice":
-                    if button_object.name == "roll_dice":
-                        button_object.hover = True
-                    else:
-                        button_object.hover = False
-                elif self.mode != "roll_dice":
-                    if button_object.name == "roll_dice":
-                        button_object.hover = False
-                    else:
-                        button_object.hover = True
-            else:
-                button_object.hover = False
-
-
 
         # defining current_hex, current_edge, current_node
         # check radius for current hex
@@ -1791,11 +1784,32 @@ class ClientState:
             
 
             
+        # defining button highlight if mouse is over it
+        for button_object in self.buttons.values():
+            if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
+                # special cases for roll_dice, end_turn - only allow roll_dice
+                if self.mode == "roll_dice":
+                    if button_object.name == "roll_dice":
+                        button_object.hover = True
+                    else:
+                        button_object.hover = False
+                elif self.mode != "roll_dice":
+                    if button_object.name == "roll_dice":
+                        button_object.hover = False
+                    else:
+                        button_object.hover = True
+            else:
+                button_object.hover = False
+
+
         # selecting action using button/keyboard
-        if user_input == pr.KeyboardKey.KEY_D:
-            return self.client_request_to_dict(action="roll_dice")
-        
-        elif user_input == pr.KeyboardKey.KEY_C:
+        if self.mode == "roll_dice":
+            if user_input == pr.KeyboardKey.KEY_D:
+                return self.client_request_to_dict(action="roll_dice")
+            else:
+                return
+      
+        if user_input == pr.KeyboardKey.KEY_C:
             return self.client_request_to_dict(action="end_turn")
         
         elif user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
@@ -1827,14 +1841,16 @@ class ClientState:
         msg_to_send = json.dumps(client_request).encode()
 
         if combined == False:
-            self.socket.sendto(msg_to_send, (local_IP, local_port))
+            if msg_to_send != b'null':
+                print(f"sending: {msg_to_send}")
+                self.socket.sendto(msg_to_send, (local_IP, local_port))
             
             # receive message from server
             try:
                 msg_recv, address = self.socket.recvfrom(buffer_size, socket.MSG_DONTWAIT)
             except BlockingIOError:
                 return None
-            
+            print(f"receiving: {msg_recv}")
             return msg_recv
 
         elif combined == True:

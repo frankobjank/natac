@@ -4,6 +4,7 @@ import rendering_functions as rf
 from operator import itemgetter, attrgetter
 # import random
 import math
+import time
 # import json
 
 
@@ -213,8 +214,10 @@ def test():
 
 # test()
 
+previous_time = time.time()
+while True:
+    if time.time()-previous_time > 1:
+        print("hello")
+        previous_time = time.time()
 
-dct = {"fds": 8, "f": 1, "34": 2}
 
-
-print(sum(dct.values()))
