@@ -659,6 +659,7 @@ class Player:
         self.ports = []
         self.address = address
         self.last_updated = time.time()
+        self.last_state = {}
 
     def __repr__(self):
         return f"Player {self.name}: \nHand: {self.hand}, Victory points: {self.victory_points}"
@@ -796,7 +797,7 @@ class ServerState:
         
         self.send_broadcast("log", f"Adding Player {name}.")
         self.send_to_player(name, "log", f"Welcome to natac.")
-        self.socket.sendto(self.package_board(), address)
+        self.socket.sendto(to_json(self.package_state(name, include_board=True)).encode(), address)
 
 
             
@@ -991,9 +992,8 @@ class ServerState:
                 # if self.debug == True:
                     # self.move_robber()
 
-    def package_board(self):
-        packet = {
-            "kind": "board",
+    def package_board(self) -> dict:
+        return {
             "ocean_hexes": [hex[:2] for hex in self.board.ocean_hexes],
             "ports_ordered": self.board.ports_ordered,
             "port_corners": self.board.port_corners,
@@ -1001,9 +1001,8 @@ class ServerState:
             "terrains": self.board.terrains, # ordered from left-right, top-down
             "tokens": self.board.tokens # shares order with land_hexes and terrains
         }
-        return to_json(packet).encode()
 
-    def package_state(self, recipient) -> bytes:
+    def package_state(self, recipient, include_board = False) -> dict:
         town_nodes = []
         road_edges = []
         
@@ -1063,11 +1062,9 @@ class ServerState:
 
             victory_points.append(player_object.get_victory_points())
         
-
-
         packet = {
             "name": recipient,
-            "kind": "game_state",
+            "kind": "state",
             "town_nodes": town_nodes,
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex[:2],
@@ -1083,8 +1080,13 @@ class ServerState:
             "cards_to_return": cards_to_return,
             "to_steal_from": self.to_steal_from
         }
-        
-        return to_json(packet).encode()
+        self.players[recipient].last_state = packet
+        self.players[recipient].last_updated = time.time()
+
+        if not include_board:
+            return packet
+        elif include_board:
+            return packet|self.package_board()
 
     def update_server(self, client_request, address) -> None:
 
@@ -1107,8 +1109,8 @@ class ServerState:
             else:
                 self.add_player(client_request["name"], address)
 
-        if client_request["action"] == "request board":
-            self.socket.sendto(self.package_board(), client_request["name"])
+        if client_request["action"] == "request_board":
+            self.socket.sendto(to_json(self.package_state(client_request["name"], include_board=True)).encode(), address)
             return
 
         
@@ -1275,14 +1277,16 @@ class ServerState:
         if combined == False:
             # use socket to respond
             for p_name, p_object in self.players.items():
+                if p_object.last_state == self.package_state(p_name) and (time.time() - p_object.last_updated) < 1.2:
+                    return
+                else:
+                    self.socket.sendto(to_json(self.package_state(p_name)).encode(), p_object.address)
+
                 
-                if time.time() - p_object.last_updated > 1.2:
-                    self.socket.sendto(self.package_state(p_name), p_object.address)
-                    p_object.last_updated = time.time()
 
         else:
             # or just return
-            return self.package_state("combined")
+            return to_json(self.package_state("combined")).encode()
 
 
 
@@ -1505,8 +1509,9 @@ class ClientState:
         if len(self.board) > 0:
             return True
 
+
     def data_verification(self, packet):
-        lens_for_verification = {"ocean_hexes": 18, "ports_ordered": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19, "robber_hex": 2, "dice": 2}
+        lens_for_verification = {"ocean_hexes": 18, "ports_ordered": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19} #, "robber_hex": 2, "dice": 2}
 
         for key, length in lens_for_verification.items():
             assert len(packet[key]) == length, f"incorrect number of {key}, actual number = {len(packet[key])}"
@@ -1534,7 +1539,7 @@ class ClientState:
         for i, hex in enumerate(self.board["land_hexes"]):
             tile = LandTile(hex, server_response["terrains"][i], server_response["tokens"][i])
             self.board["land_tiles"].append(tile)
-        
+    
         # town_nodes : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None},
         self.board["town_nodes"] = []
         for node in server_response["town_nodes"]:
@@ -1700,7 +1705,7 @@ class ClientState:
 
         if not self.does_board_exist():
             print("board does not exist")
-            return
+            return self.client_request_to_dict(action="request_board")
 
 
         
@@ -1842,7 +1847,6 @@ class ClientState:
 
         if combined == False:
             if msg_to_send != b'null':
-                print(f"sending: {msg_to_send}")
                 self.socket.sendto(msg_to_send, (local_IP, local_port))
             
             # receive message from server
@@ -1850,7 +1854,6 @@ class ClientState:
                 msg_recv, address = self.socket.recvfrom(buffer_size, socket.MSG_DONTWAIT)
             except BlockingIOError:
                 return None
-            print(f"receiving: {msg_recv}")
             return msg_recv
 
         elif combined == True:
@@ -1888,14 +1891,14 @@ class ClientState:
         # to_steal_from : []
 
         server_response = json.loads(encoded_server_response)
-
+        print(server_response)
         # split kind of response by what kind of message is received
         try:
             server_response["kind"]
         except KeyError:
             print("packet kind missing")
             return
-            
+    
         if server_response["kind"] == "log":
             self.log_msgs.append(server_response["msg"])
             if len(self.log_msgs) > 7:
@@ -1904,9 +1907,12 @@ class ClientState:
                 self.log_to_display = self.log_msgs
             return
         
+        if self.name in self.client_players:
+            if not self.does_board_exist():
+                self.data_verification(server_response)
+                self.construct_client_board(server_response)
+                return
 
-        self.data_verification(server_response)
-        self.construct_client_board(server_response)
 
         # DICE/TURNS
         self.dice = server_response["dice"]
@@ -1971,6 +1977,7 @@ class ClientState:
             color = rf.game_color_dict[tile.terrain]
             pr.draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, color)
             # draw yellow outlines around hexes if token matches dice and not robber'd, otherwise outline in black
+            # use len(dice) to see if whole game state has been received
             if (self.dice[0] + self.dice[1]) == tile.token and tile.hex != self.board["robber_hex"]:
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 6, pr.YELLOW)
             else:
@@ -2003,7 +2010,7 @@ class ClientState:
 
         if self.name == self.current_player_name:
             self.render_mouse_hover()
-
+        
         # draw roads, settlements, cities
         for edge in self.board["road_edges"]:
             rf.draw_road(edge.get_edge_points(), rf.game_color_dict[edge.player])

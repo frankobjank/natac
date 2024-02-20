@@ -5,7 +5,7 @@ from operator import itemgetter, attrgetter
 # import random
 import math
 import time
-# import json
+import json
 
 
 def offset(lst, offset):
@@ -213,11 +213,9 @@ def test():
     pr.close_window()
 
 # test()
-
-previous_time = time.time()
-while True:
-    if time.time()-previous_time > 1:
-        print("hello")
-        previous_time = time.time()
-
+tj = {1: "1"}
+tb = {2: "51"}
+newdict=tj|tb
+print(newdict)
+print(json.dumps(newdict))
 
