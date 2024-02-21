@@ -9,6 +9,7 @@ import hex_helper as hh
 import rendering_functions as rf
 import sys
 import time
+import logging
 from enum import Enum
 
 # UI_SCALE constant for changing scale (fullscreen)
@@ -658,8 +659,13 @@ class Player:
         self.num_roads = 0 # counting longest road
         self.ports = []
         self.address = address
-        self.last_updated = time.time()
+        self.num_msgs_sent_to = 0
+        # self.num_msgs_recv_from = 0
+        
         self.last_state = {}
+        self.has_board = False
+        self.time_joined = time.time()
+        self.last_updated = time.time()
 
     def __repr__(self):
         return f"Player {self.name}: \nHand: {self.hand}, Victory points: {self.victory_points}"
@@ -685,9 +691,8 @@ class Player:
 
 class ServerState:
     def __init__(self, combined=False, debug=True):
-        print("starting server")
         # NETWORKING
-        self.msg_number = 0
+        self.msg_number_recv = 0
         self.combined = combined
         if self.combined == False:
             self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
@@ -787,15 +792,17 @@ class ServerState:
             if self.players[name].address != address:
                 self.players[name].address = address
                 self.send_broadcast("log", f"Player {name} is reconnecting.")
-                self.send_to_player(name, "log", f"Welcome to natac.")
-            return        
+            else:
+                print("player already added; redundant call")
+                return
 
-        order = len(self.player_order)
-        self.players[name] = Player(name, order, address)
-        self.player_order.append(name)
-        self.board.set_demo_settlements(self, name)
+        elif not name in self.players:
+            order = len(self.player_order)
+            self.players[name] = Player(name, order, address)
+            self.player_order.append(name)
+            self.board.set_demo_settlements(self, name)
+            self.send_broadcast("log", f"Adding Player {name}.")
         
-        self.send_broadcast("log", f"Adding Player {name}.")
         self.send_to_player(name, "log", f"Welcome to natac.")
         self.socket.sendto(to_json(self.package_state(name, include_board=True)).encode(), address)
 
@@ -1025,7 +1032,7 @@ class ServerState:
                 new_edge["player"] = edge.player
                 road_edges.append(new_edge)
 
-        # loop thru players to build lhands, VPs, logs
+        # loop thru players to build hands, VPs, logs
         hands = []
         dev_cards = []
         victory_points = []
@@ -1065,6 +1072,7 @@ class ServerState:
         packet = {
             "name": recipient,
             "kind": "state",
+            # "time": time.time(),
             "town_nodes": town_nodes,
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex[:2],
@@ -1080,13 +1088,14 @@ class ServerState:
             "cards_to_return": cards_to_return,
             "to_steal_from": self.to_steal_from
         }
-        self.players[recipient].last_state = packet
-        self.players[recipient].last_updated = time.time()
 
-        if not include_board:
-            return packet
-        elif include_board:
-            return packet|self.package_board()
+        combined = packet|self.package_board()
+        self.players[recipient].last_state = combined
+
+        # if not include_board:
+            # return packet
+        # elif include_board:
+        return combined
 
     def update_server(self, client_request, address) -> None:
 
@@ -1259,11 +1268,11 @@ class ServerState:
 
         
     def server_to_client(self, encoded_client_request=None, combined=False):
-        self.msg_number += 1
         msg_recv = ""
         if combined == False:
             # use socket to receive msg
             msg_recv, address = self.socket.recvfrom(buffer_size)
+            self.msg_number_recv += 1
         else:
             # or just pass in variable
             msg_recv = encoded_client_request
@@ -1271,13 +1280,14 @@ class ServerState:
         # update server if msg_recv is not 0b'' (empty)
         if len(msg_recv) > 2:
             packet_recv = json.loads(msg_recv) # loads directly from bytes
+            print(f"msg # {self.msg_number_recv}: {packet_recv}")
             self.update_server(packet_recv, address)
             
 
         if combined == False:
             # use socket to respond
             for p_name, p_object in self.players.items():
-                if p_object.last_state == self.package_state(p_name) and (time.time() - p_object.last_updated) < 1.2:
+                if p_object.last_state == self.package_state(p_name) and time.time() - p_object.last_updated > 1.2:
                     return
                 else:
                     self.socket.sendto(to_json(self.package_state(p_name)).encode(), p_object.address)
@@ -1360,7 +1370,8 @@ class ClientState:
         print("starting client")
         # Networking
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.msg_number = 0
+        self.num_msgs_sent = 0
+        self.num_msgs_recv = 0
         self.name = name # for debug, start as "red" and shift to current_player_name every turn
         self.combined = combined # combined client and server vs separate client and server, use for debug
         self.previous_packet = {}
@@ -1584,7 +1595,7 @@ class ClientState:
         for order, name in enumerate(self.player_order):
             self.client_initialize_player(name, order)
 
-    def client_request_to_dict(self, mode=None, action=None, cards=None, player=None):
+    def client_request_to_dict(self, mode=None, action=None, cards=None, player=None) -> dict:
         client_request = {"name": self.name}
         client_request["debug"] = self.debug
         client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
@@ -1695,9 +1706,6 @@ class ClientState:
         # SPLIT THIS INTO SECTIONS BASED ON MODE - so if mode == "move_robber", put all the move_robber code there. then mode == "return_cards", put all the return cards code there. I think this will help greatly with implementing different functionality based on what's happening in the game
 
         # PUT 3 HEX LOOPS IN SEPARATE FUNCTION - if move_robber: return first hex. if build_road: return 2 hexes. if build_city/settlement: return 3 hexes
-
-
-        self.msg_number += 1
 
         # before player initiated
         if not self.name in self.client_players:
@@ -1847,11 +1855,13 @@ class ClientState:
 
         if combined == False:
             if msg_to_send != b'null':
+                self.num_msgs_sent += 1
                 self.socket.sendto(msg_to_send, (local_IP, local_port))
             
             # receive message from server
             try:
                 msg_recv, address = self.socket.recvfrom(buffer_size, socket.MSG_DONTWAIT)
+                self.num_msgs_recv += 1
             except BlockingIOError:
                 return None
             return msg_recv
@@ -1959,7 +1969,6 @@ class ClientState:
                         self.client_players[name].hand_size = number
 
             # clear out card selection if server accepted a submission
-            # print(self.client_players[self.name].cards_to_return)
             if self.client_players[self.name].cards_to_return == 0:
                 self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
 
@@ -2049,10 +2058,6 @@ class ClientState:
 
             
     def render_client(self):
-        # increment frame - for animations
-        self.frame += 1
-        # reset every 10000 so doesn't get too big?
-        self.frame %= 10000
 
         pr.begin_drawing()
         pr.clear_background(pr.BLUE)
@@ -2161,10 +2166,10 @@ class ClientState:
 
 
 
-
 def run_client(name):
     c_state = ClientState(name=name, combined=False)
 
+    pr.set_trace_log_level(7) # removes raylib log msgs
     # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
     pr.init_window(c_state.default_screen_w, c_state.default_screen_h, f"Natac - {name}")
     pr.set_target_fps(60)
@@ -2201,7 +2206,16 @@ def run_server():
     s_state.initialize_game() # initialize board, players
     while True:
         # receives msg, updates s_state, then sends message
-        s_state.server_to_client()
+        try:
+            s_state.server_to_client()
+        except Exception as e:
+            print(e)
+            break
+        except KeyboardInterrupt:
+            break
+    
+    print("closing socket")
+    s_state.socket.close()
 
 
 

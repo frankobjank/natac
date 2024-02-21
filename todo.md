@@ -104,3 +104,12 @@ Sequence of trading:
 Current player clicks trade to enter trading mode
 trading window can go above log on right side of screen
 player can put together offer, and announce what they want in return
+
+
+
+
+
+
+semi-related - bigger system changes
+Get test TCP client/server working. Create 2+ clients with Threading
+Use Logging to create a log
