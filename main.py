@@ -1801,14 +1801,22 @@ class ClientState:
             return
 
             
+        # selecting action using keyboard
+        if user_input == pr.KeyboardKey.KEY_D:
+            return self.client_request_to_dict(action="roll_dice")
 
-            
+        elif user_input == pr.KeyboardKey.KEY_C:
+            return self.client_request_to_dict(action="end_turn")
+
+        
+
         # defining button highlight if mouse is over it
         for button_object in self.buttons.values():
-            if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
+            if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec) and self.name == self.current_player_name:
                 # special cases for roll_dice, end_turn - only allow roll_dice
                 if self.mode == "roll_dice":
                     if button_object.name == "roll_dice":
+                        
                         button_object.hover = True
                     else:
                         button_object.hover = False
@@ -1821,17 +1829,8 @@ class ClientState:
                 button_object.hover = False
 
 
-        # selecting action using button/keyboard
-        if self.mode == "roll_dice":
-            if user_input == pr.KeyboardKey.KEY_D:
-                return self.client_request_to_dict(action="roll_dice")
-            else:
-                return
-      
-        if user_input == pr.KeyboardKey.KEY_C:
-            return self.client_request_to_dict(action="end_turn")
         
-        elif user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             # checking board selections for building town, road, moving robber
             if self.current_hex_3 and self.mode == "build_settlement":
                 return self.client_request_to_dict(action="build_settlement")
@@ -1851,6 +1850,9 @@ class ClientState:
                     if button_object.mode:
                         return self.client_request_to_dict(mode=button_object.name)
                     elif button_object.action:
+                        if self.mode == "roll_dice" and button_object.name == "roll_dice":
+                            return self.client_request_to_dict(action="roll_dice")
+                        
                         return self.client_request_to_dict(action=button_object.name)
 
         if self.combined == True:
