@@ -663,6 +663,7 @@ class Player:
         # self.num_msgs_recv_from = 0
         
         self.last_state = {}
+        self.current_state = {}
         self.has_board = False
         self.time_joined = time.time()
         self.last_updated = time.time()
@@ -1090,7 +1091,6 @@ class ServerState:
         }
 
         combined = packet|self.package_board()
-        self.players[recipient].last_state = combined
 
         # if not include_board:
             # return packet
@@ -1111,23 +1111,25 @@ class ServerState:
             return
         
         # self.server_verify_data(client_request["action"], client_request["mode"])
-        
+        if self.turn_num == 0 and len(self.player_order) > 0:
+            self.current_player_name = self.player_order[0]
+
+
+        # action
         if client_request["action"] == "add_player":
             if self.is_server_full(client_request["name"], address) == True:
                 return
             else:
                 self.add_player(client_request["name"], address)
 
-        if client_request["action"] == "request_board":
+        elif client_request["action"] == "request_board":
             self.socket.sendto(to_json(self.package_state(client_request["name"], include_board=True)).encode(), address)
             return
 
         
-        if self.turn_num == 0 and len(self.player_order) > 0:
-            self.current_player_name = self.player_order[0]
 
         # receive input from non-current player for testing return_cards
-        if self.mode == "return_cards" and client_request["action"] == "submit":
+        elif client_request["action"] == "submit" and self.mode == "return_cards":
             if sum(client_request["cards"].values()) == self.players[client_request["name"]].cards_to_return:
                 self.players[client_request["name"]].cards_to_return = 0
                 for card_type in self.resource_cards:
@@ -1236,7 +1238,9 @@ class ServerState:
         location_node = None
         location_edge = None
         location_hex = None
-
+        
+        # move robber not working on server side
+        
         hex_a, hex_b, hex_c = location_hexes.values()
         if location_hexes["hex_c"] != None:
             if self.mode == "build_settlement" or self.mode == "build_city":
@@ -1287,10 +1291,12 @@ class ServerState:
         if combined == False:
             # use socket to respond
             for p_name, p_object in self.players.items():
-                if p_object.last_state == self.package_state(p_name) and time.time() - p_object.last_updated > 1.2:
+                p_object.current_state = self.package_state(p_name)
+                if p_object.last_state == p_object.current_state and time.time() - p_object.last_updated > 1.2:
                     return
                 else:
                     self.socket.sendto(to_json(self.package_state(p_name)).encode(), p_object.address)
+                    p_object.last_state = p_object.current_state
 
                 
 
@@ -1902,7 +1908,7 @@ class ClientState:
 
         server_response = json.loads(encoded_server_response)
         print(server_response)
-        # split kind of response by what kind of message is received
+        # split kind of response by what kind of message is received, update_log(), update_board(), etc
         try:
             server_response["kind"]
         except KeyError:
@@ -1917,12 +1923,11 @@ class ClientState:
                 self.log_to_display = self.log_msgs
             return
         
-        if self.name in self.client_players:
-            if not self.does_board_exist():
-                self.data_verification(server_response)
-                self.construct_client_board(server_response)
-                return
-
+        # if self.name in self.client_players:
+            # if not self.does_board_exist():
+        self.data_verification(server_response)
+        self.construct_client_board(server_response)
+        # return
 
         # DICE/TURNS
         self.dice = server_response["dice"]
@@ -2213,8 +2218,7 @@ def run_server():
             break
         except KeyboardInterrupt:
             break
-    
-    print("closing socket")
+
     s_state.socket.close()
 
 
