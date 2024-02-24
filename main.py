@@ -883,11 +883,22 @@ class ServerState:
         # global constant building_costs
         cost = building_costs[item]
         hand = self.players[self.current_player_name].hand
+        still_needed = []
         
-        if all(hand[resource] >= cost[resource] for resource in cost.keys()):
+        # changing for all() statement to for loop to tell what resources are needed
+        # if all(hand[resource] >= cost[resource] for resource in cost.keys()):
+            # return True
+        for resource in cost.keys():
+            if cost[resource] > hand[resource]:
+                still_needed.append(resource)
+        
+        if len(still_needed) == 0:
             return True
+
         
-        self.send_to_player(self.current_player_name, "log", f"You do not have enough resources for: {item}")
+        # this was too long - amending below
+        # self.send_to_player(self.current_player_name, "log", f"You do not have enough resources for: {item}")
+        self.send_to_player(self.current_player_name, "log", f"Not enough {', '.join(still_needed)} for {item}")
     
         return False
 
@@ -2129,6 +2140,7 @@ class ClientState:
 
         for i, msg in enumerate(self.log_to_display):
             pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text_default, self.log_box.y+(i*self.med_text_default)), self.med_text_default, 0, pr.BLACK)
+        # wrap text in order to read longer messages like can't buy settlement
 
         for player_name, player_object in self.client_players.items():
             # draw player markers

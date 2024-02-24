@@ -213,9 +213,8 @@ def test():
     pr.close_window()
 
 # test()
-tj = {1: "1"}
-tb = {2: "51"}
-newdict=tj|tb
-print(newdict)
-print(json.dumps(newdict))
+tb = ["341"]
+
+
+print(f"not enough {', '.join(tb)} for that")
 
