@@ -173,7 +173,7 @@ def draw_dice(dice, button_rec:pr.Rectangle):
     # 4 = 4 corners
     # 5 = center + 4 corners
     # 6 = 4 corners + 2 side dots
-    dot_size = 2.8
+    dot_size = 3.5
     die_center_x = int(button_rec.x+button_rec.width//4)
     die_center_y = int(button_rec.y+button_rec.height//2)
     die_corner_offset = int(button_rec.width//7)

@@ -1458,8 +1458,8 @@ class ClientState:
         self.buttons = {mode_button_names[i]: Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+10), button_h, button_w, button_h), mode_button_names[i], mode=True) for i in range(len(mode_button_names))}
 
         # action_button_names = ["end_turn", "roll_dice"]
-        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(5*button_h), 2*button_w, button_h), "end_turn", action=True)
-        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(7*button_h), 2*button_w, button_w), "roll_dice", action=True)
+        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "end_turn", action=True)
+        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "roll_dice", action=True)
 
 
         # log
@@ -1810,7 +1810,7 @@ class ClientState:
 
         
 
-        # defining button highlight if mouse is over it
+        # first button loop - defining button highlight if mouse is over it
         for button_object in self.buttons.values():
             if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec) and self.name == self.current_player_name:
                 # special cases for roll_dice, end_turn - only allow roll_dice
@@ -1829,7 +1829,7 @@ class ClientState:
                 button_object.hover = False
 
 
-        
+        # selecting actions with mouse click
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             # checking board selections for building town, road, moving robber
             if self.current_hex_3 and self.mode == "build_settlement":
@@ -1844,7 +1844,7 @@ class ClientState:
             elif self.current_hex and self.mode == "move_robber":
                 return self.client_request_to_dict(action="move_robber")
 
-            # checking button input
+            # 2nd button loop - could prob combine with 1st button loop...
             for button_object in self.buttons.values():
                 if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
                     if button_object.mode:
@@ -2100,12 +2100,14 @@ class ClientState:
 
         # draw text on buttons
         # action buttons
-        if len(self.dice) > 0:
+        if self.dice == [0, 0]:
+            pr.draw_text_ex(pr.gui_get_font(), "Click to roll!", ((int(self.buttons["roll_dice"].rec.x), int(self.buttons["roll_dice"].rec.y + self.buttons["roll_dice"].rec.height//2))), 12, 0, pr.BLACK)
+        elif len(self.dice) > 0:
             rf.draw_dice(self.dice, self.buttons["roll_dice"].rec)
             # draw line between dice
             pr.draw_line_ex((int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y)), (int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y+self.buttons["roll_dice"].rec.height)), 2, pr.BLACK)
 
-        pr.draw_text_ex(pr.gui_get_font(), "End Turn", (self.buttons["end_turn"].rec.x+5, self.buttons["end_turn"].rec.y+12), 12, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), "End Turn", (((self.buttons["end_turn"].rec.x + (self.buttons["end_turn"].rec.width//2-40)//2)), (self.buttons["end_turn"].rec.y + (self.buttons["end_turn"].rec.height-22)//2)), 18, 0, pr.BLACK)
             
         # mode buttons
         pr.draw_text_ex(pr.gui_get_font(), "road", (self.buttons["build_road"].rec.x+3, self.buttons["build_road"].rec.y+12), 12, 0, pr.BLACK)
@@ -2119,6 +2121,9 @@ class ClientState:
         pr.draw_text_ex(pr.gui_get_font(), "trade", (self.buttons["trading"].rec.x+3, self.buttons["trading"].rec.y+12), 12, 0, pr.BLACK)
 
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
+        pr.draw_rectangle_lines_ex(self.log_box, 1, pr.BLACK)
+
+
 
         # pr.draw_text_ex(pr.gui_get_font(), "1 - ore\n2 - wheat\n3 - sheep\n4 - wood\n5 - brick", (self.screen_width/1.6, 15), 12, 0, pr.BLACK)
 
