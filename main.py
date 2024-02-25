@@ -1810,6 +1810,44 @@ class ClientState:
                     break
 
 
+
+        if self.mode == "roll_dice":
+            if self.name != self.current_player_name:
+                self.buttons["roll_dice"].hover = False
+                return
+            # selecting action using keyboard
+            if user_input == pr.KeyboardKey.KEY_D:
+                return self.client_request_to_dict(action="roll_dice")
+            # selecting with mouse
+            if pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["roll_dice"].rec) and self.name == self.current_player_name:
+                self.buttons["roll_dice"].hover = True
+                if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                    return self.client_request_to_dict(action="roll_dice")
+            else:
+                self.buttons["roll_dice"].hover = False
+            # end if no other input
+            return
+        
+        # button loop - check for hover, then for mouse click
+        for button_object in self.buttons.values():
+            if self.name != self.current_player_name:
+                button_object.hover = False
+            
+            elif self.name == self.current_player_name:
+                if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
+                    if button_object.name == "roll_dice":
+                        continue
+                    button_object.hover = True
+                    if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                        if button_object.mode:
+                            return self.client_request_to_dict(mode=button_object.name)
+                        elif button_object.action:
+                            return self.client_request_to_dict(action=button_object.name)
+                else:
+                    button_object.hover = False
+
+
+
         # selecting cards
         if self.mode == "return_cards":
             if self.client_players[self.name].num_to_discard == 0:
@@ -1840,41 +1878,47 @@ class ClientState:
             return
 
         # adapted from "return_cards" mode actions, maybe will make an arrow keys for incrementing menu function
-        if self.mode == "steal":
+        elif self.mode == "steal":
             return self.client_steal(user_input)
+        
+        elif self.mode == "trade":
+            if pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["trade"].rec):
+                self.buttons["trade"].hover = True
+                if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                    return self.client_request_to_dict(mode=button_object.name)
+
+
+
+            for b_object in self.trade_buttons.values():
+                if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and self.name == self.current_player_name:
+                    b_object.hover = True
+                    break
+                else:
+                    b_object.hover = False
+
+            for b_object in self.trade_buttons.values():
+                if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
+                    if b_object.mode:
+                        return self.client_request_to_dict(mode=button_object.name)
+                    elif button_object.action:
+                        if self.mode == "roll_dice" and button_object.name == "roll_dice":
+                            return self.client_request_to_dict(action="roll_dice")
+                        
+                        return self.client_request_to_dict(action=button_object.name)
+
+
 
             
-        # selecting action using keyboard
-        if user_input == pr.KeyboardKey.KEY_D:
-            return self.client_request_to_dict(action="roll_dice")
 
 
-        elif user_input == pr.KeyboardKey.KEY_C:
+        if user_input == pr.KeyboardKey.KEY_C:
             return self.client_request_to_dict(action="end_turn")
 
-        
 
-        # first button loop - for mouse hover
-        for button_object in self.buttons.values():
-            if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec) and self.name == self.current_player_name:
-                # special cases for roll_dice, end_turn - only allow roll_dice
-                if self.mode == "roll_dice":
-                    if button_object.name == "roll_dice":
-                        
-                        button_object.hover = True
-                    else:
-                        button_object.hover = False
-                elif self.mode != "roll_dice":
-                    if button_object.name == "roll_dice":
-                        button_object.hover = False
-                    else:
-                        button_object.hover = True
-            else:
-                button_object.hover = False
 
 
         # selecting actions with mouse click
-        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+        elif user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             # checking board selections for building town, road, moving robber
             if self.current_hex_3 and self.mode == "build_settlement":
                 return self.client_request_to_dict(action="build_settlement")
@@ -1888,16 +1932,13 @@ class ClientState:
             elif self.current_hex and self.mode == "move_robber":
                 return self.client_request_to_dict(action="move_robber")
 
-            # 2nd button loop - could prob combine with 1st button loop...
-            for button_object in self.buttons.values():
-                if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
-                    if button_object.mode:
-                        return self.client_request_to_dict(mode=button_object.name)
-                    elif button_object.action:
-                        if self.mode == "roll_dice" and button_object.name == "roll_dice":
-                            return self.client_request_to_dict(action="roll_dice")
-                        
-                        return self.client_request_to_dict(action=button_object.name)
+            # # 2nd button loop - could prob combine with 1st button loop...
+            # for button_object in self.buttons.values():
+            #     if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
+            #         if button_object.mode:
+            #             return self.client_request_to_dict(mode=button_object.name)
+            #         elif button_object.action:
+            #             return self.client_request_to_dict(action=button_object.name)
 
         if self.combined == True:
             self.name = self.current_player_name
