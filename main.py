@@ -921,6 +921,7 @@ class ServerState:
         self.players[from_player].hand[chosen_card] -= 1
         self.players[to_player].hand[chosen_card] += 1
         self.send_broadcast("log", f"{to_player} stole a card from {from_player}")
+        self.send_to_player(to_player, "log", f"Received {chosen_card} from {from_player}")
         # reset mode and steal list
         self.mode = None
         self.to_steal_from = []
@@ -1451,8 +1452,8 @@ class ClientState:
         self.dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
 
         # for trade
-        self.cards_to_request = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.cards_to_offer = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        self.cards_to_request = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
 
 
         # for return_cards
@@ -1491,9 +1492,10 @@ class ClientState:
         infobox_y = self.screen_height-infobox_h-10*offset
         self.info_box = pr.Rectangle(infobox_x, infobox_y, infobox_w, infobox_h)
 
+        self.trade_buttons = {}
         for i, resource in enumerate(self.resource_cards):
-            self.buttons[f"request_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+offset, infobox_w//6, infobox_h/8), f"request_{resource}", resource, rf.game_color_dict[resource_to_terrain[resource]], action=True)
-            self.buttons[f"offer_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+infobox_h-2.7*offset, infobox_w//6, infobox_h/8), f"offer_{resource}", resource, rf.game_color_dict[resource_to_terrain[resource]], action=True)
+            self.trade_buttons[f"request_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+infobox_h-2.7*offset, infobox_w//6, infobox_h/8), f"request_{resource}", resource, rf.game_color_dict[resource_to_terrain[resource]], action=True)
+            self.trade_buttons[f"offer_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+offset, infobox_w//6, infobox_h/8), f"offer_{resource}", resource, rf.game_color_dict[resource_to_terrain[resource]], action=True)
 
 
         # log
@@ -1645,6 +1647,24 @@ class ClientState:
         client_request["selected_player"] = player
 
         return client_request
+
+    def client_steal(self, user_input):
+        # TODO keys sometimes move selection in 'wrong' direction because display_order different from player_order
+        if user_input == pr.KeyboardKey.KEY_UP or user_input == pr.KeyboardKey.KEY_LEFT:
+            self.player_index -= 1
+            if 0 > self.player_index:
+                self.player_index += len(self.to_steal_from)
+        elif user_input == pr.KeyboardKey.KEY_DOWN or user_input == pr.KeyboardKey.KEY_RIGHT:
+            self.player_index += 1
+            if self.player_index >= len(self.to_steal_from):
+                self.player_index -= len(self.to_steal_from)
+
+        # selected enough cards to return, can submit to server
+        if user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
+            return self.client_request_to_dict(action="submit", player=self.to_steal_from[self.player_index])
+        
+        # end function with no client_request if nothing is submitted
+        return
 
 
 
@@ -1821,31 +1841,20 @@ class ClientState:
 
         # adapted from "return_cards" mode actions, maybe will make an arrow keys for incrementing menu function
         if self.mode == "steal":
-            if self.player_index > 0 and (user_input == pr.KeyboardKey.KEY_UP or user_input == pr.KeyboardKey.KEY_LEFT):
-                self.player_index -= 1
-            elif self.player_index < len(self.to_steal_from)-1 and (user_input == pr.KeyboardKey.KEY_DOWN or user_input == pr.KeyboardKey.KEY_RIGHT):
-                self.player_index += 1
+            return self.client_steal(user_input)
 
-            # selected enough cards to return, can submit to server
-            if user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
-                return self.client_request_to_dict(action="submit", player=self.to_steal_from[self.player_index])
-            
-            # end function with no client_request if nothing is submitted
-            return
-
-        if self.mode == "trade":
-            pass
             
         # selecting action using keyboard
         if user_input == pr.KeyboardKey.KEY_D:
             return self.client_request_to_dict(action="roll_dice")
+
 
         elif user_input == pr.KeyboardKey.KEY_C:
             return self.client_request_to_dict(action="end_turn")
 
         
 
-        # first button loop - defining button highlight if mouse is over it
+        # first button loop - for mouse hover
         for button_object in self.buttons.values():
             if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec) and self.name == self.current_player_name:
                 # special cases for roll_dice, end_turn - only allow roll_dice
@@ -1989,28 +1998,13 @@ class ClientState:
 
             # or add players as they connect to server
             elif len(self.player_order) > len(self.client_players):
-                print(self.player_order)
                 self_order = self.player_order.index(self.name)
                 for i in range(len(self.player_order)):
-                    new_order = self_order
-                    new_order += i
+                    new_order = self_order + i
                     new_order %= len(self.player_order)
                     self.client_initialize_player(name=self.player_order[new_order], display_order=i)
 
-                # print(order_to_add)
-                # for n in order_to_add:
-                    # self.client_initialize_player(name=self.player_order[n], display_order=i)
-
-                    
-                # for i in range(self_order, len(self.player_order)+self_order):
-                #     i += self_order
-                #     i %= len(self.player_order)
-                #     print(self.player_order[i], i)
-                #     self.client_initialize_player(name=self.player_order[i], display_order=i)
-
-
             # UNPACK WITH PLAYER ORDER SINCE NAMES WERE REMOVED TO SAVE BYTES IN SERVER_RESPONSE
-
             # unpack hands, dev_cards, victory points
             for order, name in enumerate(self.player_order):
                 if len(server_response["num_to_discard"]) > 0:
@@ -2142,9 +2136,10 @@ class ClientState:
         # draw info_box
         pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
         pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
-        # if self.mode == "trade":
-        pr.draw_line_ex((self.info_box.x, self.info_box.y+self.info_box.height/2), (self.info_box.x+self.info_box.width, self.info_box.y+self.info_box.height/2), 1, pr.BLACK)
-        pr.draw_text_ex(pr.gui_get_font(), " Select cards you want", (self.info_box.x, self.info_box.y), self.med_text_default, 0, pr.BLACK)
+        if self.mode == "trade":
+            pr.draw_line_ex((self.info_box.x, self.info_box.y+self.info_box.height/2), (self.info_box.x+self.info_box.width, self.info_box.y+self.info_box.height/2), 1, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), " Cards to receive", (self.info_box.x, self.info_box.y), self.med_text_default, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (self.info_box.x, self.info_box.y+self.info_box.height-self.med_text_default*1.1), self.med_text_default, 0, pr.BLACK)
 
         # draw log_box and log
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
