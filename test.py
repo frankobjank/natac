@@ -213,8 +213,17 @@ def test():
     pr.close_window()
 
 # test()
-tb = ["341"]
+
+order = [0, 1, 2, 3]
+self_order = 3
+new_order = []
+
+for n in range(len(order)):
+    n += self_order
+    n %= len(order)
+    print(n)
+    # new_order.append(order[n+1%3])
+# print(new_order)
 
 
-print(f"not enough {', '.join(tb)} for that")
-
+# 76/17 = 4.5, 76/12 = 6.3, 76/7 = 10.8

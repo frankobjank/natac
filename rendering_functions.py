@@ -15,14 +15,14 @@ game_color_dict = {
     # other pieces
     "robber": pr.BLACK,
     # buttons
-    "move_robber": pr.RAYWHITE,
-    "build_road": pr.RAYWHITE,
-    "build_town": pr.RAYWHITE,
-    "build_city": pr.RAYWHITE,
-    "build_settlement": pr.RAYWHITE,
-    "trading": pr.RAYWHITE,
-    "roll_dice": pr.RAYWHITE,
-    "end_turn": pr.RAYWHITE,
+    # "move_robber": pr.RAYWHITE,
+    # "build_road": pr.RAYWHITE,
+    # "build_town": pr.RAYWHITE,
+    # "build_city": pr.RAYWHITE,
+    # "build_settlement": pr.RAYWHITE,
+    # "trade": pr.RAYWHITE,
+    # "roll_dice": pr.RAYWHITE,
+    # "end_turn": pr.RAYWHITE,
 
     # menus
     "options_link": pr.DARKGRAY,
@@ -216,7 +216,7 @@ def draw_hands(c_state, player_name, player_object):
     x_offset = c_state.screen_width//20
     size = c_state.screen_width//85
     if c_state.name == player_name:
-        if c_state.mode == "return_cards" and player_object.cards_to_return > 0:
+        if c_state.mode == "return_cards" and player_object.num_to_discard > 0:
             for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
                 # if current card_index, draw in red
                 if i == c_state.card_index:
@@ -225,8 +225,9 @@ def draw_hands(c_state, player_name, player_object):
                 else:
                     draw_return_cards(c_state, player_object, card_type, num_cards, i, x_offset, size, pr.BLACK)
 
-        elif c_state.mode == "trading":
-            pass
+        # overlay for trading -- could be the same as return cards tho
+        # elif c_state.mode == "trade":
+            # pass
 
         else:
             for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
