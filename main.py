@@ -1353,6 +1353,7 @@ class Button:
         if len(self.display)>5:
             font_scaler += len(self.display) - 5
         self.font_size = self.rec.height/(3.5 + 1/4*font_scaler)
+        self.selected = False
         
 
 
@@ -1908,8 +1909,6 @@ class ClientState:
                 if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                     return self.client_request_to_dict(mode="trade")
 
-
-
             for b_object in self.trade_buttons.values():
                 if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and self.name == self.current_player_name:
                     b_object.hover = True
@@ -1918,6 +1917,29 @@ class ClientState:
                             self.selected_cards[b_object.display] -= 1
                         elif "request" in b_object.name:
                             self.selected_cards[b_object.display] += 1
+                else:
+                    b_object.hover = False
+
+
+
+        elif self.mode == "bank_trade":
+            if pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["bank_trade"].rec):
+                self.buttons["bank_trade"].hover = True
+                if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                    return self.client_request_to_dict(mode="bank_trade")
+
+            for b_object in self.trade_buttons.values():
+                if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and self.name == self.current_player_name:
+                    b_object.hover = True
+                    if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                        if "offer" in b_object.name:
+                            self.selected_cards[b_object.display] = -self.client_players[self.name].ratios[b_object.display]
+                        elif "request" in b_object.name:
+                            if 0 > sum(self.selected_cards.values()):
+                                self.selected_cards[b_object.display] = 1
+
+                            else:
+                                self.selected_cards[b_object.display] = 1
                 else:
                     b_object.hover = False
         print(self.selected_cards)
@@ -2065,12 +2087,12 @@ class ClientState:
 
             # assign ports to self under .ratios
             if "three" in server_response["ports"]:
-                self.client_players[self.name].ratios = {resource: "3:1" for resource in self.resource_cards}
+                self.client_players[self.name].ratios = {resource: 3 for resource in self.resource_cards}
             else:
-                self.client_players[self.name].ratios = {resource: "4:1" for resource in self.resource_cards}
+                self.client_players[self.name].ratios = {resource: 4 for resource in self.resource_cards}
             for resource in self.resource_cards:
                 if resource in server_response["ports"]:
-                    self.client_players[self.name].ratios[resource] = "2:1"
+                    self.client_players[self.name].ratios[resource] = 2
 
 
             # UNPACK WITH PLAYER ORDER SINCE NAMES WERE REMOVED TO SAVE BYTES IN SERVER_RESPONSE

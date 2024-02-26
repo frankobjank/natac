@@ -276,7 +276,7 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, ratio
 
 
         elif "offer" in button_object.name:
-            pr.draw_text_ex(pr.gui_get_font(), ratios[button_object.display], (button_object.rec.x+button_object.rec.width//2-(3*button_object.font_size/1.4)//2, button_object.rec.y+button_object.rec.height*1/6), button_object.font_size, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f"{ratios[button_object.display]}:1", (button_object.rec.x+button_object.rec.width//2-(3*button_object.font_size/1.4)//2, button_object.rec.y+button_object.rec.height*1/6), button_object.font_size, 0, pr.BLACK)
 
             # draw resource below ratio
             pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*button_object.font_size/1.4)//2, button_object.rec.y+button_object.rec.height*2/3), button_object.font_size, 0, pr.BLACK)
