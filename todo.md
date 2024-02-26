@@ -113,3 +113,14 @@ player can put together offer, and announce what they want in return
 semi-related - bigger system changes
 Get test TCP client/server working. Create 2+ clients with Threading
 Use Logging to create a log
+
+
+
+
+things to add to info_box:
+    put player selection for stealing at mode "steal"
+    put card selection for discarding at mode "discard_cards"
+
+to add to hand UI:
+    when selecting something to trade away or discard, show -> minus cards
+        when gaining a card, show -> add cards
