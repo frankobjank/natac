@@ -650,9 +650,7 @@ class Player:
         self.name = name
         self.order = order
         # self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        # self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 3}
-        # ITSOVER9000
-        self.hand = {"ore": 9, "wheat": 9, "sheep": 9, "wood": 9, "brick": 9}
+        self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 3}
         self.num_to_discard = 0
         self.trade_offer = {}
         self.dev_cards = {"knight": 0, "victory_point": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0}
@@ -732,6 +730,8 @@ class ServerState:
         self.turn_num = 0
         self.dice_rolls = 0
         self.mode = None
+
+        self.ITSOVER9000 = False
 
 
         self.debug = debug
@@ -986,15 +986,19 @@ class ServerState:
                 for hex in node.hexes:
                     for tile in tiles:
                         if hex == tile.hex and hex != self.board.robber_hex:
-                            # ITSOVER9000
-                            # self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 9
+                            if self.ITSOVER9000:
+                                self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 9
+                                return
                             self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
                             if node.town == "city":
                                 self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
 
 
     def perform_roll(self):
-        self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
+        if self.ITSOVER9000:
+            self.die1, self.die2 = 3, 3
+        else:
+            self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
         self.dice_rolls += 1
         self.mode = None
         self.send_broadcast("log", f"{self.current_player_name} rolled {self.die1 + self.die2}.")
@@ -1132,7 +1136,6 @@ class ServerState:
         if self.turn_num == 0 and len(self.player_order) > 0:
             self.current_player_name = self.player_order[0]
 
-
         # action
         if client_request["action"] == "add_player":
             if self.is_server_full(client_request["name"], address) == True:
@@ -1159,6 +1162,12 @@ class ServerState:
                     self.mode = "move_robber"
 
             return
+        
+        elif client_request["action"] == "ITSOVER9000":
+            self.ITSOVER9000 = True
+            for p_object in self.players.values():
+                p_object.hand = {"ore": 9, "wheat": 9, "sheep": 9, "wood": 9, "brick": 9}
+
     
         if self.mode == "trade":
             pass
@@ -1342,7 +1351,7 @@ class ServerState:
 
 class Button:
     def __init__(self, rec:pr.Rectangle, name:str, display:str, color:pr.Color=pr.RAYWHITE, mode:bool=False, action:bool=False):
-        self.rec = rec 
+        self.rec = rec
         self.name = name
         self.color = color
         self.display = display
@@ -1353,7 +1362,6 @@ class Button:
         if len(self.display)>5:
             font_scaler += len(self.display) - 5
         self.font_size = self.rec.height/(3.5 + 1/4*font_scaler)
-        self.selected = False
         
 
 
@@ -1473,7 +1481,8 @@ class ClientState:
         # for trade
         # self.cards_to_offer = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # self.cards_to_request = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-
+        # self.bank_trade = {"offer": "", "request": ""}
+        self.trade_offer = {"offer": {}, "request": {}, "trade_with": ""}
 
         # for discard_cards
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
@@ -1501,8 +1510,9 @@ class ClientState:
         
         self.buttons = {b_name: Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, b_names_to_displays[b_name], mode=True) for i, b_name in enumerate(b_names_to_displays.keys())}
 
-        # action_button_names = ["end_turn", "roll_dice"]
-        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "end_turn", "End Turn", action=True)
+        # action_button_names = ["end_turn", "submit", "roll_dice"]
+        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(7.5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "end_turn", "End Turn", action=True)
+        self.buttons["submit"] = Button(pr.Rectangle(self.screen_width-(5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "submit", "Submit", color=rf.game_color_dict["submit"], action=True)
         self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "roll_dice", "Roll dice", action=True)
 
         # info_box
@@ -1540,41 +1550,10 @@ class ClientState:
     
     def print_debug(self):
         print(f"selected cards = {self.selected_cards}\nnum_to_discard = {self.client_players[self.name].num_to_discard}")
-
-    def init_buttons(self):
-    #     self.screen_width = pr.get_screen_width()
-    #     self.screen_height = pr.get_screen_height()
-
-    #     screen_w_mult = self.screen_width / self.default_screen_w
-    #     screen_h_mult = self.screen_height / self.default_screen_h
-
-    #     # buttons
-    #     button_division = 17
-    #     button_w = self.screen_width//button_division
-    #     button_h = self.screen_height//button_division
-    #     mode_button_names = ["move_robber", "build_road", "build_city", "build_settlement"]
-    #     self.buttons = {mode_button_names[i]: Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+10), button_h, button_w, button_h), mode_button_names[i], mode=True) for i in range(4)}
-
-    #     # action_button_names = ["end_turn", "roll_dice"]
-    #     self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(5*button_h), 2*button_w, button_h), "end_turn", action=True)
-    #     self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(7*button_h), 2*button_w, button_h), "roll_dice", action=True)
-
-
-    #     # log
-    #     logbox_w = self.screen_width/3
-    #     logbox_h = self.screen_height/7
-    #     offset = 40
-    #     logbox_x = self.screen_width-logbox_w-offset*screen_w_mult
-    #     logbox_y = self.screen_height-logbox_h-offset*screen_h_mult
-    #     self.log_box = pr.Rectangle(logbox_x, logbox_y, logbox_w, logbox_h)
-        
-    #     # self.log_box = pr.Rectangle(self.screen_width-logbox_w-(logbox_offset*screen_w_mult), self.screen_height-logbox_h-(logbox_offset*screen_h_mult), logbox_w, logbox_h)
-        pass
         
 
     def resize_client(self):
         pr.toggle_borderless_windowed()
-        self.init_buttons()
 
 
     # INITIALIZING CLIENT FUNCTIONS   
@@ -1657,7 +1636,7 @@ class ClientState:
         for order, name in enumerate(self.player_order):
             self.client_initialize_player(name, order)
 
-    def client_request_to_dict(self, mode=None, action=None, cards=None, player=None) -> dict:
+    def client_request_to_dict(self, mode=None, action=None, cards=None, player=None, trade_offer=None) -> dict:
         client_request = {"name": self.name}
         client_request["debug"] = self.debug
         client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
@@ -1666,6 +1645,7 @@ class ClientState:
         client_request["action"] = action
         client_request["cards"] = cards
         client_request["selected_player"] = player
+        client_request["trade_offer"] = trade_offer
 
         return client_request
 
@@ -1687,7 +1667,15 @@ class ClientState:
         # end function with no client_request if nothing is submitted
         return
 
-
+    def check_submit(self, user_input):
+        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["submit"].rec):
+            print("submit")
+            return True
+        elif user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
+            print("submit")
+            return True
+        return False
+        
 
     # GAME LOOP FUNCTIONS
     def get_user_input(self):
@@ -1736,6 +1724,9 @@ class ClientState:
         # 0 for print debug
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_ZERO):
             return pr.KeyboardKey.KEY_ZERO
+        # 9 for ITSOVER9000
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_NINE):
+            return pr.KeyboardKey.KEY_NINE
         
         # Ore
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_ONE):
@@ -1756,7 +1747,6 @@ class ClientState:
         # p = pause/options menu
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_P):
             return pr.KeyboardKey.KEY_P
-
         
     def update_client_settings(self, user_input):
         if user_input == pr.KeyboardKey.KEY_F:
@@ -1810,6 +1800,9 @@ class ClientState:
         if user_input == pr.KeyboardKey.KEY_ZERO:
             self.print_debug()
             return self.client_request_to_dict(action="print_debug")
+        if user_input == pr.KeyboardKey.KEY_NINE:
+            print("ITSOVER9000")
+            return self.client_request_to_dict(action="ITSOVER9000")
 
 
         # defining current_hex, current_edge, current_node
@@ -1862,6 +1855,9 @@ class ClientState:
                     button_object.hover = True
                     if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                         if button_object.mode:
+                            if "trade" in button_object.name:
+                                self.trade_offer["offer"] = {}
+                                self.trade_offer["request"] = {}
                             return self.client_request_to_dict(mode=button_object.name)
                         elif button_object.action:
                             return self.client_request_to_dict(action=button_object.name)
@@ -1869,7 +1865,7 @@ class ClientState:
                     button_object.hover = False
 
 
-
+        
         # selecting cards
         if self.mode == "discard":
             if self.client_players[self.name].num_to_discard == 0:
@@ -1890,7 +1886,7 @@ class ClientState:
                     self.selected_cards[self.resource_cards[self.card_index]] -= 1
 
             # selected enough cards to return, can submit to server
-            if user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
+            if self.check_submit(user_input):
                 if self.client_players[self.name].num_to_discard == sum(self.selected_cards.values()):
                     return self.client_request_to_dict(action="submit", cards=self.selected_cards)
                 else:
@@ -1920,29 +1916,47 @@ class ClientState:
                 else:
                     b_object.hover = False
 
-
-
         elif self.mode == "bank_trade":
+            # toggle bank_trade
             if pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["bank_trade"].rec):
                 self.buttons["bank_trade"].hover = True
                 if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                     return self.client_request_to_dict(mode="bank_trade")
+            
+            # submit with enter, space, or submit button
+            if self.check_submit(user_input):
+                if len(self.trade_offer["offer"]) > 0 and len(self.trade_offer["request"]) > 0:
+                    self.trade_offer["trade_with"] = "bank"
+                    return self.client_request_to_dict(action="submit", trade_offer=self.trade_offer)
 
             for b_object in self.trade_buttons.values():
                 if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and self.name == self.current_player_name:
                     b_object.hover = True
                     if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                         if "offer" in b_object.name:
-                            self.selected_cards[b_object.display] = -self.client_players[self.name].ratios[b_object.display]
-                        elif "request" in b_object.name:
-                            if 0 > sum(self.selected_cards.values()):
-                                self.selected_cards[b_object.display] = 1
+                            # ore selected
+                            # ore clicked - clear dict and stop processing
+                            # wheat clicked - clear dict and keep processing
+                            if b_object.display not in self.trade_offer["offer"].keys():
+                                self.trade_offer["offer"] = {}
+                                if self.client_players[self.name].hand[b_object.display] >= self.client_players[self.name].ratios[b_object.display]:
+                                    self.trade_offer["offer"][b_object.display] = -self.client_players[self.name].ratios[b_object.display]
+                                
+                            elif b_object.display in self.trade_offer["offer"].keys():
+                                self.trade_offer["offer"] = {}
+                                return
 
-                            else:
-                                self.selected_cards[b_object.display] = 1
+                        elif "request" in b_object.name:
+                            if b_object.display not in self.trade_offer["request"].keys():
+                                self.trade_offer["request"] = {}
+                                self.trade_offer["request"][b_object.display] = 1
+                            elif b_object.display in self.trade_offer["request"].keys():
+                                self.trade_offer["request"] = {}
+                                return
                 else:
                     b_object.hover = False
-        print(self.selected_cards)
+
+            print(self.trade_offer)
 
 
 
@@ -2228,13 +2242,13 @@ class ClientState:
         pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
         pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
         if self.mode == "trade":
-            rf.draw_trade_interface(self.trade_buttons, self.info_box, self.med_text_default, self.selected_cards)
+            rf.draw_trade_interface(self.trade_buttons, self.info_box, self.med_text_default, self.selected_cards, self.trade_offer)
         
         elif self.mode == "bank_trade":
-            rf.draw_banktrade_interface(self.trade_buttons, self.info_box, self.med_text_default, self.selected_cards, self.client_players[self.name].ratios)
+            rf.draw_banktrade_interface(self.trade_buttons, self.info_box, self.med_text_default, self.selected_cards, self.trade_offer, self.client_players[self.name].ratios)
 
         elif self.mode == "move_robber" and self.name == self.current_player_name:
-            pr.draw_text_ex(pr.gui_get_font(), " You must move the robber.\n Select a hex on the board.", (self.info_box.x, self.info_box.y+self.info_box.height/2-self.med_text_default*1.1), self.med_text_default*.9, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), " You must move the robber.\n Please select a land hex.", (self.info_box.x, self.info_box.y+self.info_box.height/2-self.med_text_default*1.1), self.med_text_default*.9, 0, pr.BLACK)
 
 
         # draw log_box and log
@@ -2268,7 +2282,9 @@ class ClientState:
             # draw line between dice
             pr.draw_line_ex((int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y)), (int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y+self.buttons["roll_dice"].rec.height)), 2, pr.BLACK)
 
-        pr.draw_text_ex(pr.gui_get_font(), "End Turn", (((self.buttons["end_turn"].rec.x + (self.buttons["end_turn"].rec.width//2-40)//2)), (self.buttons["end_turn"].rec.y + (self.buttons["end_turn"].rec.height-22)//2)), 18, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), "End Turn", (((self.buttons["end_turn"].rec.x + (self.buttons["end_turn"].rec.width//2-40)//2)), (self.buttons["end_turn"].rec.y + (self.buttons["end_turn"].rec.height-22)//2)), self.med_text_default, 0, pr.BLACK)
+        
+        # pr.draw_text_ex(pr.gui_get_font(), "Submit", (((self.buttons["submit"].rec.x + (self.buttons["submit"].rec.width//2-40)//2)), (self.buttons["submit"].rec.y + (self.buttons["submit"].rec.height-22)//2)), self.med_text_default, 0, pr.BLACK)
         
 
 

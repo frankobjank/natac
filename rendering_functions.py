@@ -15,6 +15,10 @@ game_color_dict = {
     # other pieces
     "robber": pr.BLACK,
 
+    # buttons
+    "submit": pr.Color(40, 175, 0, 255), # GREEN
+    # "cancel": pr.RED,
+
     # put terrain + tile colors here
     "mountain": pr.get_color(0x7b6f83ff),
     "forest": pr.get_color(0x517d19ff),
@@ -234,7 +238,7 @@ def draw_button_outline(button_object):
     pr.draw_rectangle_lines_ex(outer_rec, 5, pr.BLACK)
 
 
-def draw_trade_interface(buttons, info_box, font_size, selected_cards):
+def draw_trade_interface(buttons, info_box, font_size, selected_cards, trade_offer):
     pr.draw_line_ex((info_box.x, info_box.y+info_box.height/2), (info_box.x+info_box.width, info_box.y+info_box.height/2), 1, pr.BLACK)
     pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (info_box.x, info_box.y), font_size, 0, pr.BLACK)
     pr.draw_text_ex(pr.gui_get_font(), " Cards to receive", (info_box.x, info_box.y+info_box.height-font_size*1.1), font_size, 0, pr.BLACK)
@@ -255,7 +259,7 @@ def draw_trade_interface(buttons, info_box, font_size, selected_cards):
             draw_button_outline(button_object)
             break
 
-def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, ratios):
+def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, trade_offer, ratios):
     pr.draw_line_ex((info_box.x, info_box.y+info_box.height/2), (info_box.x+info_box.width, info_box.y+info_box.height/2), 1, pr.BLACK)
     pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (info_box.x, info_box.y), font_size, 0, pr.BLACK)
     pr.draw_text_ex(pr.gui_get_font(), " Cards to receive", (info_box.x, info_box.y+info_box.height-font_size*1.1), font_size, 0, pr.BLACK)
@@ -266,13 +270,10 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, ratio
         if "request" in button_object.name:
             pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*button_object.font_size/1.4)//2, button_object.rec.y+14), button_object.font_size, 0, pr.BLACK)
             
-            if selected_cards[button_object.display] > 0:
+            if button_object.display in trade_offer["request"]:
                 draw_button_outline(button_object)
-            else:
-                for button_object in buttons.values():
-                    if button_object.hover:
-                        draw_button_outline(button_object)
-                        break
+            if button_object.hover:
+                draw_button_outline(button_object)
 
 
         elif "offer" in button_object.name:
@@ -281,13 +282,11 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, ratio
             # draw resource below ratio
             pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*button_object.font_size/1.4)//2, button_object.rec.y+button_object.rec.height*2/3), button_object.font_size, 0, pr.BLACK)
         
-            if 0 > selected_cards[button_object.display]:
+            if button_object.display in trade_offer["offer"]:
                 draw_button_outline(button_object)
-            else:
-                for button_object in buttons.values():
-                    if button_object.hover:
-                        draw_button_outline(button_object)
-                        break
+
+            if button_object.hover:
+                draw_button_outline(button_object)
 
 
         
