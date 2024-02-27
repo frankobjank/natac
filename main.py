@@ -382,7 +382,7 @@ class Board:
         # if desert, skip token
         terrain_list = []
         terrain_counts = {"mountain": 4, "field": 4,  "pasture": 3, "forest": 4,  "hill": 3, "desert": 1}
-        tiles_for_random = terrain_counts.keys()
+        tiles_for_random = [k for k in terrain_counts.keys()]
         while len(terrain_list) < 19:
             for i in range(19):
                 rand_tile = tiles_for_random[random.randrange(6)]
@@ -390,17 +390,40 @@ class Board:
                     terrain_list.append(rand_tile)
                     terrain_counts[rand_tile] -= 1
         return terrain_list
+    
+    def randomize_tokens(self, terrain_list):
+        # totally randomized, not following the "correct" order
+        randomized_tokens = []
+        default_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, 3, 8, 8, 3, 4, 5, 5, 6, 11]
+        # use list of defaults without None for desert
+        for i in range(18):
+            randomized_tokens.append(default_tokens.pop(random.randint(0, len(default_tokens))))
+        # afterwards add None for the desert
+        randomized_tokens.insert(terrain_list.index("desert"), None)
+        return randomized_tokens
+
+
 
     def get_random_ports(self):
         ports_list = []
         port_counts = {"three": 4, "ore": 1, "wood": 1, "wheat": 1, "brick": 1, "sheep": 1}
-        tiles_for_random = port_counts.keys()
+        tiles_for_random = [k for k in port_counts.keys()]
         while len(ports_list) < 9:
             for i in range(9):
                 rand_tile = tiles_for_random[random.randrange(6)]
                 if port_counts[rand_tile] > 0:
                     ports_list.append(rand_tile)
                     port_counts[rand_tile] -= 1
+        # padding with None to make same as the default set
+        ports_list.insert(1, None)
+        ports_list.insert(3, None)
+        ports_list.insert(3, None)
+        ports_list.insert(7, None)
+        ports_list.insert(7, None)
+        ports_list.insert(11, None)
+        ports_list.insert(11, None)
+        ports_list.insert(15, None)
+        ports_list.append(None)
         return ports_list
     
     def get_port_to_nodes(self, ports):
@@ -413,14 +436,39 @@ class Board:
 
 
     def randomize_tiles(self):
-        terrain_tiles = self.get_random_terrain()
-        ports = self.get_random_ports()
-        ports_to_nodes = self.get_port_to_nodes(ports)
-        return terrain_tiles, ports, ports_to_nodes
+        terrains = self.get_random_terrain()
+        tokens = self.randomize_tokens(terrains)
+        ports_ordered = self.get_random_ports()
+        ports_to_nodes = self.get_port_to_nodes(ports_ordered)
+        return terrains, tokens, ports_ordered, ports_to_nodes
+    
+    def set_default_tiles(self):
+        terrains = [
+            "mountain", "pasture", "forest",
+            "field", "hill", "pasture", "hill",
+            "field", "forest", "desert", "forest", "mountain",
+            "forest", "mountain", "field", "pasture",
+            "hill", "field", "pasture"
+        ]
+                # this is default order, can make to be randomized too
+        tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
+        ports_ordered = [
+            "three", None, "wheat", None, 
+            None, "ore",
+            "wood", None,
+            None, "three",
+            "brick", None,
+            None, "sheep", 
+            "three", None, "three", None
+        ]
+        ports_to_nodes = ["three", "three", "wheat", "wheat", "ore", "ore", "wood", "wood", "three", "three", "brick", "brick", "sheep", "sheep", "three", "three", "three", "three"]
+        return terrains, tokens, ports_ordered, ports_to_nodes
+
 
     def initialize_board(self):
         # comment/uncomment for random vs default
-        # terrain_tiles, ports, ports_to_nodes = self.randomize_tiles()
+        # self.terrains, self.tokens, self.ports_ordered, ports_to_nodes = self.randomize_tiles()
+        self.terrains, self.tokens, self.ports_ordered, ports_to_nodes = self.set_default_tiles()
 
         self.land_hexes = [
             hh.set_hex(0, -2, 2),
@@ -473,19 +521,6 @@ class Board:
             hh.set_hex(-1, 3, -2), # port
             hh.set_hex(0, 3, -3)]
 
-
-        # default terrains
-        self.terrains = ["mountain", "pasture", "forest",
-                            "field", "hill", "pasture", "hill",
-                            "field", "forest", "desert", "forest", "mountain",
-                            "forest", "mountain", "field", "pasture",
-                            "hill", "field", "pasture"
-                            ]
-
-        # this is default order, can make to be randomized too
-        self.tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
-
-
         self.port_corners = [
             (5, 0), None, (4, 5), None,
             None, (4, 5),
@@ -496,22 +531,6 @@ class Board:
             (2, 1), None, (2, 3), None
         ]
         
-        self.ports_ordered = [
-            "three", None, "wheat", None, 
-            None, "ore",
-            "wood", None,
-            None, "three",
-            "brick", None,
-            None, "sheep", 
-            "three", None, "three", None
-        ]
-        
-
-        # can be generalized by iterating over ports and repeating if not None 
-        ports_to_nodes = ["three", "three", "wheat", "wheat", "ore", "ore", "wood", "wood", "three", "three", "brick", "brick", "sheep", "sheep", "three", "three", "three", "three"]
-
-
-
         port_node_hexes = [
             sort_hexes((hh.set_hex(-1, -2, 3), hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2))),
             sort_hexes((hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2), hh.set_hex(1, -3, 2))),
@@ -868,7 +887,23 @@ class ServerState:
         self.pay_for("road")
 
     def buy_dev_card(self):
+        dev_card_deck = []
         # add random dev card to hand
+        # self.dev_card_deck = {"knight": 14, "victory_point": 5, "road_building": 2, "year_of_plenty": 2, "monopoly": 2}
+        
+        cards_left = sum(self.dev_card_deck.values())
+        if cards_left == 0:
+            self.send_to_player(self.current_player_name, "log", "No dev cards remaining.")
+            return
+        
+        card_index = random.randint(1, cards_left)
+        # running_index = 1
+        # selected_card = None
+        # for name, num in self.dev_card_deck.items():
+        #     if card_index > num:
+                
+
+
         self.pay_for("dev_card")
         
     def pay_for(self, item):
@@ -1206,6 +1241,7 @@ class ServerState:
         # toggle mode if the same kind, else change server mode to match client mode
         if self.turn_num >= 0 and self.mode != "roll_dice":
             # check build_costs to determine if mode is valid
+            # can turn this into loop and cut off "build_" when present, doesn't apply to dev_cards anyway
             if client_request["mode"] == "build_road":
                 if not self.cost_check("road"):
                     self.mode = None
@@ -1857,6 +1893,7 @@ class ClientState:
             # end if no other input
             return
         
+
         # button loop - check for hover, then for mouse click
         for button_object in self.buttons.values():
             # if not current player, no hover or selecting buttons
@@ -1972,13 +2009,8 @@ class ClientState:
                                 return
                 else:
                     b_object.hover = False
-            # current bug - allows multiple submissions
-            print(self.trade_offer)
 
 
-
-
-            
 
 
         if user_input == pr.KeyboardKey.KEY_C:

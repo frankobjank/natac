@@ -2,10 +2,11 @@ import pyray as pr
 import hex_helper as hh
 import rendering_functions as rf
 from operator import itemgetter, attrgetter
-# import random
+import random
 import math
 import time
 import json
+import collections
 
 
 def offset(lst, offset):
@@ -214,16 +215,21 @@ def test():
 
 # test()
 
-order = [0, 1, 2, 3]
-self_order = 3
-new_order = []
-
-for n in range(len(order)):
-    n += self_order
-    n %= len(order)
-    print(n)
-    # new_order.append(order[n+1%3])
-# print(new_order)
 
 
-# 76/17 = 4.5, 76/12 = 6.3, 76/7 = 10.8
+dev_card_deck = []
+# add random dev card to hand
+dev_card_counts = {"knight": 14, "victory_point": 5, "road_building": 2, "year_of_plenty": 2, "monopoly": 2}
+
+
+# if desert, skip token
+# dev_card_deck = []
+# dev_card_counts = {"knight": 14, "victory_point": 5, "road_building": 2, "year_of_plenty": 2, "monopoly": 2}
+# dev_card_types = [k for k in dev_card_counts.keys()]
+# while len(dev_card_deck) < 25:
+#     for i in range(25):
+#         rand_card = dev_card_types[random.randrange(5)]
+#         if dev_card_counts[rand_card] > 0:
+#             dev_card_deck.append(rand_card)
+#             dev_card_counts[rand_card] -= 1
+# return dev_card_deck
