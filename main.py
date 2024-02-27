@@ -362,9 +362,6 @@ class Node:
         print("no conflicts, building city")
         return True
 
-
-
-
 class Board:
     def __init__(self):
         self.land_hexes = []
@@ -379,14 +376,6 @@ class Board:
         self.nodes = []
         self.robber_hex = None
 
-        # 25 development cards: 14 knight cards, 5 victory point cards, 2 road building, 2 year of plenty, and 2 monopoly
-        self.dev_cards = {
-            "knight": 14,
-            "victory_point": 5,
-            "road_building": 2, 
-            "year_of_plenty": 2, 
-            "monopoly": 2, 
-        }
 
     # 4 ore, 4 wheat, 3 sheep, 4 wood, 3 brick, 1 desert
     def get_random_terrain(self):
@@ -712,7 +701,10 @@ class ServerState:
         self.hover = False # perform checks on server and pass back to client for rendering
 
         self.resource_cards = ["ore", "wheat", "sheep", "wood", "brick"]
-        self.dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
+        # self.dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
+        # 25 development cards: 14 knight cards, 5 victory point cards, 2 road building, 2 year of plenty, and 2 monopoly
+        self.dev_card_deck = {"knight": 14, "victory_point": 5, "road_building": 2, "year_of_plenty": 2, "monopoly": 2}
+
 
         # PLAYERS
         self.players = {} # {player_name: player_object}
@@ -798,7 +790,7 @@ class ServerState:
                 self.players[name].address = address
                 self.send_broadcast("log", f"Player {name} is reconnecting.")
             else:
-                print("player already added; redundant call")
+                # print("player already added; redundant call")
                 return
 
         elif not name in self.players:
@@ -1150,7 +1142,7 @@ class ServerState:
         
 
         # receive input from non-current player for testing discard_cards
-        elif client_request["action"] == "submit" and self.mode == "discard":
+        elif client_request["action"] == "submit" and self.mode == "discard" and client_request["cards"] != None:
             if sum(client_request["cards"].values()) == self.players[client_request["name"]].num_to_discard:
                 self.players[client_request["name"]].num_to_discard = 0
                 for card_type in self.resource_cards:
@@ -1177,14 +1169,30 @@ class ServerState:
         # only time input from other players would be needed is for trades and returning cards when 7 is rolled
         if client_request["name"] != self.current_player_name:
             return
-        
+
+        # trade_offer = {"offer": {"ore": -4}, "request": {"wheat": 1}, "trade_with": ""}
         if self.mode == "bank_trade":
-            if client_request["action"] == "submit":
-                # client_request[""]
-                pass
+            if client_request["action"] == "submit" and client_request["trade_offer"] != None:
+                # have to get resources out of string
+                resource_offer = ""
+                resource_request = ""
+                for r in self.resource_cards:
+                    if r in client_request["trade_offer"]["offer"].keys():
+                        resource_offer += r
+                    if r in client_request["trade_offer"]["request"].keys():
+                        resource_request += r
+                # check if player has enough to trade
+                if self.players[client_request["name"]].hand[resource_offer] + client_request["trade_offer"]["offer"][resource_offer] >= 0:
+                    self.players[client_request["name"]].hand[resource_offer] += client_request["trade_offer"]["offer"][resource_offer]
+                    self.players[client_request["name"]].hand[resource_request] += client_request["trade_offer"]["request"][resource_request]
+
+                self.send_to_player(client_request["name"], "accept", "bank_trade")
+
+                
+                
         
         if self.mode == "steal":
-            if client_request["action"] == "submit":
+            if client_request["action"] == "submit" and client_request["selected_player"] != None:
                 self.steal_card(client_request["selected_player"], self.current_player_name)
             return
         
@@ -1449,7 +1457,7 @@ class ClientState:
         # frames for rendering (set to 60 FPS in main())
         self.frame = 0
         # 2nd frame counter to keep track of when animations should start/ end
-        self.frame_start = 0
+        self.frame_2 = 0
 
         # PLAYERS - undecided if a Player class is needed for client
         self.client_players = {} # use ClientPlayer class
@@ -1506,7 +1514,7 @@ class ClientState:
         button_w = self.screen_width//button_division
         button_h = self.screen_height//button_division
 
-        b_names_to_displays = {"move_robber": "Robber", "build_road": "Road", "build_city": "City", "build_settlement": "Settle", "trade": "Trade", "bank_trade": "Bank Trade"}
+        b_names_to_displays = {"build_road": "Road", "build_city": "City", "build_settlement": "Settle", "trade": "Trade", "bank_trade": "Bank Trade", "dev_card": "Dev Card"} #"move_robber": "Robber", 
         
         self.buttons = {b_name: Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, b_names_to_displays[b_name], mode=True) for i, b_name in enumerate(b_names_to_displays.keys())}
 
@@ -1795,6 +1803,9 @@ class ClientState:
         self.current_hex_2 = None
         self.current_hex_3 = None
 
+        # TODO organize this better - band-aid for end_turn bug
+        if self.name != self.current_player_name:
+            self.buttons["end_turn"].hover = False
 
         # tells server and self to print debug
         if user_input == pr.KeyboardKey.KEY_ZERO:
@@ -1826,7 +1837,10 @@ class ClientState:
 
 
 
+
+
         if self.mode == "roll_dice":
+            # make all buttons.hover False for non-current player
             if self.name != self.current_player_name:
                 self.buttons["roll_dice"].hover = False
                 return
@@ -1845,6 +1859,7 @@ class ClientState:
         
         # button loop - check for hover, then for mouse click
         for button_object in self.buttons.values():
+            # if not current player, no hover or selecting buttons
             if self.name != self.current_player_name:
                 button_object.hover = False
             
@@ -1886,7 +1901,7 @@ class ClientState:
                     self.selected_cards[self.resource_cards[self.card_index]] -= 1
 
             # selected enough cards to return, can submit to server
-            if self.check_submit(user_input):
+            if self.check_submit(user_input) == True:
                 if self.client_players[self.name].num_to_discard == sum(self.selected_cards.values()):
                     return self.client_request_to_dict(action="submit", cards=self.selected_cards)
                 else:
@@ -1931,22 +1946,24 @@ class ClientState:
 
             for b_object in self.trade_buttons.values():
                 if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and self.name == self.current_player_name:
-                    b_object.hover = True
-                    if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                        if "offer" in b_object.name:
-                            # ore selected
-                            # ore clicked - clear dict and stop processing
-                            # wheat clicked - clear dict and keep processing
-                            if b_object.display not in self.trade_offer["offer"].keys():
-                                self.trade_offer["offer"] = {}
-                                if self.client_players[self.name].hand[b_object.display] >= self.client_players[self.name].ratios[b_object.display]:
+                    if "offer" in b_object.name and self.client_players[self.name].hand[b_object.display] >= self.client_players[self.name].ratios[b_object.display]:
+                        print(self.client_players[self.name].hand[b_object.display], self.client_players[self.name].ratios[b_object.display])
+                        b_object.hover = True
+                        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                                # ore selected
+                                # ore clicked - clear dict and stop processing
+                                # wheat clicked - clear dict and keep processing
+                                if b_object.display not in self.trade_offer["offer"].keys():
+                                    self.trade_offer["offer"] = {}
                                     self.trade_offer["offer"][b_object.display] = -self.client_players[self.name].ratios[b_object.display]
-                                
-                            elif b_object.display in self.trade_offer["offer"].keys():
-                                self.trade_offer["offer"] = {}
-                                return
+                                    
+                                elif b_object.display in self.trade_offer["offer"].keys():
+                                    self.trade_offer["offer"] = {}
+                                    return
 
-                        elif "request" in b_object.name:
+                    elif "request" in b_object.name:
+                        b_object.hover = True
+                        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                             if b_object.display not in self.trade_offer["request"].keys():
                                 self.trade_offer["request"] = {}
                                 self.trade_offer["request"][b_object.display] = 1
@@ -1955,7 +1972,7 @@ class ClientState:
                                 return
                 else:
                     b_object.hover = False
-
+            # current bug - allows multiple submissions
             print(self.trade_offer)
 
 
@@ -2062,6 +2079,11 @@ class ClientState:
                 self.log_to_display = self.log_msgs[-7:]
             else:
                 self.log_to_display = self.log_msgs
+            return
+        
+        elif server_response["kind"] == "accept":
+            if self.mode == "bank_trade":
+                self.trade_offer = {"offer": {}, "request": {}, "trade_with": ""}
             return
         
         # if self.name in self.client_players:
@@ -2380,12 +2402,13 @@ def run_server():
         # receives msg, updates s_state, then sends message
         try:
             s_state.server_to_client()
-        except Exception as e:
-            print(e)
-            break
+        # except Exception as e:
+            # print(e)
+            # break
         except KeyboardInterrupt:
             break
-
+    s_state.send_broadcast("log", "Server is offline.")
+    print("\nclosing server")
     s_state.socket.close()
 
 

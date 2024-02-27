@@ -128,3 +128,6 @@ to add to hand UI:
 
 submit button not working --- !!!
 end turn button hover sticking
+allow trades to go through with nothing requested, meaning accepting any
+
+when counter offer is recieved, it can go above resources on request side so you can see all counters
