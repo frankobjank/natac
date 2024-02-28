@@ -222,14 +222,15 @@ dev_card_deck = []
 dev_card_counts = {"knight": 14, "victory_point": 5, "road_building": 2, "year_of_plenty": 2, "monopoly": 2}
 
 
-# if desert, skip token
-# dev_card_deck = []
-# dev_card_counts = {"knight": 14, "victory_point": 5, "road_building": 2, "year_of_plenty": 2, "monopoly": 2}
-# dev_card_types = [k for k in dev_card_counts.keys()]
-# while len(dev_card_deck) < 25:
-#     for i in range(25):
-#         rand_card = dev_card_types[random.randrange(5)]
-#         if dev_card_counts[rand_card] > 0:
-#             dev_card_deck.append(rand_card)
-#             dev_card_counts[rand_card] -= 1
-# return dev_card_deck
+
+dev_card_deck = []
+dev_card_counts = {"knight": 14, "victory_point": 5, "road_building": 2, "year_of_plenty": 2, "monopoly": 2}
+dev_card_types = [k for k in dev_card_counts.keys()]
+while len(dev_card_deck) < 25:
+    for i in range(25):
+        rand_card = dev_card_types[random.randrange(5)]
+        if dev_card_counts[rand_card] > 0:
+            dev_card_deck.append(rand_card)
+            dev_card_counts[rand_card] -= 1
+
+print(dev_card_deck[random.randrange(len(dev_card_deck))])

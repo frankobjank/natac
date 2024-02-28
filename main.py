@@ -726,8 +726,8 @@ class ServerState:
 
         self.resource_cards = ["ore", "wheat", "sheep", "wood", "brick"]
         # self.dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
-        # 25 development cards: 14 knight cards, 5 victory point cards, 2 road building, 2 year of plenty, and 2 monopoly
-        self.dev_card_deck = {"knight": 14, "victory_point": 5, "road_building": 2, "year_of_plenty": 2, "monopoly": 2}
+
+        self.dev_card_deck = []
 
 
         # PLAYERS
@@ -747,6 +747,8 @@ class ServerState:
         self.dice_rolls = 0
         self.mode = None
 
+        self.game_over = False
+
         # cheat
         self.ITSOVER9000 = False
 
@@ -755,12 +757,24 @@ class ServerState:
         if self.debug == True:
             random.seed(4)
 
+    def shuffle_dev_cards(self):
+        # adds cards to self.dev_card_deck
+        dev_card_counts = {"knight": 14, "victory_point": 5, "road_building": 2, "year_of_plenty": 2, "monopoly": 2}
+        dev_card_types = [k for k in dev_card_counts.keys()]
+        while len(self.dev_card_deck) < 25:
+            for i in range(25):
+                rand_card = dev_card_types[random.randrange(5)]
+                if dev_card_counts[rand_card] > 0:
+                    self.dev_card_deck.append(rand_card)
+                    dev_card_counts[rand_card] -= 1
     
     def initialize_game(self):
         if self.combined:
             self.initialize_dummy_players("red", "white", "orange", "blue")
         self.board = Board()
         self.board.initialize_board(fixed=True)
+        self.shuffle_dev_cards()
+
     
     # hardcoded players for debug
     def initialize_dummy_players(self, name1=None, name2=None, name3=None, name4=None):
@@ -842,7 +856,7 @@ class ServerState:
     # perform check after building a road
     def get_longest_road(self):
         # need (pathfinding?) algorithm for calculating if roads are connected
-        # IS AFFECTED BY SETTLEMENTS, so longest_road must be recalculated if a settlement is built in the middle
+        # IS EFFECTED BY SETTLEMENTS, so longest_road must be recalculated if a settlement is built in the middle
         pass
 
     # perform check after playing a knight
@@ -893,23 +907,13 @@ class ServerState:
         self.pay_for("road")
 
     def buy_dev_card(self):
-        dev_card_deck = []
         # add random dev card to hand
-        # self.dev_card_deck = {"knight": 14, "victory_point": 5, "road_building": 2, "year_of_plenty": 2, "monopoly": 2}
-        
-        cards_left = sum(self.dev_card_deck.values())
-        if cards_left == 0:
+        if len(self.dev_card_deck) == 0:
             self.send_to_player(self.current_player_name, "log", "No dev cards remaining.")
             return
-        
-        card_index = random.randint(1, cards_left)
-        # running_index = 1
-        # selected_card = None
-        # for name, num in self.dev_card_deck.items():
-        #     if card_index > num:
-                
-
-
+        card = self.dev_card_deck.pop(random.randrange(len(self.dev_card_deck)))
+        print(len(self.dev_card_deck))
+        self.players[self.current_player_name].dev_cards[card] += 1
         self.pay_for("dev_card")
         
     def pay_for(self, item):
@@ -920,24 +924,22 @@ class ServerState:
         # global constant building_costs
         cost = building_costs[item]
         hand = self.players[self.current_player_name].hand
-        still_needed = []
+        if all(hand[resource] >= cost[resource] for resource in cost.keys()):
+            return True
+        self.send_to_player(self.current_player_name, "log", f"Insufficient resources for {item}")
+        return False
+        # still_needed = []
         
         # changing for all() statement to for loop to tell what resources are needed
-        # if all(hand[resource] >= cost[resource] for resource in cost.keys()):
-            # return True
-        for resource in cost.keys():
-            if cost[resource] > hand[resource]:
-                still_needed.append(resource)
+        # for resource in cost.keys():
+            # if cost[resource] > hand[resource]:
+                # still_needed.append(resource)
         
-        if len(still_needed) == 0:
-            return True
+        # if len(still_needed) == 0:
+        #     return True
 
-        
-        # this was too long - amending below
-        # self.send_to_player(self.current_player_name, "log", f"You do not have enough resources for: {item}")
-        self.send_to_player(self.current_player_name, "log", f"Not enough {', '.join(still_needed)} for {item}")
+        # self.send_to_player(self.current_player_name, "log", f"Not enough {', '.join(still_needed)} for {item}")
     
-        return False
 
     def steal_card(self, from_player: str, to_player: str):
         card_index = random.randint(0, sum(self.players[from_player].hand.values())-1)
@@ -997,9 +999,6 @@ class ServerState:
             self.mode = "steal"
 
 
-
-
-
     def robber_move_check(self, location_hex):
         if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
             return True
@@ -1055,6 +1054,14 @@ class ServerState:
                 # move robber randomly for debug
                 # if self.debug == True:
                     # self.move_robber()
+
+    def check_for_win(self):
+        for p_name, p_object in self.players.items():
+            if p_object.get_victory_points() >= 10:
+                self.send_broadcast("log", f"{p_name} won!")
+                self.game_over = True
+                break
+
 
     def package_board(self) -> dict:
         return {
@@ -1304,6 +1311,10 @@ class ServerState:
                     self.send_broadcast("log", f"It is now {self.current_player_name}'s turn.")
             return
         
+        elif client_request["action"] == "buy_dev_card":
+            if self.cost_check("dev_card"):
+                self.buy_dev_card()
+        
         elif client_request["action"] == "print_debug":
             self.print_debug()
         
@@ -1342,10 +1353,10 @@ class ServerState:
                         location_node = node
 
             if client_request["action"] == "build_settlement":
-                if location_node.build_check_settlement(self):
+                if location_node.build_check_settlement(self) and self.cost_check("settlement"):
                     self.build_settlement(location_node)
             elif client_request["action"] == "build_city":
-                if location_node.build_check_city(self):
+                if location_node.build_check_city(self) and self.cost_check("city"):
                     self.build_city(location_node)
 
         elif location_hexes["hex_b"] != None and self.mode == "build_road":
@@ -1354,7 +1365,7 @@ class ServerState:
                     location_edge = edge
 
             if client_request["action"] == "build_road":
-                if location_edge.build_check_road(self):
+                if location_edge.build_check_road(self) and self.cost_check("road"):
                     self.build_road(location_edge)
 
         elif location_hexes["hex_a"] != None:
@@ -1362,6 +1373,8 @@ class ServerState:
             if self.mode == "move_robber" and client_request["action"] == "move_robber":
                 if self.robber_move_check(location_hex):
                     self.move_robber(location_hex)
+
+        self.check_for_win()
 
         
     def server_to_client(self, encoded_client_request=None, combined=False):
@@ -1559,13 +1572,17 @@ class ClientState:
         offset = self.screen_height/27.5 # 27.7 with height = 750
 
         # buttons
+        self.buttons = {}
         button_division = 17
         button_w = self.screen_width//button_division
         button_h = self.screen_height//button_division
 
-        b_names_to_displays = {"build_road": "Road", "build_city": "City", "build_settlement": "Settle", "trade": "Trade", "bank_trade": "Bank Trade", "dev_card": "Dev Card"} #"move_robber": "Robber", 
-        
-        self.buttons = {b_name: Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, b_names_to_displays[b_name], mode=True) for i, b_name in enumerate(b_names_to_displays.keys())}
+        b_names_to_displays = {"build_road": "Road", "build_city": "City", "build_settlement": "Settle", "trade": "Trade", "bank_trade": "Bank Trade", "buy_dev_card": "Dev Card"} #"move_robber": "Robber", 
+        for i, b_name in enumerate(b_names_to_displays.keys()):
+            if b_name == "buy_dev_card":
+                self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, b_names_to_displays[b_name], action=True)
+            else:
+                self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, b_names_to_displays[b_name], mode=True)
 
         # action_button_names = ["end_turn", "submit", "roll_dice"]
         self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(7.5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "end_turn", "End Turn", action=True)
@@ -1836,10 +1853,6 @@ class ClientState:
             pass
 
     def build_client_request(self, user_input):
-        # SPLIT THIS INTO SECTIONS BASED ON MODE - so if mode == "move_robber", put all the move_robber code there. then mode == "discard", put all the return cards code there. I think this will help greatly with implementing different functionality based on what's happening in the game
-
-        # PUT 3 HEX LOOPS IN SEPARATE FUNCTION - if move_robber: return first hex. if build_road: return 2 hexes. if build_city/settlement: return 3 hexes
-
         # before player initiated
         if not self.name in self.client_players:
             return self.client_request_to_dict(action="add_player")
@@ -1849,29 +1862,20 @@ class ClientState:
             return self.client_request_to_dict(action="request_board")
 
 
-        
-        # selecting board/ buttons
-
         # reset current hex, edge, node
         self.current_hex = None
         self.current_hex_2 = None
         self.current_hex_3 = None
+        
 
         # TODO organize this better - band-aid for end_turn bug
         if self.name != self.current_player_name:
             self.buttons["end_turn"].hover = False
 
-        # tells server and self to print debug
-        if user_input == pr.KeyboardKey.KEY_ZERO:
-            self.print_debug()
-            return self.client_request_to_dict(action="print_debug")
-        # cheats
-        elif user_input == pr.KeyboardKey.KEY_NINE:
-            print("ITSOVER9000")
-            return self.client_request_to_dict(action="ITSOVER9000")
-        elif user_input == pr.KeyboardKey.KEY_R:
+        if user_input == pr.KeyboardKey.KEY_R:
             print("RAINBOWROAD")
             return self.client_request_to_dict(action="randomize_board")
+
 
 
         # defining current_hex, current_edge, current_node
@@ -1916,6 +1920,17 @@ class ClientState:
             return
         
 
+
+        # tells server and self to print debug
+        if user_input == pr.KeyboardKey.KEY_ZERO:
+            self.print_debug()
+            return self.client_request_to_dict(action="print_debug")
+        # cheats
+        elif user_input == pr.KeyboardKey.KEY_NINE:
+            print("ITSOVER9000")
+            return self.client_request_to_dict(action="ITSOVER9000")
+        
+        
         # button loop - check for hover, then for mouse click
         for button_object in self.buttons.values():
             # if not current player, no hover or selecting buttons
@@ -2009,9 +2024,6 @@ class ClientState:
                         print(self.client_players[self.name].hand[b_object.display], self.client_players[self.name].ratios[b_object.display])
                         b_object.hover = True
                         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                                # ore selected
-                                # ore clicked - clear dict and stop processing
-                                # wheat clicked - clear dict and keep processing
                                 if b_object.display not in self.trade_offer["offer"].keys():
                                     self.trade_offer["offer"] = {}
                                     self.trade_offer["offer"][b_object.display] = -self.client_players[self.name].ratios[b_object.display]
@@ -2039,8 +2051,6 @@ class ClientState:
             return self.client_request_to_dict(action="end_turn")
 
 
-
-
         # selecting actions with mouse click
         elif user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             # checking board selections for building town, road, moving robber
@@ -2055,14 +2065,6 @@ class ClientState:
 
             elif self.current_hex and self.mode == "move_robber":
                 return self.client_request_to_dict(action="move_robber")
-
-            # # 2nd button loop - could prob combine with 1st button loop...
-            # for button_object in self.buttons.values():
-            #     if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
-            #         if button_object.mode:
-            #             return self.client_request_to_dict(mode=button_object.name)
-            #         elif button_object.action:
-            #             return self.client_request_to_dict(action=button_object.name)
 
         if self.combined == True:
             self.name = self.current_player_name
@@ -2113,7 +2115,7 @@ class ClientState:
         # order : ["red", "white"]
         # victory points
         # hands : [[2], [5], [1], [2, 1, 0, 0, 0]]
-        # development_cards
+        # dev_cards : [[0], [0], [1], [1, 0, 0, 0, 0]]
         # num_to_discard : [3, 1, 0, 0] use 1 if waiting, 0 if not (i.e. True/False)
         # to_steal_from : []
         # ports : []
@@ -2201,6 +2203,12 @@ class ClientState:
                     else:
                         self.client_players[name].hand_size = number
 
+                for position, number in enumerate(server_response["dev_cards"][order]):
+                    if self.name == name:
+                        self.client_players[name].dev_cards[self.dev_card_order[position]] = number
+                        self.client_players[name].dev_cards_size = sum(server_response["dev_cards"][order])
+                    else:
+                        self.client_players[name].dev_cards_size = number
             # clear out card selection if server accepted a submission
             if self.client_players[self.name].num_to_discard == 0:
                 self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}

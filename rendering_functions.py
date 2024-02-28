@@ -220,14 +220,27 @@ def draw_hands(c_state, player_name, player_object):
 
         else:
             for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
+                # put card_type into new var to bring all resource names to 5 chars
                 card_type_display = card_type
                 while 5 > len(card_type_display):
                     card_type_display += " "
                 pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y+(i*size)), size, 0, pr.BLACK)
 
+        # apart from discard, render dev_cards for self
+        dev_card_offset = 0
+        for dev_card, num_cards in player_object.dev_cards.items():
+            if num_cards > 0:
+                pr.draw_text_ex(pr.gui_get_font(), f"{dev_card}: {num_cards}", (player_object.marker.rec.x-3*x_offset, player_object.marker.rec.y+(dev_card_offset*size)), size, 0, pr.BLACK)
+                dev_card_offset += 1
+
+        
+
     # hand size for all other players
     elif c_state.name != player_name:
         pr.draw_text_ex(pr.gui_get_font(), f"{player_object.hand_size}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y), 12, 0, pr.BLACK)
+
+        if player_object.dev_cards_size > 0:
+            pr.draw_text_ex(pr.gui_get_font(), f"Dev: {player_object.dev_cards_size}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y+x_offset/4), 12, 0, pr.BLACK)
 
 def get_outer_rec(rec, offset):
     return pr.Rectangle(rec.x-offset, rec.y-offset, rec.width+2*offset, rec.height+2*offset)
