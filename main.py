@@ -397,7 +397,7 @@ class Board:
         default_tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, 3, 8, 8, 3, 4, 5, 5, 6, 11]
         # use list of defaults without None for desert
         for i in range(18):
-            randomized_tokens.append(default_tokens.pop(random.randint(0, len(default_tokens))))
+            randomized_tokens.append(default_tokens.pop(random.randint(0, len(default_tokens)-1)))
         # afterwards add None for the desert
         randomized_tokens.insert(terrain_list.index("desert"), None)
         return randomized_tokens
@@ -465,10 +465,15 @@ class Board:
         return terrains, tokens, ports_ordered, ports_to_nodes
 
 
-    def initialize_board(self):
-        # comment/uncomment for random vs default
-        # self.terrains, self.tokens, self.ports_ordered, ports_to_nodes = self.randomize_tiles()
-        self.terrains, self.tokens, self.ports_ordered, ports_to_nodes = self.set_default_tiles()
+    def initialize_board(self, fixed:bool=False):
+        if fixed:
+            self.terrains, self.tokens, self.ports_ordered, ports_to_nodes = self.set_default_tiles()
+        
+        elif not fixed:
+            # for debug, use random then switch back to old seed
+            random.seed()
+            self.terrains, self.tokens, self.ports_ordered, ports_to_nodes = self.randomize_tiles()
+            random.seed(4)
 
         self.land_hexes = [
             hh.set_hex(0, -2, 2),
@@ -742,6 +747,7 @@ class ServerState:
         self.dice_rolls = 0
         self.mode = None
 
+        # cheat
         self.ITSOVER9000 = False
 
 
@@ -754,7 +760,7 @@ class ServerState:
         if self.combined:
             self.initialize_dummy_players("red", "white", "orange", "blue")
         self.board = Board()
-        self.board.initialize_board()
+        self.board.initialize_board(fixed=True)
     
     # hardcoded players for debug
     def initialize_dummy_players(self, name1=None, name2=None, name3=None, name4=None):
@@ -1013,6 +1019,7 @@ class ServerState:
                 for hex in node.hexes:
                     for tile in tiles:
                         if hex == tile.hex and hex != self.board.robber_hex:
+                            # cheat
                             if self.ITSOVER9000:
                                 self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 9
                                 return
@@ -1022,6 +1029,7 @@ class ServerState:
 
 
     def perform_roll(self):
+        # cheat
         if self.ITSOVER9000:
             self.die1, self.die2 = 3, 3
         else:
@@ -1176,7 +1184,7 @@ class ServerState:
 
         
 
-        # receive input from non-current player for testing discard_cards
+        # receive input from non-current player for discard_cards
         elif client_request["action"] == "submit" and self.mode == "discard" and client_request["cards"] != None:
             if sum(client_request["cards"].values()) == self.players[client_request["name"]].num_to_discard:
                 self.players[client_request["name"]].num_to_discard = 0
@@ -1190,6 +1198,11 @@ class ServerState:
 
             return
         
+        elif client_request["action"] == "randomize_board" and 0 >= self.turn_num:
+            self.send_broadcast("log", "Re-rolling board")
+            self.board.initialize_board()
+        
+        # cheats
         elif client_request["action"] == "ITSOVER9000":
             self.ITSOVER9000 = True
             for p_object in self.players.values():
@@ -1208,7 +1221,7 @@ class ServerState:
         # trade_offer = {"offer": {"ore": -4}, "request": {"wheat": 1}, "trade_with": ""}
         if self.mode == "bank_trade":
             if client_request["action"] == "submit" and client_request["trade_offer"] != None:
-                # have to get resources out of string
+                # extract resources from string
                 resource_offer = ""
                 resource_request = ""
                 for r in self.resource_cards:
@@ -1765,13 +1778,6 @@ class ClientState:
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_C):
             return pr.KeyboardKey.KEY_C
         
-        # 0 for print debug
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ZERO):
-            return pr.KeyboardKey.KEY_ZERO
-        # 9 for ITSOVER9000
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_NINE):
-            return pr.KeyboardKey.KEY_NINE
-        
         # Ore
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_ONE):
             return pr.KeyboardKey.KEY_ONE
@@ -1791,6 +1797,18 @@ class ClientState:
         # p = pause/options menu
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_P):
             return pr.KeyboardKey.KEY_P
+        
+        # 0 for print debug
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ZERO):
+            return pr.KeyboardKey.KEY_ZERO
+        
+        # cheats
+        # 9 for ITSOVER9000
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_NINE):
+            return pr.KeyboardKey.KEY_NINE
+        # randomize board
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
+            return pr.KeyboardKey.KEY_R
         
     def update_client_settings(self, user_input):
         if user_input == pr.KeyboardKey.KEY_F:
@@ -1847,9 +1865,13 @@ class ClientState:
         if user_input == pr.KeyboardKey.KEY_ZERO:
             self.print_debug()
             return self.client_request_to_dict(action="print_debug")
-        if user_input == pr.KeyboardKey.KEY_NINE:
+        # cheats
+        elif user_input == pr.KeyboardKey.KEY_NINE:
             print("ITSOVER9000")
             return self.client_request_to_dict(action="ITSOVER9000")
+        elif user_input == pr.KeyboardKey.KEY_R:
+            print("RAINBOWROAD")
+            return self.client_request_to_dict(action="randomize_board")
 
 
         # defining current_hex, current_edge, current_node
