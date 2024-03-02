@@ -690,17 +690,14 @@ class Player:
         return f"Player {self.name}"
             
     # have to work out where to calc longest_road and largest_army
-    def get_victory_points(self):
-        victory_points = 0
+    def get_vp_public(self, longest_road, largest_army):
         # settlements/ cities
         victory_points = self.num_cities*2 + self.num_settlements
         # largest army/ longest road
-        # if self.longest_road:
-            # self.victory_points += 2
-        # if self.largest_army:
-            # self.victory_points += 2
-        # development cards
-        victory_points += self.dev_cards["victory_point"]
+        if longest_road == self.name:
+            victory_points += 2
+        if largest_army == self.name:
+            victory_points += 2
         return victory_points
 
 
@@ -857,22 +854,26 @@ class ServerState:
         self.player_order.sort(key=lambda player_name: self.players[player_name].order)
 
     # perform check after building a road
-    def get_longest_road(self):
+    def calc_longest_road(self):
         # need (pathfinding?) algorithm for calculating if roads are connected
         # IS EFFECTED BY SETTLEMENTS, so longest_road must be recalculated if a settlement is built in the middle
         pass
 
     # perform check after playing a knight
-    def get_largest_army(self):
-        leader = self.largest_army # will be None if not yet assigned
-        for player_name, player_object in self.players.items():
-            if player_object.dev_cards["knight"] > self.players[leader].dev_cards["knight"]:
-                leader = player_name
-        return leader
+    def calc_largest_army(self):
+        # will be None if not yet assigned
+        if 3 > self.players[self.current_player_name].visible_knights:
+            return
+        elif self.largest_army == None and self.players[self.current_player_name].visible_knights >= 3:
+            self.largest_army = self.current_player_name
+        elif self.largest_army != None:
+            if self.players[self.current_player_name].visible_knights > self.players[self.largest_army].visible_knights:
+                self.largest_army = self.current_player_name
 
     def play_dev_card(self, kind):
         if kind == "knight":
             self.players[self.current_player_name].visible_knights += 1
+            self.calc_largest_army()
             self.mode = "move_robber"
         elif kind == "road_building":
             self.mode = "build_road" # figure out way to give 2 roads, maybe global counter or a "road_building" mode
@@ -914,10 +915,11 @@ class ServerState:
         if len(self.dev_card_deck) == 0:
             self.send_to_player(self.current_player_name, "log", "No dev cards remaining.")
             return
+        # 2nd randomization lol
         card = self.dev_card_deck.pop(random.randrange(len(self.dev_card_deck)))
         self.players[self.current_player_name].dev_cards[card] += 1
         self.pay_for("dev_card")
-        
+
     def pay_for(self, item):
         for resource, count in building_costs[item].items():
             self.players[self.current_player_name].hand[resource] -= count
@@ -1059,7 +1061,14 @@ class ServerState:
 
     def check_for_win(self):
         for p_name, p_object in self.players.items():
-            if p_object.get_victory_points() >= 10:
+            if p_object.get_vp_public(self.longest_road, self.largest_army) + p_object.dev_cards["victory_point"] >= 10:
+                if p_object.dev_cards["victory_point"] > 1:
+                    msg = f"{p_name} had {p_object.dev_cards['victory_point']} hidden victory point"
+                    self.send_broadcast("log", msg)
+                    if p_object.dev_cards["victory_point"] > 2:
+                        msg+="s"
+                        self.send_broadcast("log", msg)
+
                 self.send_broadcast("log", f"{p_name} won!")
                 self.game_over = True
                 break
@@ -1101,9 +1110,12 @@ class ServerState:
         # loop thru players to build hands, VPs, logs
         hands = []
         dev_cards = []
+        visible_knights = []
         victory_points = []
         num_to_discard = []
         for player_name, player_object in self.players.items():
+            visible_knights.append(player_object.visible_knights)
+            victory_points.append(player_object.get_vp_public(self.longest_road, self.largest_army))
             # pack actual hand for recipient
             if recipient == player_name:
                 hand = []
@@ -1133,7 +1145,6 @@ class ServerState:
 
 
 
-            victory_points.append(player_object.get_victory_points())
         
         packet = {
             "name": recipient,
@@ -1151,6 +1162,7 @@ class ServerState:
             "victory_points": victory_points,
             "hands": hands,
             "dev_cards": dev_cards,
+            "visible_knights": visible_knights,
             "num_to_discard": num_to_discard,
             "to_steal_from": self.to_steal_from,
             "ports": self.players[recipient].ports
@@ -1463,6 +1475,11 @@ class Button:
 
     def __repr__(self):
         return f"Button({self.name})"
+
+    def draw_display(self):
+        for i, line in enumerate(self.display.split("\n")):
+            pr.draw_text_ex(pr.gui_get_font(), " "+line, (self.rec.x, self.rec.y+(i+.5)*self.font_size), self.font_size, 0, pr.BLACK)
+
     
 class Menu:
     def __init__(self, c_state, name, link: Button, *button_names):
@@ -2227,6 +2244,9 @@ class ClientState:
                 if len(server_response["num_to_discard"]) > 0:
                     self.client_players[name].num_to_discard = server_response["num_to_discard"][order]
 
+                # assign visible knights
+                self.client_players[name].visible_knights = server_response["visible_knights"][order]
+
                 # assign victory points
                 self.client_players[name].victory_points = server_response["victory_points"][order]
                 # construct hand
@@ -2251,7 +2271,7 @@ class ClientState:
                         offset = self.screen_height/27.5 # 27.7 with height = 750
 
                         if number > 0:
-                            self.dev_card_buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.client_players[name].marker.rec.x-(position+1.2)*button_w, self.client_players[name].marker.rec.y, button_w, self.client_players[name].marker.rec.height), self.dev_card_order[position], action=True)
+                            self.dev_card_buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.client_players[name].marker.rec.x-(dev_card_offset+1.2)*button_w, self.client_players[name].marker.rec.y, button_w, self.client_players[name].marker.rec.height), self.dev_card_order[position], action=True)
 
                             dev_card_offset += 1
                             # self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, b_names_to_displays[b_name], action=True)
@@ -2391,13 +2411,10 @@ class ClientState:
         for b_object in self.dev_card_buttons.values():
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
+            b_object.draw_display()
+            # num of dev cards above button
             if self.client_players[self.name].dev_cards[b_object.name] > 1:
                 pr.draw_text_ex(pr.gui_get_font(), f"x{self.client_players[self.name].dev_cards[b_object.name]}", (b_object.rec.x+self.med_text_default, b_object.rec.y - self.med_text_default/1.5), self.med_text_default/1.5, 0, pr.BLACK)
-            for i, line in enumerate(b_object.display.split("\n")):
-                # readability - hacky fix adding blank space in between edge of button and start of text
-                pr.draw_text_ex(pr.gui_get_font(), line, (b_object.rec.x+b_object.font_size, b_object.rec.y+(i+1)*b_object.font_size), b_object.font_size, 0, pr.BLACK)
-
-            # pr.draw_text_ex(pr.gui_get_font(), b_object.display, (b_object.rec.x+b_object.rec.width-(len(b_object.display)*b_object.font_size/1.4)//2, b_object.rec.y), b_object.font_size, 0, pr.BLACK)
 
             if b_object.hover == True:
                 rf.draw_button_outline(b_object)
@@ -2418,11 +2435,7 @@ class ClientState:
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
 
             if b_object.name != "end_turn" and b_object.name != "roll_dice":
-                for i, line in enumerate(b_object.display.split("\n")):
-                    # readability - hacky fix adding blank space in between edge of button and start of text
-                    pr.draw_text_ex(pr.gui_get_font(), " "+line, (b_object.rec.x, b_object.rec.y+(i+.5)*b_object.font_size), b_object.font_size, 0, pr.BLACK)
-                # pr.draw_text_ex(pr.gui_get_font(), b_object.display, (b_object.rec.x+b_object.rec.width//2-(len(b_object.display)*b_object.font_size/1.4)//2, b_object.rec.y+14), b_object.font_size, 0, pr.BLACK)
-
+                b_object.draw_display()
             
             # hover - self.hover needed because state must determine if action will be allowed
             if b_object.hover:
@@ -2431,13 +2444,14 @@ class ClientState:
         # draw text on buttons
         # action buttons
         if self.dice == [0, 0]:
-            pr.draw_text_ex(pr.gui_get_font(), self.buttons["roll_dice"].display, ((int(self.buttons["roll_dice"].rec.x), int(self.buttons["roll_dice"].rec.y + self.buttons["roll_dice"].rec.height//2))), 12, 0, pr.BLACK)
+            self.buttons["roll_dice"].draw_display()
+
         elif len(self.dice) > 0:
             rf.draw_dice(self.dice, self.buttons["roll_dice"].rec)
             # draw line between dice
             pr.draw_line_ex((int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y)), (int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y+self.buttons["roll_dice"].rec.height)), 2, pr.BLACK)
 
-        pr.draw_text_ex(pr.gui_get_font(), "End Turn", (((self.buttons["end_turn"].rec.x + (self.buttons["end_turn"].rec.width//2-40)//2)), (self.buttons["end_turn"].rec.y + (self.buttons["end_turn"].rec.height-22)//2)), self.med_text_default, 0, pr.BLACK)
+        self.buttons["end_turn"].draw_display()
         
         # pr.draw_text_ex(pr.gui_get_font(), "Submit", (((self.buttons["submit"].rec.x + (self.buttons["submit"].rec.width//2-40)//2)), (self.buttons["submit"].rec.y + (self.buttons["submit"].rec.height-22)//2)), self.med_text_default, 0, pr.BLACK)
         
