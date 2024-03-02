@@ -2391,6 +2391,8 @@ class ClientState:
         for b_object in self.dev_card_buttons.values():
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
+            if self.client_players[self.name].dev_cards[b_object.name] > 1:
+                pr.draw_text_ex(pr.gui_get_font(), f"x{self.client_players[self.name].dev_cards[b_object.name]}", (b_object.rec.x+self.med_text_default, b_object.rec.y - self.med_text_default/1.5), self.med_text_default/1.5, 0, pr.BLACK)
             for i, line in enumerate(b_object.display.split("\n")):
                 # readability - hacky fix adding blank space in between edge of button and start of text
                 pr.draw_text_ex(pr.gui_get_font(), line, (b_object.rec.x+b_object.font_size, b_object.rec.y+(i+1)*b_object.font_size), b_object.font_size, 0, pr.BLACK)

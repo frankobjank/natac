@@ -44,7 +44,7 @@ default_tile_tokens_dict = {2:1, 3:2, 4:3, 5:4, 6:5, 8:5, 9:4, 10:3, 11:2, 12:1}
 def draw_tokens(hex, token, layout):
     pr.draw_circle(int(hh.hex_to_pixel(layout, hex).x), int(hh.hex_to_pixel(layout, hex).y), 18, pr.RAYWHITE)
     text_size = pr.measure_text_ex(pr.gui_get_font(), f"{token}", 20, 0)
-    center_numbers_offset = pr.Vector2(int(hh.hex_to_pixel(layout, hex).x-text_size.x/2+2), int(hh.hex_to_pixel(layout, hex).y-text_size.y/2-1))
+    center_numbers_offset = pr.Vector2(int(hh.hex_to_pixel(layout, hex).x-text_size.x/2), int(hh.hex_to_pixel(layout, hex).y-text_size.y/2))
     if token == 8 or token == 6:
         pr.draw_text_ex(pr.gui_get_font(), str(token), center_numbers_offset, 22, 0, pr.BLACK)
         pr.draw_text_ex(pr.gui_get_font(), str(token), center_numbers_offset, 20, 0, pr.RED)
@@ -200,7 +200,7 @@ def draw_discard_cards(c_state, player_object, card_type, num_cards, i, x_offset
     if c_state.selected_cards[card_type] > 0:
         pr.draw_text_ex(pr.gui_get_font(), f" -> {c_state.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset+(size*6), player_object.marker.rec.y-size+(i*size)), size, 0, color)
 
-# includes dev_cards
+# includes dev_cards for other players, not dev card buttons for self
 def draw_hands(c_state, player_name, player_object):
     x_offset = c_state.screen_width//20
     size = c_state.screen_height//50
