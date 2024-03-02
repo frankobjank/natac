@@ -196,21 +196,21 @@ def draw_discard_cards(c_state, player_object, card_type, num_cards, i, x_offset
     card_type_display = card_type
     while 5 > len(card_type_display):
         card_type_display += " "
-    pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards - c_state.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y+(i*size)), size, 0, color)
+    pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards - c_state.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y-size+(i*size)), size, 0, color)
     if c_state.selected_cards[card_type] > 0:
-        pr.draw_text_ex(pr.gui_get_font(), f" -> {c_state.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset+(size*6), player_object.marker.rec.y+(i*size)), size, 0, color)
+        pr.draw_text_ex(pr.gui_get_font(), f" -> {c_state.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset+(size*6), player_object.marker.rec.y-size+(i*size)), size, 0, color)
 
-
+# includes dev_cards
 def draw_hands(c_state, player_name, player_object):
     x_offset = c_state.screen_width//20
-    size = c_state.screen_width//85
+    size = c_state.screen_height//50
     if c_state.name == player_name:
         if c_state.mode == "discard" and player_object.num_to_discard > 0:
             for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
                 # if current card_index, draw in red
                 if i == c_state.card_index:
                     draw_discard_cards(c_state, player_object, card_type, num_cards, i, x_offset, size, pr.WHITE)
-                # not current card index, draw in black
+                # not current card index, draw in black zvi was here
                 else:
                     draw_discard_cards(c_state, player_object, card_type, num_cards, i, x_offset, size, pr.BLACK)
 
@@ -224,14 +224,9 @@ def draw_hands(c_state, player_name, player_object):
                 card_type_display = card_type
                 while 5 > len(card_type_display):
                     card_type_display += " "
-                pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y+(i*size)), size, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y-size+(i*size)), size, 0, pr.BLACK)
 
-        # apart from discard, render dev_cards for self
-        dev_card_offset = 0
-        for dev_card, num_cards in player_object.dev_cards.items():
-            if num_cards > 0:
-                pr.draw_text_ex(pr.gui_get_font(), f"{dev_card}: {num_cards}", (player_object.marker.rec.x-3*x_offset, player_object.marker.rec.y+(dev_card_offset*size)), size, 0, pr.BLACK)
-                dev_card_offset += 1
+                
 
         
 
@@ -302,7 +297,27 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, trade
                 draw_button_outline(button_object)
 
 
-        
+
+
+# hover text
+hover_text_dict = {
+    # dev cards
+    "knight": "Knight\nMove the robber.\n3 or more knights are required to receive Largest Army.",
+    "victory_point": "Victory Point\nAdds 1 to your score. This remains hidden from other players until it gives you enough victory points to win.",
+    "road_building": "Road Building\nPlace two roads at no cost.",
+    "year_of_plenty": "Year of Plenty\nChoose two resource cards to receive for free.",
+    "monopoly": "Monopoly\nChoose a resource. All players must give you all of the resource of that type that they own.",
+
+    # building costs related to buttons
+    "build_road": "Road costs:\n1 Lumber\n1 Brick",
+    "build_settlement": "Settlement costs:\n1 Wheat\n1 Sheep\n1 Lumber\n1 Brick",
+    "build_city": "City costs:\n3 Ore\n2 Wheat",
+    "buy_dev_card": "City costs:\n1 Ore\n1 Wheat\n1 Sheep",
+
+    # 
+    "longest_road": "Longest Road\nThis is awarded to the player with at least 5 contiguous road segments. A tie goes to the original holder of Longest Road.",
+    "largest_army": "Largest Army\nThis is given to the player with at least 3 knights. A tie goes to the original holder of Largest Army.",
+}
 
 
 # DEBUG

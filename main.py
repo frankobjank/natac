@@ -767,6 +767,9 @@ class ServerState:
                 if dev_card_counts[rand_card] > 0:
                     self.dev_card_deck.append(rand_card)
                     dev_card_counts[rand_card] -= 1
+        # reset seed since the new calls here were throwing off the test rolls
+        if self.debug:
+            random.seed(4)
     
     def initialize_game(self):
         if self.combined:
@@ -912,7 +915,6 @@ class ServerState:
             self.send_to_player(self.current_player_name, "log", "No dev cards remaining.")
             return
         card = self.dev_card_deck.pop(random.randrange(len(self.dev_card_deck)))
-        print(len(self.dev_card_deck))
         self.players[self.current_player_name].dev_cards[card] += 1
         self.pay_for("dev_card")
         
@@ -1420,19 +1422,42 @@ class ServerState:
 
 
 class Button:
-    def __init__(self, rec:pr.Rectangle, name:str, display:str, color:pr.Color=pr.RAYWHITE, mode:bool=False, action:bool=False):
+    def __init__(self, rec:pr.Rectangle, name:str, color:pr.Color=pr.RAYWHITE, resource:str|None=None, mode:bool=False, action:bool=False):
         self.rec = rec
         self.name = name
         self.color = color
-        self.display = display
+        self.resource = resource
         self.mode = mode
         self.action = action
         self.hover = False
-        font_scaler = 1
-        if len(self.display)>5:
-            font_scaler += len(self.display) - 5
-        self.font_size = self.rec.height/(3.5 + 1/4*font_scaler)
-        
+
+        if self.resource != None:
+            self.display = self.resource
+        else:
+            self.display = self.name.capitalize()
+        if not "_" in self.display:
+            font_scaler = 1
+            if 5>=len(self.display):
+                font_scaler += len(self.display) - 10
+            else:
+                font_scaler += len(self.display) + 1
+            self.font_size = self.rec.height/(3.5 + 1/8*font_scaler)
+
+        elif "_" in self.display:
+            capitalized = ""
+            longest_word = ""
+            for word in self.display.split("_"):
+                if len(word) > len(longest_word):
+                    longest_word = word
+                capitalized += word.capitalize()+"\n"
+            # cut off last \n
+            self.display = capitalized[:-1]
+            font_scaler = 1
+            if 5>=len(longest_word):
+                font_scaler += len(self.display) - 10
+            else:
+                font_scaler += len(self.display)
+            self.font_size = self.rec.height/(3.5 + 1/8*font_scaler)
 
 
 
@@ -1577,17 +1602,18 @@ class ClientState:
         button_w = self.screen_width//button_division
         button_h = self.screen_height//button_division
 
-        b_names_to_displays = {"build_road": "Road", "build_city": "City", "build_settlement": "Settle", "trade": "Trade", "bank_trade": "Bank Trade", "buy_dev_card": "Dev Card"} #"move_robber": "Robber", 
+        b_names_to_displays = {"build_road": "Road", "build_city": "City", "build_settlement": "Settle", "trade": "Trade", "bank_trade": "Bank\nTrade", "buy_dev_card": "Dev\nCard"} #"move_robber": "Robber", 
         for i, b_name in enumerate(b_names_to_displays.keys()):
+            # separate because buy dev card is action, not mode
             if b_name == "buy_dev_card":
-                self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, b_names_to_displays[b_name], action=True)
+                self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, action=True)
             else:
-                self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, b_names_to_displays[b_name], mode=True)
+                self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, mode=True)
 
         # action_button_names = ["end_turn", "submit", "roll_dice"]
-        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(7.5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "end_turn", "End Turn", action=True)
-        self.buttons["submit"] = Button(pr.Rectangle(self.screen_width-(5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "submit", "Submit", color=rf.game_color_dict["submit"], action=True)
-        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "roll_dice", "Roll dice", action=True)
+        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(7.5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "end_turn", action=True)
+        self.buttons["submit"] = Button(pr.Rectangle(self.screen_width-(5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "submit", color=rf.game_color_dict["submit"], action=True)
+        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "roll_dice", action=True)
 
         # info_box
         infobox_w = self.screen_width/3.5
@@ -1598,9 +1624,10 @@ class ClientState:
 
         self.trade_buttons = {}
         for i, resource in enumerate(self.resource_cards):
-            self.trade_buttons[f"offer_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+offset, infobox_w//6, infobox_h/8), f"offer_{resource}", resource, rf.game_color_dict[resource_to_terrain[resource]], action=True)
-            self.trade_buttons[f"request_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+infobox_h-2.7*offset, infobox_w//6, infobox_h/8), f"request_{resource}", resource, rf.game_color_dict[resource_to_terrain[resource]], action=True)
+            self.trade_buttons[f"offer_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+offset, infobox_w//6, infobox_h/8), f"offer_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
+            self.trade_buttons[f"request_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+infobox_h-2.7*offset, infobox_w//6, infobox_h/8), f"request_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
 
+        self.dev_card_buttons = {}
 
         # log
         logbox_w = self.screen_width/2.3
@@ -1842,12 +1869,12 @@ class ClientState:
 
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             # if self.options_menu.visible == True:
-            #     for button_object in self.buttons.values():
-            #         if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
+            #     for b_object in self.buttons.values():
+            #         if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
             #             # optins menu buttons (mute, fullscreen)
             #             pass
             #         else:
-            #             button_object.hover = False
+            #             b_object.hover = False
 
             # enter game/ change settings in client
             pass
@@ -1931,27 +1958,34 @@ class ClientState:
             return self.client_request_to_dict(action="ITSOVER9000")
         
         
+        # check for dev card hover apart from other buttons
+        for b_object in self.dev_card_buttons.values():
+            if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
+                b_object.hover = True
+            else:
+                b_object.hover = False
+
         # button loop - check for hover, then for mouse click
-        for button_object in self.buttons.values():
+        for b_object in self.buttons.values():
             # if not current player, no hover or selecting buttons
             if self.name != self.current_player_name:
-                button_object.hover = False
+                b_object.hover = False
             
             elif self.name == self.current_player_name:
-                if pr.check_collision_point_rec(pr.get_mouse_position(), button_object.rec):
-                    if button_object.name == "roll_dice":
+                if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
+                    if b_object.name == "roll_dice":
                         continue
-                    button_object.hover = True
+                    b_object.hover = True
                     if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                        if button_object.mode:
-                            if "trade" in button_object.name:
+                        if b_object.mode:
+                            if "trade" in b_object.name:
                                 self.trade_offer["offer"] = {}
                                 self.trade_offer["request"] = {}
-                            return self.client_request_to_dict(mode=button_object.name)
-                        elif button_object.action:
-                            return self.client_request_to_dict(action=button_object.name)
+                            return self.client_request_to_dict(mode=b_object.name)
+                        elif b_object.action:
+                            return self.client_request_to_dict(action=b_object.name)
                 else:
-                    button_object.hover = False
+                    b_object.hover = False
 
 
         
@@ -2203,10 +2237,26 @@ class ClientState:
                     else:
                         self.client_players[name].hand_size = number
 
+                dev_card_offset = 0
                 for position, number in enumerate(server_response["dev_cards"][order]):
                     if self.name == name:
                         self.client_players[name].dev_cards[self.dev_card_order[position]] = number
                         self.client_players[name].dev_cards_size = sum(server_response["dev_cards"][order])
+                        # set up dev_card_buttons
+                        # x_offset = self.screen_width//20
+                        font_size = self.screen_height//50
+                        button_division = 17
+                        button_w = self.screen_width//button_division
+                        # button_h = self.screen_height//button_division
+                        offset = self.screen_height/27.5 # 27.7 with height = 750
+
+                        if number > 0:
+                            self.dev_card_buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.client_players[name].marker.rec.x-(position+1.2)*button_w, self.client_players[name].marker.rec.y, button_w, self.client_players[name].marker.rec.height), self.dev_card_order[position], action=True)
+
+                            dev_card_offset += 1
+                            # self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, b_names_to_displays[b_name], action=True)
+
+                            # self.buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.client_players[name].marker.rec.x-3*x_offset, self.client_players[name].marker.rec.y+(dev_card_offset*font_size), 2.5*x_offset, font_size), self.dev_card_order[position], self.dev_card_order[position], action=True)
                     else:
                         self.client_players[name].dev_cards_size = number
             # clear out card selection if server accepted a submission
@@ -2325,14 +2375,31 @@ class ClientState:
         # draw info_box
         pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
         pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
+
+
         if self.mode == "trade":
             rf.draw_trade_interface(self.trade_buttons, self.info_box, self.med_text_default, self.selected_cards, self.trade_offer)
         
         elif self.mode == "bank_trade":
             rf.draw_banktrade_interface(self.trade_buttons, self.info_box, self.med_text_default, self.selected_cards, self.trade_offer, self.client_players[self.name].ratios)
 
+        # draw discard dialog in infobox if cardstoreturn > 0
+
         elif self.mode == "move_robber" and self.name == self.current_player_name:
             pr.draw_text_ex(pr.gui_get_font(), " You must move the robber.\n Please select a land hex.", (self.info_box.x, self.info_box.y+self.info_box.height/2-self.med_text_default*1.1), self.med_text_default*.9, 0, pr.BLACK)
+
+        for b_object in self.dev_card_buttons.values():
+            pr.draw_rectangle_rec(b_object.rec, b_object.color)
+            pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
+            for i, line in enumerate(b_object.display.split("\n")):
+                # readability - hacky fix adding blank space in between edge of button and start of text
+                pr.draw_text_ex(pr.gui_get_font(), line, (b_object.rec.x+b_object.font_size, b_object.rec.y+(i+1)*b_object.font_size), b_object.font_size, 0, pr.BLACK)
+
+            # pr.draw_text_ex(pr.gui_get_font(), b_object.display, (b_object.rec.x+b_object.rec.width-(len(b_object.display)*b_object.font_size/1.4)//2, b_object.rec.y), b_object.font_size, 0, pr.BLACK)
+
+            if b_object.hover == True:
+                rf.draw_button_outline(b_object)
+                pr.draw_text_ex(pr.gui_get_font(), rf.hover_text_dict[b_object.name], (self.info_box.x, self.info_box.y+self.info_box.height/2-self.med_text_default*1.1), self.med_text_default*.9, 0, pr.BLACK)
 
 
         # draw log_box and log
@@ -2344,18 +2411,20 @@ class ClientState:
         # wrap text in order to read longer messages like can't buy settlement
             
 
-        for button_object in self.buttons.values():
-            pr.draw_rectangle_rec(button_object.rec, button_object.color)
-            pr.draw_rectangle_lines_ex(button_object.rec, 1, pr.BLACK)
+        for b_object in self.buttons.values():
+            pr.draw_rectangle_rec(b_object.rec, b_object.color)
+            pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
 
-            if button_object.name != "end_turn" and button_object.name != "roll_dice":
-                pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*button_object.font_size/1.4)//2, button_object.rec.y+14), button_object.font_size, 0, pr.BLACK)
-                pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*button_object.font_size/1.4)//2, button_object.rec.y+14), button_object.font_size, 0, pr.BLACK)
+            if b_object.name != "end_turn" and b_object.name != "roll_dice":
+                for i, line in enumerate(b_object.display.split("\n")):
+                    # readability - hacky fix adding blank space in between edge of button and start of text
+                    pr.draw_text_ex(pr.gui_get_font(), " "+line, (b_object.rec.x, b_object.rec.y+(i+.5)*b_object.font_size), b_object.font_size, 0, pr.BLACK)
+                # pr.draw_text_ex(pr.gui_get_font(), b_object.display, (b_object.rec.x+b_object.rec.width//2-(len(b_object.display)*b_object.font_size/1.4)//2, b_object.rec.y+14), b_object.font_size, 0, pr.BLACK)
 
             
             # hover - self.hover needed because state must determine if action will be allowed
-            if button_object.hover:
-                rf.draw_button_outline(button_object)
+            if b_object.hover:
+                rf.draw_button_outline(b_object)
 
         # draw text on buttons
         # action buttons
@@ -2370,7 +2439,6 @@ class ClientState:
         
         # pr.draw_text_ex(pr.gui_get_font(), "Submit", (((self.buttons["submit"].rec.x + (self.buttons["submit"].rec.width//2-40)//2)), (self.buttons["submit"].rec.y + (self.buttons["submit"].rec.height-22)//2)), self.med_text_default, 0, pr.BLACK)
         
-
 
 
 
@@ -2389,28 +2457,25 @@ class ClientState:
             if player_name == self.current_player_name:
                 pr.draw_rectangle_lines_ex(player_object.marker.rec, 4, pr.BLACK)
 
-
+            # split up by modes
             # draw "waiting" for non-self players if wating on them to return cards
             if self.mode == "discard":
                 if player_name == self.name:
                     if player_object.num_to_discard > 0:
-                        pr.draw_text_ex(pr.gui_get_font(), f"choose {player_object.num_to_discard} cards", (player_object.marker.rec.x, player_object.marker.rec.y - 20), 12, 0, pr.BLACK)
+                        pr.draw_text_ex(pr.gui_get_font(), f"choose {player_object.num_to_discard} cards", (player_object.marker.rec.x- self.screen_width//30, player_object.marker.rec.y - self.med_text_default*2), self.med_text_default, 0, pr.BLACK)
                 if player_name != self.name:
                     if player_object.num_to_discard > 0:
                         pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.marker.rec.x, player_object.marker.rec.y - 20), 12, 0, pr.BLACK)
 
 
             # for current player, highlight possible targets and selected player
-            if self.mode == "steal" and len(self.to_steal_from) > 0 and self.name == self.current_player_name:
+            elif self.mode == "steal" and len(self.to_steal_from) > 0 and self.name == self.current_player_name:
                 for i, player_name in enumerate(self.to_steal_from):
-                    pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].marker.rec, 7), 4, pr.GRAY)
+                    # pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].marker.rec, 7), 4, pr.GRAY)
                     if i == self.player_index:
                         pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].marker.rec, 7), 4, pr.GREEN)
 
 
-
-
-                
 
         # players' victory points
         for i, player_name in enumerate(reversed(self.player_order)):
@@ -2429,7 +2494,9 @@ def run_client(name):
     # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
     pr.init_window(c_state.default_screen_w, c_state.default_screen_h, f"Natac - {name}")
     pr.set_target_fps(60)
-    pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
+    # pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
+    # pr.gui_set_font(pr.load_font("assets/F25_Bank_Printer_Bold.ttf"))
+    pr.gui_set_font(pr.load_font("assets/F25_Bank_Printer.ttf"))
 
     while not pr.window_should_close():
         user_input = c_state.get_user_input()
