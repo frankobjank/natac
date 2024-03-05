@@ -726,6 +726,7 @@ class ServerState:
 
         self.dev_card_deck = []
         self.dev_card_played = False # True after a card is played. Only one can be played per turn
+        self.dev_cards_avl = {} # cannot play dev_card the turn it is bought. Reset every turn
 
         # PLAYERS
         self.players = {} # {player_name: player_object}
@@ -1349,9 +1350,11 @@ class ServerState:
             self.turn_num += 1
             self.dev_card_played = False
             self.mode = "roll_dice"
+            # TODO this loop could be related to Bug 3
             for player_name, player_object in self.players.items():
                 if self.turn_num % len(self.players) == player_object.order:
                     self.current_player_name = player_name
+                    self.dev_cards_avl = self.players[self.current_player_name].dev_cards
                     self.send_broadcast("log", f"It is now {self.current_player_name}'s turn.")
             return
         
@@ -1360,6 +1363,9 @@ class ServerState:
                 self.buy_dev_card()
 
         elif client_request["action"] == "play_dev_card":
+            if not client_request["cards"] in self.dev_cards_avl.keys():
+                self.send_to_player(self.current_player_name, "log", "You cannot play a dev card you got this turn.")
+                return
             self.play_dev_card(client_request["cards"])
         
         elif client_request["action"] == "print_debug":
@@ -1998,7 +2004,7 @@ class ClientState:
             if user_input == pr.KeyboardKey.KEY_D:
                 return self.client_request_to_dict(action="roll_dice")
             # selecting with mouse
-            if pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["roll_dice"].rec) and self.name == self.current_player_name:
+            if pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["roll_dice"].rec):
                 self.buttons["roll_dice"].hover = True
                 if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                     return self.client_request_to_dict(action="roll_dice")
