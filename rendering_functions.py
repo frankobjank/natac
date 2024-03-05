@@ -40,6 +40,10 @@ port_to_display = {
 
 default_tile_tokens_dict = {2:1, 3:2, 4:3, 5:4, 6:5, 8:5, 9:4, 10:3, 11:2, 12:1}
 
+# # rendering dict
+# self.rendering_dict = {"width":self.screen_width, "height": self.screen_height, "small_text": self.small_text_default, "med_text": self.med_text_default}
+
+
 # have to specify layout for hex calculations
 def draw_tokens(hex, token, layout):
     pr.draw_circle(int(hh.hex_to_pixel(layout, hex).x), int(hh.hex_to_pixel(layout, hex).y), 18, pr.RAYWHITE)
@@ -198,19 +202,22 @@ def draw_discard_cards(c_state, player_object, card_type, num_cards, i, x_offset
         card_type_display += " "
     pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards - c_state.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y-size+(i*size)), size, 0, color)
     if c_state.selected_cards[card_type] > 0:
-        pr.draw_text_ex(pr.gui_get_font(), f" -> {c_state.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset+(size*6), player_object.marker.rec.y-size+(i*size)), size, 0, color)
+        pr.draw_text_ex(pr.gui_get_font(), f"-> {c_state.selected_cards[card_type]}", (player_object.marker.rec.x+x_offset+(size*6), player_object.marker.rec.y-size+(i*size)), size, 0, color)
 
 # includes dev_cards for other players, not dev card buttons for self
 def draw_hands(c_state, player_name, player_object):
     x_offset = c_state.screen_width//20
-    size = c_state.screen_height//50
+    # size = c_state.screen_height//50
+    size = c_state.med_text_default-2
+    if player_object.visible_knights > 0:
+        pr.draw_text_ex(pr.gui_get_font(), f"Knights played: {player_object.visible_knights}", (player_object.marker.rec.x, player_object.marker.rec.y-2*size), size, 0, pr.BLACK)
     if c_state.name == player_name:
         if c_state.mode == "discard" and player_object.num_to_discard > 0:
             for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
                 # if current card_index, draw in red
                 if i == c_state.card_index:
                     draw_discard_cards(c_state, player_object, card_type, num_cards, i, x_offset, size, pr.WHITE)
-                # not current card index, draw in black zvi was here
+                # not current card index, draw in black
                 else:
                     draw_discard_cards(c_state, player_object, card_type, num_cards, i, x_offset, size, pr.BLACK)
 
@@ -227,15 +234,12 @@ def draw_hands(c_state, player_name, player_object):
                 pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y-size+(i*size)), size, 0, pr.BLACK)
 
                 
-
-        
-
     # hand size for all other players
     elif c_state.name != player_name:
-        pr.draw_text_ex(pr.gui_get_font(), f"{player_object.hand_size}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y), 12, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), f"Hand: {player_object.hand_size}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y), size, 0, pr.BLACK)
 
         if player_object.dev_cards_size > 0:
-            pr.draw_text_ex(pr.gui_get_font(), f"Dev: {player_object.dev_cards_size}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y+x_offset/4), 12, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f"Dev: {player_object.dev_cards_size}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y+x_offset/4), size, 0, pr.BLACK)
 
 def get_outer_rec(rec, offset):
     return pr.Rectangle(rec.x-offset, rec.y-offset, rec.width+2*offset, rec.height+2*offset)
@@ -248,13 +252,15 @@ def draw_button_outline(button_object):
 
 def draw_trade_interface(buttons, info_box, font_size, selected_cards, trade_offer):
     pr.draw_line_ex((info_box.x, info_box.y+info_box.height/2), (info_box.x+info_box.width, info_box.y+info_box.height/2), 1, pr.BLACK)
-    pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (info_box.x, info_box.y), font_size, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (info_box.x, 4+info_box.y), font_size, 0, pr.BLACK)
     pr.draw_text_ex(pr.gui_get_font(), " Cards to receive", (info_box.x, info_box.y+info_box.height-font_size*1.1), font_size, 0, pr.BLACK)
 
     for button_object in buttons.values():
+        # font was too big, resizing
+        font_resize = button_object.font_size-2
         pr.draw_rectangle_rec(button_object.rec, button_object.color)
         pr.draw_rectangle_lines_ex(button_object.rec, 1, pr.BLACK)
-        pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*button_object.font_size/1.4)//2, button_object.rec.y+14), button_object.font_size, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*font_resize/1.4)//2, button_object.rec.y+14), font_resize, 0, pr.BLACK)
 
 
         if "request" in button_object.name and selected_cards[button_object.display] > 0:
@@ -269,27 +275,33 @@ def draw_trade_interface(buttons, info_box, font_size, selected_cards, trade_off
 
 def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, trade_offer, ratios):
     pr.draw_line_ex((info_box.x, info_box.y+info_box.height/2), (info_box.x+info_box.width, info_box.y+info_box.height/2), 1, pr.BLACK)
-    pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (info_box.x, info_box.y), font_size, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (info_box.x, 4+info_box.y), font_size, 0, pr.BLACK)
     pr.draw_text_ex(pr.gui_get_font(), " Cards to receive", (info_box.x, info_box.y+info_box.height-font_size*1.1), font_size, 0, pr.BLACK)
 
     for button_object in buttons.values():
+        # font was too big, resizing
+        font_resize = button_object.font_size-2
         pr.draw_rectangle_rec(button_object.rec, button_object.color)
         pr.draw_rectangle_lines_ex(button_object.rec, 1, pr.BLACK)
         if "request" in button_object.name:
-            pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*button_object.font_size/1.4)//2, button_object.rec.y+14), button_object.font_size, 0, pr.BLACK)
-            
+            pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*font_resize/1.4)//2, button_object.rec.y+14), font_resize, 0, pr.BLACK)
+
+
+        elif "offer" in button_object.name:
+            pr.draw_text_ex(pr.gui_get_font(), f"{ratios[button_object.display]}:1", (button_object.rec.x+button_object.rec.width//2-(3*font_resize/1.4)//2, button_object.rec.y+button_object.rec.height*1/6), font_resize, 0, pr.BLACK)
+
+            # draw resource below ratio
+            pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*font_resize/1.4)//2, button_object.rec.y+button_object.rec.height*2/3), font_resize, 0, pr.BLACK)
+    
+    # separate hover / selecting box drawing
+    for button_object in buttons.values(): 
+        if "request" in button_object.name:
             if button_object.display in trade_offer["request"]:
                 draw_button_outline(button_object)
             if button_object.hover:
                 draw_button_outline(button_object)
 
-
-        elif "offer" in button_object.name:
-            pr.draw_text_ex(pr.gui_get_font(), f"{ratios[button_object.display]}:1", (button_object.rec.x+button_object.rec.width//2-(3*button_object.font_size/1.4)//2, button_object.rec.y+button_object.rec.height*1/6), button_object.font_size, 0, pr.BLACK)
-
-            # draw resource below ratio
-            pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*button_object.font_size/1.4)//2, button_object.rec.y+button_object.rec.height*2/3), button_object.font_size, 0, pr.BLACK)
-        
+        if "offer" in button_object.name: 
             if button_object.display in trade_offer["offer"]:
                 draw_button_outline(button_object)
 
@@ -302,11 +314,11 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, trade
 # hover text
 hover_text_dict = {
     # dev cards
-    "knight": "Knight\nMove the robber.\n3 or more knights are required to receive Largest Army.",
-    "victory_point": "Victory Point\nAdds 1 to your score. This remains hidden from other players until it gives you enough victory points to win.",
-    "road_building": "Road Building\nPlace two roads at no cost.",
-    "year_of_plenty": "Year of Plenty\nChoose two resource cards to receive for free.",
-    "monopoly": "Monopoly\nChoose a resource. All players must give you all of the resource of that type that they own.",
+    "knight": " Knight.\n\n Allows you to move the robber.\n\n 3 or more knights are required\n to receive Largest Army.\n\n Can be played before or after\n you roll the dice.",
+    "victory_point": " Victory Point.\n\n Adds 1 to your score.\n\n This remains hidden from other\n players until it gives you\n enough victory points to win.",
+    "road_building": " Road Building\n\n Place two roads at no cost.\n\n Can be played before or after\n you roll the dice.",
+    "year_of_plenty": " Year of Plenty\n\n Choose two resource cards to\n receive for free.\n\n Can be played before or after\n you roll the dice.",
+    "monopoly": " Monopoly\n\n Choose a resource. All players\n must give you all of the\n resource of that type that\n they own.\n\n Can be played before or after\n you roll the dice.",
 
     # building costs related to buttons
     "build_road": "Road costs:\n1 Lumber\n1 Brick",
@@ -314,7 +326,6 @@ hover_text_dict = {
     "build_city": "City costs:\n3 Ore\n2 Wheat",
     "buy_dev_card": "City costs:\n1 Ore\n1 Wheat\n1 Sheep",
 
-    # 
     "longest_road": "Longest Road\nThis is awarded to the player with at least 5 contiguous road segments. A tie goes to the original holder of Longest Road.",
     "largest_army": "Largest Army\nThis is given to the player with at least 3 knights. A tie goes to the original holder of Largest Army.",
 }

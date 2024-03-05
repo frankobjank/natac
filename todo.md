@@ -1,122 +1,12 @@
-tcp - create test file to try it out
-make python bindings for nbnet
-
-function to find node/edge 
-    find_node(nodes, node)
-    find_edge(edges, edge) - see line 787 main.py
-
-
-
-Notes from meet w Victor 12/26
-
-next steps:
-Encode game state
-Dice
-Resources
-Player hands
-Current player turn:
-    Dice roll
-    Collect resources
-
-use same seed for dice randomization to make testing easier
-
-client 'action' should be defined before it currently is
-    currently mouse hover appears over nodes even when move_robber is selected, but only valid inputs should be highlighted with the mouse hover
-
-client - player should have different 'states'/'actions':
-    (could make to enum)
-    action: dice roll - only highlight dice/ make dice selectable. everything else not highlighted
-    action: None
-
-Turn steps
-
-Client:
-    roll dice
-    play soldier card - move robber and steal card
-
-if (dice == 7){
-    return cards check for all players
-    move robber
-    steal card
-}
-else{
-    distribute resources to all players
-}
-
-
-
-client requests mode change locally and passes to server
-server receives mode request and confirms if it is possible
-server returns decision to client:
-    if mouse over, return hover
-    if mouse click, return action
-
-client requests mode change back by clicking mode
-
-server should validate mode change/ end turn/ dice roll
-
-turn_phases:
-start:
-    actions:
-        roll dice, play soldier
-    modes:
-        robber
-main:
-    actions:
-        buy or play development card
-    modes:
-        build
-        trading
-
-end = turn over turn to next player and make mode roll_dice
-
-dice_roll mode 
-Essentially can split up turns into two phases: dice roll and main phase
-
-
-to change for rendering client:
-    scale text on buttons with resize
-    add box around turn buttons to group them
-    change dice button to say roll dice and display dice roll separately so they can be displayed as squares
-    add log box either in between or below the button boxes
-
-
-elements requiring multiple players:
-    return_cards -> can only continue (to move_robber) once all players have finished returning cards
-
-figure out way to get multiple clients to join server to test out gameplay features like returning cards, stealing, building, trading, playing dev_cards
-
-
-OVERALL QUESTION: should server send different response to each client? or same one and then processed by client?
-    for returning cards, return_card mode should be determined by server. Maybe make a return mode for all clients like self.mode = {"red": "return_cards", "white": None}
-
-    change dice_roll button to not hover while it's not client_player's turn
-
-
-
-Sequence of stealing:
-check which non-self players are adjacent
-give current player option between those adjacent players
-choose player and have server pick a random card from them to add to current player's hand
-
-
-Sequence of trading:
-Current player clicks trade to enter trading mode
-trading window can go above log on right side of screen
-player can put together offer, and announce what they want in return
+Known bugs:
+submit button not working --- !!!
+end turn button hover sticking
+When another player enters game after game start, skips some players' turns. This probably won't be an issue in a real game since all players must enter before starting the game.
 
 
 
 
-
-
-semi-related - bigger system changes
-Get test TCP client/server working. Create 2+ clients with Threading
-Use Logging to create a log
-
-
-
-
+Ideas:
 things to add to info_box:
     put player selection for stealing at mode "steal"
     put card selection for discarding at mode "discard_cards"
@@ -124,10 +14,3 @@ things to add to info_box:
 to add to hand UI:
     when selecting something to trade away or discard, show -> minus cards
         when gaining a card, show -> add cards
-
-
-submit button not working --- !!!
-end turn button hover sticking
-allow trades to go through with nothing requested, meaning accepting any
-
-when counter offer is recieved, it can go above resources on request side so you can see all counters
