@@ -727,6 +727,7 @@ class ServerState:
         self.dev_card_deck = []
         self.dev_card_played = False # True after a card is played. Only one can be played per turn
         self.dev_cards_avl = {} # cannot play dev_card the turn it is bought. Reset every turn
+        self.dev_card_modes = ["move_robber", "road_building", "year_of_plenty", "monopoly"]
 
         # PLAYERS
         self.players = {} # {player_name: player_object}
@@ -1208,7 +1209,7 @@ class ServerState:
         if client_request == None or len(client_request) == 0:
             return
         
-        # self.server_verify_data(client_request["action"], client_request["mode"])
+        # set current player to first in player order
         if self.turn_num == 0 and len(self.player_order) > 0:
             self.current_player_name = self.player_order[0]
 
@@ -1222,8 +1223,6 @@ class ServerState:
         elif client_request["action"] == "request_board":
             self.socket.sendto(to_json(self.package_state(client_request["name"], include_board=True)).encode(), address)
             return
-
-        
 
         # receive input from non-current player for discard_cards
         elif client_request["action"] == "submit" and self.mode == "discard" and client_request["cards"] != None:
@@ -1239,6 +1238,9 @@ class ServerState:
 
             return
         
+        if client_request["action"] == "submit" and self.mode == "trade" and client_request["cards"] != None:
+            pass
+
         elif client_request["action"] == "randomize_board" and 0 >= self.turn_num:
             self.send_broadcast("log", "Re-rolling board")
             self.board.initialize_board()
@@ -1250,8 +1252,6 @@ class ServerState:
                 p_object.hand = {"ore": 9, "wheat": 9, "sheep": 9, "wood": 9, "brick": 9}
 
     
-        if self.mode == "trade":
-            pass
 
         # toggle debug for server
         self.debug = client_request["debug"]
@@ -1264,7 +1264,7 @@ class ServerState:
         # CODE BELOW ONLY APPLIES TO CURRENT PLAYER
 
 
-        # set mode to "roll_dice"  -- unless completing a dev_card action - might need new dev_card state :(
+        # set mode to "roll_dice" may be redundant since there is another check for dice roll after playing dev card/completing action
         if self.mode == None:
             if self.dice_rolls == self.turn_num:
                 self.mode = "roll_dice"
@@ -1320,7 +1320,16 @@ class ServerState:
             if client_request["action"] != None:
                 self.send_to_player(client_request["name"], "log", "All players must finish discarding first.")
             return                
-
+        # force resolution of dev card before processing more mode changes, actions
+        elif self.mode in self.dev_card_modes:
+            # need 3 dev card modes here - move robber handled already
+            if self.mode == "road_building":
+                pass
+            elif self.mode == "year_of_plenty" and client_request["action"] == "submit" and client_request["cards"] != None:
+                pass
+            elif self.mode == "monopoly" and client_request["action"] == "submit" and client_request["cards"] != None:
+                pass
+            return
         # toggle mode if the same kind, else change server mode to match client mode
         elif self.mode != "roll_dice":
             # check build_costs to determine if mode is valid
@@ -1338,11 +1347,10 @@ class ServerState:
                     self.mode = None
                     return
 
-        # could add a change_mode action so changing modes is less ambiguous
         if client_request["mode"] != None:
             if self.mode == client_request["mode"]:
                 self.mode = None
-            else:
+            elif self.mode not in self.dev_card_modes:
                 self.mode = client_request["mode"]
         
 
@@ -1369,7 +1377,10 @@ class ServerState:
         elif client_request["action"] == "print_debug":
             self.print_debug()
         
+        # check if dice need to be rolled after playing dev card
         if self.mode == None:
+            if self.dice_rolls == self.turn_num:
+                self.mode = "roll_dice"
             return
         
 
