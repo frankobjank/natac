@@ -983,12 +983,12 @@ class ServerState:
         pass
             
             
-    def move_robber(self, location_hex=None):
+    def move_robber(self, location_hex):
+        if location_hex == self.board.robber_hex or location_hex not in self.board.land_hexes:
+            self.send_to_player(self.current_player_name, "log", "Invalid location for robber.")
+            return
+
         self.mode = None # only one robber move at a time
-        # random for debuging
-        if location_hex == None:
-            while self.robber_move_check(location_hex) != True:
-                location_hex = self.board.land_hexes[random.randint(1, 19)-1]
         self.board.robber_hex = location_hex
         
         adj_players = []
@@ -1013,12 +1013,6 @@ class ServerState:
         # if more than one player, change mode to steal and get player to select
         elif len(self.to_steal_from) > 1:
             self.mode = "steal"
-
-
-    def robber_move_check(self, location_hex):
-        if location_hex != self.board.robber_hex and location_hex in self.board.land_hexes:
-            return True
-        return False
 
         
     def distribute_resources(self):
@@ -1070,6 +1064,20 @@ class ServerState:
                 # move robber randomly for debug
                 # if self.debug == True:
                     # self.move_robber()
+
+    def end_turn(self):
+        # increment turn number, reset dev_card counter, set new current_player
+        self.turn_num += 1
+        self.dev_card_played = False
+        self.mode = "roll_dice"
+        # TODO this loop could be related to Bug 3
+        for player_name, player_object in self.players.items():
+            if self.turn_num % len(self.players) == player_object.order:
+                self.current_player_name = player_name
+                # set available dev_cards for new turn
+                self.dev_cards_avl = self.players[self.current_player_name].dev_cards
+                self.send_broadcast("log", f"It is now {self.current_player_name}'s turn.")
+
 
     def check_for_win(self):
         if self.players[self.current_player_name].get_vp_public(self.longest_road, self.largest_army) + self.players[self.current_player_name].dev_cards["victory_point"] >= 10:
@@ -1305,8 +1313,7 @@ class ServerState:
                 return
             # move robber
             if client_request["location"]["hex_a"] != None:
-                if self.robber_move_check(hh.set_hex_from_coords(client_request["location"]["hex_a"])):
-                    self.move_robber(hh.set_hex_from_coords(client_request["location"]["hex_a"]))
+                self.move_robber(hh.set_hex_from_coords(client_request["location"]["hex_a"]))
 
             
         elif self.mode == "discard":
@@ -1346,16 +1353,7 @@ class ServerState:
             # only allow if # rolls > turn_num
             if self.turn_num >= self.dice_rolls:
                 return
-            # increment turn number, reset dev_card counter, set new current_player
-            self.turn_num += 1
-            self.dev_card_played = False
-            self.mode = "roll_dice"
-            # TODO this loop could be related to Bug 3
-            for player_name, player_object in self.players.items():
-                if self.turn_num % len(self.players) == player_object.order:
-                    self.current_player_name = player_name
-                    self.dev_cards_avl = self.players[self.current_player_name].dev_cards
-                    self.send_broadcast("log", f"It is now {self.current_player_name}'s turn.")
+            self.end_turn()
             return
         
         elif client_request["action"] == "buy_dev_card":
