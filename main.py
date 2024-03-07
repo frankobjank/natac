@@ -14,14 +14,6 @@ from enum import Enum
 
 # UI_SCALE constant for changing scale (fullscreen)
 
-# road build, etc. menu on top right
-
-# Menu of buttons - actions
-# Log in bottom right
-
-# thought for randomizing settlement starting positions - could be interesting twist to game to randomize starting placements instead of picking yourself. would have to make sure randomized dot numbers were within 1 or 2 between players
-
-# alternate game mode: start with 10 cards in hand but only able to build 1 thing per turn
 
 # sound effects/ visuals ideas:
     # when number is rolled, relevant hexes should flash/ change color for a second. animate resource heading towards the player who gets it
@@ -45,13 +37,6 @@ Point = namedtuple("Point", ["x", "y"])
 
 LandTile = namedtuple("LandTile", ["hex", "terrain", "token"])
 OceanTile = namedtuple("OceanTile", ["hex", "port", "port_corners"])
-
-# class Resource(Enum):
-#     ORE = 1
-#     WHEAT = 2
-#     SHEEP = 3
-#     WOOD = 4
-#     BRICK = 5
 
 def vector2_round(vector2):
     return pr.Vector2(int(vector2.x), int(vector2.y))
@@ -660,23 +645,24 @@ class Board:
 
 class Player:
     def __init__(self, name, order, address="local"):
+        # gameplay
         self.name = name
         self.order = order
         # self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 3}
         self.num_to_discard = 0
         self.trade_offer = {}
-        self.dev_cards = {"knight": 0, "victory_point": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0}
+        self.dev_cards = {"knight": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
         self.visible_knights = 0 # can use to count largest army
-        # self.victory_points = 0 # calc on the fly
         self.num_cities = 0
         self.num_settlements = 0 # for counting victory points
-        self.num_roads = 0 # counting longest road
+        self.num_roads = 0 # might not need this since longest road is more complicated
         self.ports = []
+
+        # networking
         self.address = address
         self.num_msgs_sent_to = 0
         # self.num_msgs_recv_from = 0
-        
         self.last_state = {}
         self.current_state = {}
         self.has_board = False
@@ -722,12 +708,13 @@ class ServerState:
         self.hover = False # perform checks on server and pass back to client for rendering
 
         self.resource_cards = ["ore", "wheat", "sheep", "wood", "brick"]
-        # self.dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
+        # self.dev_card_order = ["knight", "road_building", "year_of_plenty", "monopoly", "victory_point"]
 
         self.dev_card_deck = []
         self.dev_card_played = False # True after a card is played. Only one can be played per turn
         self.dev_cards_avl = {} # cannot play dev_card the turn it is bought. Reset every turn
-        self.dev_card_modes = ["move_robber", "road_building", "year_of_plenty", "monopoly"]
+        self.dev_card_modes = ["road_building", "year_of_plenty", "monopoly"]
+
 
         # PLAYERS
         self.players = {} # {player_name: player_object}
@@ -758,7 +745,7 @@ class ServerState:
 
     def shuffle_dev_cards(self):
         # adds cards to self.dev_card_deck
-        dev_card_counts = {"knight": 14, "victory_point": 5, "road_building": 2, "year_of_plenty": 2, "monopoly": 2}
+        dev_card_counts = {"knight": 14, "road_building": 2, "year_of_plenty": 2, "monopoly": 2, "victory_point": 5}
         dev_card_types = [k for k in dev_card_counts.keys()]
         while len(self.dev_card_deck) < 25:
             for i in range(25):
@@ -884,8 +871,7 @@ class ServerState:
             self.mode = "move_robber"
         elif kind == "road_building":
             self.players[self.current_player_name].dev_cards[kind] -= 1
-            self.mode = "build_road" # figure out way to give 2 roads, maybe global counter or a "road_building" mode
-            # how to tell if a valid road can be built? do a road build check on all current_player's roads
+            self.mode = "road_building"
         elif kind == "year_of_plenty":
             self.mode = "year_of_plenty" # mode that prompts current_player to pick two resources
         elif kind == "monopoly":
@@ -893,6 +879,67 @@ class ServerState:
             self.mode = "monopoly" # mode that allows current_player to pick resource
             # distribute back to current player, possibly using 'steal' code
 
+    def dev_card_mode(self, location, action, cards):
+        # location = client_request["location"]
+        # action = client_request["action"]
+        # cards = client_request["cards"]
+        if self.mode == "road_building":
+            # check if any roads can be built. 
+            # TODO general rules question - can you exit early if you only want one road?
+            owned_roads = [] # list of edges
+            
+            for edge in self.board.edges:
+                if edge.player == self.current_player_name:
+                    owned_roads.append(edge)
+            valid = False
+            for road in owned_roads:
+                adj_edges = road.get_adj_node_edges(self.board.nodes, self.board.edges)
+                for adj in adj_edges:
+                    if adj.build_check_road(self):
+                        valid = True
+                        break
+            if not valid:
+                self.send_to_player(self.current_player_name, "log", "No valid road placements, exiting road building")
+                self.mode = None
+                return
+            
+            # copied location parsing-unpacking code from update_server - could turn to its own function
+            if all(hex == None for hex in location.values()):
+                return
+            
+            # convert location hex coords to hexes
+            location_hexes = {}
+            for hex_num, hex_coords in location.items():
+                if hex_coords != None:
+                    location_hexes[hex_num] = hh.set_hex_from_coords(hex_coords)
+                else:
+                    location_hexes[hex_num] = None
+
+            hex_a, hex_b, hex_c = location_hexes.values()
+
+            if hex_b == None:
+                return
+            location_edge = None
+            for edge in self.board.edges:
+                if edge.hexes == sort_hexes([hex_a, hex_b]):
+                    location_edge = edge
+
+            if action == "build_road":
+                if location_edge.build_check_road(self):
+                    location_edge.player = self.current_player_name
+                    self.players[self.current_player_name].num_roads += 1
+                    self.road_building_counter += 1
+            if self.road_building_counter == 2:
+                self.mode = None
+
+                
+        elif self.mode == "year_of_plenty" and action == "submit" and cards != None:
+            pass
+        elif self.mode == "monopoly" and action == "submit" and cards != None:
+            pass
+        return
+
+        
 
     # build functions
     def build_settlement(self, location_node):
@@ -1276,6 +1323,8 @@ class ServerState:
                 self.perform_roll()
             # only action allowed during roll_dice mode is playing a dev card
             elif client_request["action"] == "play_dev_card":
+                if client_request["cards"] == "victory_point":
+                    return
                 self.play_dev_card(client_request["cards"])
             return
         
@@ -1322,14 +1371,8 @@ class ServerState:
             return                
         # force resolution of dev card before processing more mode changes, actions
         elif self.mode in self.dev_card_modes:
-            # need 3 dev card modes here - move robber handled already
-            if self.mode == "road_building":
-                pass
-            elif self.mode == "year_of_plenty" and client_request["action"] == "submit" and client_request["cards"] != None:
-                pass
-            elif self.mode == "monopoly" and client_request["action"] == "submit" and client_request["cards"] != None:
-                pass
-            return
+            self.dev_card_mode(client_request["location"], client_request["action"], client_request["cards"])
+
         # toggle mode if the same kind, else change server mode to match client mode
         elif self.mode != "roll_dice":
             # check build_costs to determine if mode is valid
@@ -1629,7 +1672,8 @@ class ClientState:
 
         # CONSTANTS
         self.resource_cards = ["ore", "wheat", "sheep", "wood", "brick"]
-        self.dev_card_order = ["knight", "victory_point", "road_building", "year_of_plenty", "monopoly"]
+        self.dev_card_order = ["knight", "road_building", "year_of_plenty", "monopoly", "victory_point"]
+        self.dev_card_modes = ["road_building", "year_of_plenty", "monopoly"]
 
         
         self.longest_road = "" # name of player
@@ -1997,8 +2041,9 @@ class ClientState:
                 b_object.hover = False
         # 2nd loop for selecting card
         for b_object in self.dev_card_buttons.values():
-            if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                return self.client_request_to_dict(action="play_dev_card", cards=b_object.name)
+            if b_object.name != "victory_point":
+                if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                    return self.client_request_to_dict(action="play_dev_card", cards=b_object.name)
 
 
 
@@ -2056,11 +2101,6 @@ class ClientState:
                             return self.client_request_to_dict(action=b_object.name)
                 else:
                     b_object.hover = False
-        
-        # selecting dev card to play
-        for b_object in self.dev_card_buttons.values():
-            if self.name == self.current_player_name and pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                return self.client_request_to_dict(action="play_dev_card", cards=b_object.name)
 
         
         # selecting cards
@@ -2167,7 +2207,7 @@ class ClientState:
             elif self.current_hex_3 and self.mode == "build_city":
                 return self.client_request_to_dict(action="build_city")
             
-            elif self.current_hex_2 and self.mode == "build_road":
+            elif self.current_hex_2 and (self.mode == "build_road" or self.mode == "road_building"):
                 return self.client_request_to_dict(action="build_road")
 
             elif self.current_hex and self.mode == "move_robber":
@@ -2409,7 +2449,7 @@ class ClientState:
         # could highlight settlement when building city
 
         # highlight current edge if building is possible
-        elif self.current_hex_2 and self.mode == "build_road":
+        elif self.current_hex_2 and (self.mode == "build_road" or self.mode == "road_building"):
             edge_object = Edge(self.current_hex, self.current_hex_2)
             pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
 
@@ -2437,6 +2477,11 @@ class ClientState:
         pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
         pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
 
+    
+        for mode in self.dev_card_modes:
+            if self.mode == mode:
+                # blank out box if dev_card hover filled it
+                pr.draw_text_ex(pr.gui_get_font(), rf.descriptions[mode], (self.info_box.x, self.info_box.y+self.med_text_default*1.1), self.med_text_default*.9, 0, pr.BLACK)
 
         if self.mode == "trade":
             rf.draw_trade_interface(self.trade_buttons, self.info_box, self.med_text_default, self.selected_cards, self.trade_offer)
@@ -2452,6 +2497,7 @@ class ClientState:
         for b_object in self.dev_card_buttons.values():
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
+
             b_object.draw_display()
             # num of dev cards above button
             if self.client_players[self.name].dev_cards[b_object.name] > 1:
@@ -2465,8 +2511,10 @@ class ClientState:
                 pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
                 pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
 
-                pr.draw_text_ex(pr.gui_get_font(), rf.hover_text_dict[b_object.name], (self.info_box.x, self.info_box.y+self.med_text_default*1.1), self.med_text_default*.9, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), rf.descriptions[b_object.name], (self.info_box.x, self.info_box.y+self.med_text_default*1.1), self.med_text_default*.9, 0, pr.BLACK)
                 break
+        
+
 
 
         # draw log_box and log

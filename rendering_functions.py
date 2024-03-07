@@ -312,7 +312,7 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, trade
 
 
 # hover text
-hover_text_dict = {
+descriptions = {
     # dev cards
     "knight": " Knight.\n\n Allows you to move the robber.\n\n 3 or more knights are required\n to receive Largest Army.\n\n Can be played before or after\n you roll the dice.",
     "victory_point": " Victory Point.\n\n Adds 1 to your score.\n\n This remains hidden from other\n players until it gives you\n enough victory points to win.",
