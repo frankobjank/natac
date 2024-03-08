@@ -136,38 +136,47 @@ class Edge:
         return list(adj_edges_1.symmetric_difference(adj_edges_2))
 
 
-    def build_check_road(self, s_state):
-        print("build_check_road")
+    def build_check_road(self, s_state, verbose=True):
+        if verbose:
+            print("build_check_road")
         if s_state.current_player_name == None:
             return False
         # check if edge is owned
         if self.player != None:
             if self.player == s_state.players[s_state.current_player_name]:
-                s_state.send_to_player(s_state.current_player_name, "log", "This location is already owned by you.")
+                if verbose:
+                    s_state.send_to_player(s_state.current_player_name, "log", "This location is already owned by you.")
             else:
-                s_state.send_to_player(s_state.current_player_name, "log", "This location is owned by another player.")
-            print("This location is already owned")
+                if verbose:
+                    s_state.send_to_player(s_state.current_player_name, "log", "This location is owned by another player.")
+                    print("This location is already owned")
             return False
 
-        # check num_roads
-        if s_state.players[s_state.current_player_name].num_roads >= 15:
-            s_state.send_to_player(s_state.current_player_name, "log", "You ran out of roads (max 15).")
-            print("no available roads")
-            return
 
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes:
-            s_state.send_to_player(s_state.current_player_name, "log", "You can't build in the ocean.")
-            print("can't build in ocean")
+            if verbose:
+                s_state.send_to_player(s_state.current_player_name, "log", "You can't build in the ocean.")
+                print("can't build in ocean")
             return False
         
         # home check. if adj node is a same-player town, return True
         self_nodes = self.get_adj_nodes(s_state.board.nodes)
         for node in self_nodes:
             if node.player == s_state.current_player_name:
-                s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
-                print("building next to settlement")
+                if verbose:
+                    s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
+                    print("building next to settlement")
                 return True
+        
+        # check num roads
+        owned_roads = [edge for edge in s_state.board.edges if edge.player == s_state.current_player_name]
+        if len(owned_roads) >= 15:
+            if verbose:
+                s_state.send_to_player(s_state.current_player_name, "log", "You ran out of roads (max 15).")
+                s_state.send_to_player(s_state.current_player_name, "log", f"You have {len(owned_roads)} roads.")
+                print("no available roads")
+            return False
         
         # contiguous check. if no edges are not owned by player, break
         adj_edges = self.get_adj_node_edges(s_state.board.nodes, s_state.board.edges)
@@ -178,8 +187,9 @@ class Edge:
                 origin_edges.append(edge)
 
         if len(origin_edges) == 0: # non-contiguous
-            s_state.send_to_player(s_state.current_player_name, "log", f"You must build adjacent to one of your roads.")
-            print("non-contiguous")
+            if verbose:
+                s_state.send_to_player(s_state.current_player_name, "log", "You must build adjacent to one of your roads.")
+                print("non-contiguous")
             return False
         # origin shows what direction road is going
         # if multiple origins, check if origin node has opposing settlement blocking path
@@ -202,16 +212,19 @@ class Edge:
                 break
             # origin node blocked by another player
             elif origin_node.player != None and origin_node.player != s_state.current_player_name:
-                print("adjacent node blocked by settlement, checking others")
+                if verbose:
+                    print("adjacent node blocked by settlement, checking others")
                 blocked_count += 1
                 
             if blocked_count == len(origin_edges):
-                s_state.send_to_player(s_state.current_player_name, "log", f"You cannot build there. All routes are blocked.")
-                print("all routes blocked")
+                if verbose:
+                    s_state.send_to_player(s_state.current_player_name, "log", "You cannot build there. All routes are blocked.")
+                    print("all routes blocked")
                 return False
         
-        s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
-        print("no conflicts, building road")
+        if verbose:
+            s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
+            print("no conflicts")
         return True
         
         # contiguous - connected to either settlement or road
@@ -620,25 +633,21 @@ class Board:
             if "orange" in s_state.players:
                 for orange_edge in orange_edges:
                     if edge.hexes[0] == orange_edge.hexes[0] and edge.hexes[1] == orange_edge.hexes[1]:
-                        s_state.players["orange"].num_roads += 1
                         edge.player = "orange"
 
             if "blue" in s_state.players:
                 for blue_edge in blue_edges:
                     if edge.hexes[0] == blue_edge.hexes[0] and edge.hexes[1] == blue_edge.hexes[1]:
-                        s_state.players["blue"].num_roads += 1
                         edge.player = "blue"
 
             if "red" in s_state.players:
                 for red_edge in red_edges:
                     if edge.hexes[0] == red_edge.hexes[0] and edge.hexes[1] == red_edge.hexes[1]:
-                        s_state.players["red"].num_roads += 1
                         edge.player = "red"
             
             if "white" in s_state.players:
                 for white_edge in white_edges:
                     if edge.hexes[0] == white_edge.hexes[0] and edge.hexes[1] == white_edge.hexes[1]:
-                        s_state.players["white"].num_roads += 1
                         edge.player = "white"
 
 
@@ -656,7 +665,6 @@ class Player:
         self.visible_knights = 0 # can use to count largest army
         self.num_cities = 0
         self.num_settlements = 0 # for counting victory points
-        self.num_roads = 0 # might not need this since longest road is more complicated
         self.ports = []
 
         # networking
@@ -859,6 +867,22 @@ class ServerState:
             if self.players[self.current_player_name].visible_knights > self.players[self.largest_army].visible_knights:
                 self.largest_army = self.current_player_name
 
+    def can_build_road(self) -> bool:
+        # check if any roads can be built
+        # TODO general rules question - can you exit early if you only want one road?
+        owned_roads = [edge for edge in self.board.edges if edge.player == self.current_player_name]
+
+        for road in owned_roads:
+            adj_edges = road.get_adj_node_edges(self.board.nodes, self.board.edges)
+            for adj in adj_edges:
+                if adj.build_check_road(self, verbose=False):
+                    return True
+        return False
+
+
+    def road_building(self):
+        pass
+
     def play_dev_card(self, kind):
         if self.dev_card_played == True:
             self.send_to_player(self.current_player_name, "log", "You can only play one dev card per turn.")
@@ -871,7 +895,13 @@ class ServerState:
             self.mode = "move_robber"
         elif kind == "road_building":
             self.players[self.current_player_name].dev_cards[kind] -= 1
-            self.mode = "road_building"
+            if self.can_build_road() == True:
+                self.mode = "road_building"
+                self.send_to_player(self.current_player_name, "log", "Entering Road Building Mode.")
+                return
+            self.send_to_player(self.current_player_name, "log", "No valid road placements.")
+            self.mode = None
+
         elif kind == "year_of_plenty":
             self.mode = "year_of_plenty" # mode that prompts current_player to pick two resources
         elif kind == "monopoly":
@@ -884,24 +914,6 @@ class ServerState:
         # action = client_request["action"]
         # cards = client_request["cards"]
         if self.mode == "road_building":
-            # check if any roads can be built. 
-            # TODO general rules question - can you exit early if you only want one road?
-            owned_roads = [] # list of edges
-            
-            for edge in self.board.edges:
-                if edge.player == self.current_player_name:
-                    owned_roads.append(edge)
-            valid = False
-            for road in owned_roads:
-                adj_edges = road.get_adj_node_edges(self.board.nodes, self.board.edges)
-                for adj in adj_edges:
-                    if adj.build_check_road(self):
-                        valid = True
-                        break
-            if not valid:
-                self.send_to_player(self.current_player_name, "log", "No valid road placements, exiting road building")
-                self.mode = None
-                return
             
             # copied location parsing-unpacking code from update_server - could turn to its own function
             if all(hex == None for hex in location.values()):
@@ -927,9 +939,12 @@ class ServerState:
             if action == "build_road":
                 if location_edge.build_check_road(self):
                     location_edge.player = self.current_player_name
-                    self.players[self.current_player_name].num_roads += 1
                     self.road_building_counter += 1
+                    self.send_to_player(self.current_player_name, "log", f"Road placed, you have {2-self.road_building_counter} left.")
+
             if self.road_building_counter == 2:
+                self.send_to_player(self.current_player_name, "log", f"Exiting Road Building Mode.")
+
                 self.mode = None
 
                 
@@ -962,7 +977,6 @@ class ServerState:
     def build_road(self, location_edge):
         self.mode = None # immediately switch off build mode
         location_edge.player = self.current_player_name
-        self.players[self.current_player_name].num_roads += 1
         self.pay_for("road")
 
     def buy_dev_card(self):
@@ -970,8 +984,6 @@ class ServerState:
         if len(self.dev_card_deck) == 0:
             self.send_to_player(self.current_player_name, "log", "No dev cards remaining.")
             return
-        # redundant randomization, already 'shuffled' cards. commented out because it was throwing off the test dice rolls
-        # card = self.dev_card_deck.pop(random.randrange(len(self.dev_card_deck)))
         card = self.dev_card_deck.pop()
         self.players[self.current_player_name].dev_cards[card] += 1
         self.pay_for("dev_card")
@@ -1233,7 +1245,7 @@ class ServerState:
             "to_steal_from": self.to_steal_from,
             "ports": self.players[recipient].ports,
             "longest_road": self.longest_road, 
-            "largest_army": self.largest_army
+            "largest_army": self.largest_army,
         }
 
         combined = packet|self.package_board()
@@ -1859,7 +1871,7 @@ class ClientState:
         return client_request
 
     def client_steal(self, user_input):
-        # TODO keys sometimes move selection in 'wrong' direction because display_order different from player_order
+        # TODO keys sometimes move selection in 'wrong' direction because display_order different from player_order - I think this is fixed
         if user_input == pr.KeyboardKey.KEY_UP or user_input == pr.KeyboardKey.KEY_LEFT:
             self.player_index -= 1
             if 0 > self.player_index:
@@ -2191,6 +2203,27 @@ class ClientState:
                 else:
                     b_object.hover = False
 
+        elif self.mode == "year_of_plenty":
+            # adapted from bank_trade
+            # submit with enter, space, or submit button
+            if self.check_submit(user_input):
+                if len(self.trade_offer["request"]) == 2:
+                    self.trade_offer["trade_with"] = "bank"
+                    return self.client_request_to_dict(action="submit", trade_offer=self.trade_offer)
+
+            for b_object in self.trade_buttons.values():
+                if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and self.name == self.current_player_name:
+                    if "request" in b_object.name:
+                        b_object.hover = True
+                        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                            if b_object.display not in self.trade_offer["request"].keys():
+                                self.trade_offer["request"] = {}
+                                self.trade_offer["request"][b_object.display] = 1
+                            elif b_object.display in self.trade_offer["request"].keys():
+                                self.trade_offer["request"] = {}
+                                return
+                else:
+                    b_object.hover = False
 
 
 
@@ -2287,6 +2320,7 @@ class ClientState:
             if self.mode == "bank_trade":
                 self.trade_offer = {"offer": {}, "request": {}, "trade_with": ""}
             return
+
         
         # if self.name in self.client_players:
             # if not self.does_board_exist():
