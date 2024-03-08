@@ -1571,7 +1571,12 @@ class Button:
     def __repr__(self):
         return f"Button({self.name})"
 
-    def draw_display(self):
+    def draw_display(self, font_override=None):
+        if font_override:
+            for i, line in enumerate(self.display.split("\n")):
+                pr.draw_text_ex(pr.gui_get_font(), " "+line, (self.rec.x, self.rec.y+(i+.5)*self.font_override), self.font_override, 0, pr.BLACK)
+            return
+
         for i, line in enumerate(self.display.split("\n")):
             pr.draw_text_ex(pr.gui_get_font(), " "+line, (self.rec.x, self.rec.y+(i+.5)*self.font_size), self.font_size, 0, pr.BLACK)
 
@@ -1649,8 +1654,9 @@ class ClientState:
 
         # self.pixel_mult = (self.screen_height*self.screen_width) / (self.default_screen_w*self.default_screen_h)
 
-        self.med_text_default = self.screen_height / 44.3 # ~16.9
-        self.small_text_default = self.screen_height / 62.5 # 12
+        self.small_text = self.screen_height / 62.5 # 12
+        self.med_text = self.screen_height / 44.3 # ~16.9
+        self.large_text = self.screen_height / 37.5 # 20
 
         # 900 / 75 = 12, 900 / 18 = 50
 
@@ -1758,7 +1764,7 @@ class ClientState:
 
 
         # rendering dict
-        self.rendering_dict = {"width":self.screen_width, "height": self.screen_height, "small_text": self.small_text_default, "med_text": self.med_text_default}
+        self.rendering_dict = {"width":self.screen_width, "height": self.screen_height, "small_text": self.small_text, "med_text": self.med_text}
 
         # camera controls
         # when changing size of screen, just zoom in?
@@ -2505,7 +2511,7 @@ class ClientState:
         if self.debug == True:
             debug_msgs = [f"Screen mouse at: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
             for i, msg in enumerate(reversed(debug_msgs)):
-                pr.draw_text_ex(pr.gui_get_font(), msg, pr.Vector2(5, self.screen_height-(i+1)*self.med_text_default*1.5), self.med_text_default, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), msg, pr.Vector2(5, self.screen_height-(i+1)*self.med_text*1.5), self.med_text, 0, pr.BLACK)
 
         # draw info_box
         pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
@@ -2515,18 +2521,25 @@ class ClientState:
         for mode in self.dev_card_modes:
             if self.mode == mode:
                 # blank out box if dev_card hover filled it
-                pr.draw_text_ex(pr.gui_get_font(), rf.descriptions[mode], (self.info_box.x, self.info_box.y+self.med_text_default*1.1), self.med_text_default*.9, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), rf.descriptions[mode], (self.info_box.x, self.info_box.y+self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
 
         if self.mode == "trade":
-            rf.draw_trade_interface(self.trade_buttons, self.info_box, self.med_text_default, self.selected_cards, self.trade_offer)
+            rf.draw_trade_interface(self.trade_buttons, self.info_box, self.med_text, self.selected_cards, self.trade_offer)
         
         elif self.mode == "bank_trade":
-            rf.draw_banktrade_interface(self.trade_buttons, self.info_box, self.med_text_default, self.selected_cards, self.trade_offer, self.client_players[self.name].ratios)
+            rf.draw_banktrade_interface(self.trade_buttons, self.info_box, self.med_text, self.selected_cards, self.trade_offer, self.client_players[self.name].ratios)
+        
+        elif self.mode == "year_of_plenty":
+            pr.draw_text_ex(pr.gui_get_font(), " "+rf.to_title(self.mode), (self.info_box.x, self.info_box.y+self.large_text*1.1), self.large_text, 0, pr.BLACK)
+
+            rf.draw_yop_interface(self)
 
         # draw discard dialog in infobox if cardstoreturn > 0
 
         elif self.mode == "move_robber" and self.name == self.current_player_name:
-            pr.draw_text_ex(pr.gui_get_font(), " You must move the robber.\n Please select a land hex.", (self.info_box.x, self.info_box.y+self.info_box.height/2-self.med_text_default*1.1), self.med_text_default*.9, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), " "+rf.to_title(self.mode), (self.info_box.x, self.info_box.y+self.large_text*1.1), self.large_text, 0, pr.BLACK)
+            
+            pr.draw_text_ex(pr.gui_get_font(), rf.mode_text["move_robber"], (self.info_box.x, self.info_box.y+self.info_box.height/2-self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
 
         for b_object in self.dev_card_buttons.values():
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
@@ -2535,7 +2548,7 @@ class ClientState:
             b_object.draw_display()
             # num of dev cards above button
             if self.client_players[self.name].dev_cards[b_object.name] > 1:
-                pr.draw_text_ex(pr.gui_get_font(), f"x{self.client_players[self.name].dev_cards[b_object.name]}", (b_object.rec.x+self.med_text_default, b_object.rec.y - self.med_text_default/1.5), self.med_text_default/1.5, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), f"x{self.client_players[self.name].dev_cards[b_object.name]}", (b_object.rec.x+self.med_text, b_object.rec.y - self.med_text/1.5), self.med_text/1.5, 0, pr.BLACK)
 
         # 2nd for loop drawing hover
         for b_object in self.dev_card_buttons.values():
@@ -2545,7 +2558,7 @@ class ClientState:
                 pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
                 pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
 
-                pr.draw_text_ex(pr.gui_get_font(), rf.descriptions[b_object.name], (self.info_box.x, self.info_box.y+self.med_text_default*1.1), self.med_text_default*.9, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), rf.descriptions[b_object.name], (self.info_box.x, self.info_box.y+self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
                 break
         
 
@@ -2557,7 +2570,7 @@ class ClientState:
 
         # TODO wrap text - find len of text
         for i, msg in enumerate(self.log_to_display):
-            pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text_default, 4+self.log_box.y+(i*self.med_text_default)), self.med_text_default, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text, 4+self.log_box.y+(i*self.med_text)), self.med_text, 0, pr.BLACK)
             
 
         for b_object in self.buttons.values():
@@ -2583,7 +2596,7 @@ class ClientState:
 
         self.buttons["end_turn"].draw_display()
         
-        # pr.draw_text_ex(pr.gui_get_font(), "Submit", (((self.buttons["submit"].rec.x + (self.buttons["submit"].rec.width//2-40)//2)), (self.buttons["submit"].rec.y + (self.buttons["submit"].rec.height-22)//2)), self.med_text_default, 0, pr.BLACK)
+        # pr.draw_text_ex(pr.gui_get_font(), "Submit", (((self.buttons["submit"].rec.x + (self.buttons["submit"].rec.width//2-40)//2)), (self.buttons["submit"].rec.y + (self.buttons["submit"].rec.height-22)//2)), self.med_text, 0, pr.BLACK)
         
 
 
@@ -2607,7 +2620,7 @@ class ClientState:
             if self.mode == "discard":
                 if player_name == self.name:
                     if player_object.num_to_discard > 0:
-                        pr.draw_text_ex(pr.gui_get_font(), f"choose {player_object.num_to_discard} cards", (player_object.marker.rec.x- self.screen_width//30, player_object.marker.rec.y - self.med_text_default*2), self.med_text_default, 0, pr.BLACK)
+                        pr.draw_text_ex(pr.gui_get_font(), f"choose {player_object.num_to_discard} cards", (player_object.marker.rec.x- self.screen_width//30, player_object.marker.rec.y - self.med_text*2), self.med_text, 0, pr.BLACK)
                 if player_name != self.name:
                     if player_object.num_to_discard > 0:
                         pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.marker.rec.x, player_object.marker.rec.y - 20), 12, 0, pr.BLACK)
@@ -2622,7 +2635,7 @@ class ClientState:
 
 
         score_x = self.screen_width//110
-        score_font = (self.small_text_default + self.med_text_default)/2
+        score_font = (self.small_text + self.med_text)/2
         pr.draw_text_ex(pr.gui_get_font(), "Scores:", (score_x, score_font), score_font, 0, pr.BLACK)
         for i, player_name in enumerate(self.player_order):
             pr.draw_text_ex(pr.gui_get_font(), f"{player_name}: {self.client_players[player_name].victory_points}", (score_x, score_font + score_font*((i+1)*1.5)), score_font, 0, pr.BLACK)
