@@ -204,6 +204,14 @@ def draw_discard_cards(c_state, location:pr.Vector2, card_type:str, num_cards:in
     if c_state.selected_cards[card_type] > 0:
         pr.draw_text_ex(pr.gui_get_font(), f"-> {c_state.selected_cards[card_type]}", (location.x+x_offset+(size*6), location.y-size+(i*size)), size, 0, color)
 
+def draw_added_cards(c_state, location:pr.Vector2, card_type:str, num_cards:int, i:int, x_offset:int, size:int, color:pr.Color):
+    card_type_display = card_type
+    while 5 > len(card_type_display):
+        card_type_display += " "
+    pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards + c_state.selected_cards[card_type]}", (location.x+x_offset, location.y-size+(i*size)), size, 0, color)
+    if c_state.selected_cards[card_type] > 0:
+        pr.draw_text_ex(pr.gui_get_font(), f" +{c_state.selected_cards[card_type]}", (location.x+x_offset+(size*6), location.y-size+(i*size)), size, 0, color)
+
 # includes dev_cards for other players, not dev card buttons for self
 def draw_hands(c_state, player_name, player_object):
     x_offset = c_state.screen_width//20
@@ -215,13 +223,13 @@ def draw_hands(c_state, player_name, player_object):
         # moving this from hand to info_box
         if c_state.mode == "discard" and player_object.num_to_discard > 0:
             draw_discard_interface(c_state, player_object)
-            for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
-                # if current card_index, draw in white
-                if i == c_state.card_index:
-                    draw_discard_cards(c_state, pr.Vector2(player_object.marker.rec.x, player_object.marker.rec.y), card_type, num_cards, i, x_offset, size, pr.WHITE)
-                # not current card index, draw in black
-                else:
-                    draw_discard_cards(c_state, pr.Vector2(player_object.marker.rec.x, player_object.marker.rec.y), card_type, num_cards, i, x_offset, size, pr.BLACK)
+            # for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
+            #     # if current card_index, draw in white
+            #     if i == c_state.card_index:
+            #         draw_arrow_cards(c_state, pr.Vector2(player_object.marker.rec.x, player_object.marker.rec.y), card_type, num_cards, i, x_offset, size, pr.WHITE)
+            #     # not current card index, draw in black
+            #     else:
+            #         draw_arrow_cards(c_state, pr.Vector2(player_object.marker.rec.x, player_object.marker.rec.y), card_type, num_cards, i, x_offset, size, pr.BLACK)
 
         # overlay for trading -- could be the same as return cards tho
         # elif c_state.mode == "trade":
@@ -252,14 +260,16 @@ def draw_button_outline(button_object):
     pr.draw_rectangle_lines_ex(outer_rec, 5, pr.BLACK)
 
 def draw_discard_interface(c_state, player_object):
-    # draw vertical line in info_box
-    pr.draw_line_ex((c_state.info_box.x+c_state.info_box.width/2, c_state.info_box.y), (c_state.info_box.x+c_state.info_box.width/2, c_state.info_box.y+c_state.info_box.height), 1, pr.BLACK)
+    # # draw vertical line in info_box
+    # pr.draw_line_ex((c_state.info_box.x+c_state.info_box.width/2, c_state.info_box.y), (c_state.info_box.x+c_state.info_box.width/2, c_state.info_box.y+c_state.info_box.height), 1, pr.BLACK)
 
     x_offset = c_state.screen_width//20
     size = c_state.med_text-2
     location = pr.Vector2(c_state.info_box.x, c_state.info_box.y+c_state.med_text)
     for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
         # if current card_index, draw in white
+
+        num_cards -= c_state.selected_cards[card_type]
         if i == c_state.card_index:
             draw_discard_cards(c_state, location, card_type, num_cards, i, x_offset, size, pr.WHITE)
         # not current card index, draw in black
@@ -327,32 +337,20 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, trade
                 draw_button_outline(button_object)
 
 def draw_yop_interface(c_state):
-    # draw vertical line in info_box
-    pr.draw_line_ex((c_state.info_box.x+c_state.info_box.width/2, c_state.info_box.y), (c_state.info_box.x+c_state.info_box.width/2, c_state.info_box.y+c_state.info_box.height), 1, pr.BLACK)
-    pr.draw_text_ex(pr.gui_get_font(), " Cards to receive", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), " Pick 2 resources to receive", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
+    x_offset = c_state.screen_width//20
+    size = c_state.med_text-2
+    location = pr.Vector2(c_state.info_box.x+c_state.info_box.width/5, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*3)
+    for i, (card_type, num_cards) in enumerate(c_state.client_players[c_state.name].hand.items()):
+        # if current card_index, draw in white
+        if i == c_state.card_index:
+            draw_added_cards(c_state, location, card_type, num_cards, i, x_offset, size, pr.WHITE)
+        # not current card index, draw in black
+        else:
+            draw_added_cards(c_state, location, card_type, num_cards, i, x_offset, size, pr.BLACK)
 
-    for button_object in c_state.buttons.values():
-        # font was too big, resizing
-        font_resize = button_object.font_size-2
-        pr.draw_rectangle_rec(button_object.rec, button_object.color)
-        pr.draw_rectangle_lines_ex(button_object.rec, 1, pr.BLACK)
-        if "request" in button_object.name:
-            pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*font_resize/1.4)//2, button_object.rec.y+14), font_resize, 0, pr.BLACK)
 
 
-        elif "offer" in button_object.name:
-            pr.draw_text_ex(pr.gui_get_font(), f"{c_state.client_players[c_state.name].ratios[button_object.display]}:1", (button_object.rec.x+button_object.rec.width//2-(3*font_resize/1.4)//2, button_object.rec.y+button_object.rec.height*1/6), font_resize, 0, pr.BLACK)
-
-            # draw resource below ratio
-            pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*font_resize/1.4)//2, button_object.rec.y+button_object.rec.height*2/3), font_resize, 0, pr.BLACK)
-    
-    # separate hover / selecting box drawing
-    for button_object in c_state.buttons.values(): 
-        if "request" in button_object.name:
-            if button_object.display in c_state.trade_offer["request"]:
-                draw_button_outline(button_object)
-            if button_object.hover:
-                draw_button_outline(button_object)
 
 
 

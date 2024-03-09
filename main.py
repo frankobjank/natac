@@ -1702,7 +1702,7 @@ class ClientState:
         # self.bank_trade = {"offer": "", "request": ""}
         self.trade_offer = {"offer": {}, "request": {}, "trade_with": ""}
 
-        # for discard_cards
+        # for discard_cards / year_of_plenty
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # selecting with arrow keys for now
         self.card_index = 0
@@ -1776,7 +1776,7 @@ class ClientState:
         self.camera.zoom = self.default_zoom
     
     def print_debug(self):
-        print(f"selected cards = {self.selected_cards}\nnum_to_discard = {self.client_players[self.name].num_to_discard}")
+        print(f"selected cards = {self.selected_cards}")
         
 
     def resize_client(self):
@@ -2210,26 +2210,25 @@ class ClientState:
                     b_object.hover = False
 
         elif self.mode == "year_of_plenty":
-            # adapted from bank_trade
-            # submit with enter, space, or submit button
+            # adapted from discard
             if self.check_submit(user_input):
-                if len(self.trade_offer["request"]) == 2:
-                    self.trade_offer["trade_with"] = "bank"
-                    return self.client_request_to_dict(action="submit", trade_offer=self.trade_offer)
+                if len(self.selected_cards) == 2:
+                    return self.client_request_to_dict(action="submit", cards=self.selected_cards)
 
-            for b_object in self.trade_buttons.values():
-                if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and self.name == self.current_player_name:
-                    if "request" in b_object.name:
-                        b_object.hover = True
-                        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                            if b_object.display not in self.trade_offer["request"].keys():
-                                self.trade_offer["request"] = {}
-                                self.trade_offer["request"][b_object.display] = 1
-                            elif b_object.display in self.trade_offer["request"].keys():
-                                self.trade_offer["request"] = {}
-                                return
-                else:
-                    b_object.hover = False
+            # select new cards if num_to_discard is above num selected_cards
+            if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
+                self.card_index -= 1
+            elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 4:
+                self.card_index += 1
+            # add to selected_cards
+            elif user_input == pr.KeyboardKey.KEY_RIGHT and 2 > sum(self.selected_cards.values()):
+                self.selected_cards[self.resource_cards[self.card_index]] += 1
+            # subtract from selected_cards
+            elif user_input == pr.KeyboardKey.KEY_LEFT:
+                if self.selected_cards[self.resource_cards[self.card_index]] > 0:
+                    self.selected_cards[self.resource_cards[self.card_index]] -= 1
+            # end function with no client_request if nothing is submitted
+            return
 
 
 
@@ -2517,11 +2516,9 @@ class ClientState:
         pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
         pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
 
-    
-        for mode in self.dev_card_modes:
-            if self.mode == mode:
-                # blank out box if dev_card hover filled it
-                pr.draw_text_ex(pr.gui_get_font(), rf.descriptions[mode], (self.info_box.x, self.info_box.y+self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
+        if self.mode in rf.mode_text.keys():
+            pr.draw_text_ex(pr.gui_get_font(), " "+rf.to_title(self.mode), (self.info_box.x, self.info_box.y+self.large_text*1.1), self.large_text, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), rf.mode_text[self.mode], (self.info_box.x, self.info_box.y+self.info_box.height/2-self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
 
         if self.mode == "trade":
             rf.draw_trade_interface(self.trade_buttons, self.info_box, self.med_text, self.selected_cards, self.trade_offer)
@@ -2530,8 +2527,6 @@ class ClientState:
             rf.draw_banktrade_interface(self.trade_buttons, self.info_box, self.med_text, self.selected_cards, self.trade_offer, self.client_players[self.name].ratios)
         
         elif self.mode == "year_of_plenty":
-            pr.draw_text_ex(pr.gui_get_font(), " "+rf.to_title(self.mode), (self.info_box.x, self.info_box.y+self.large_text*1.1), self.large_text, 0, pr.BLACK)
-
             rf.draw_yop_interface(self)
 
         # draw discard dialog in infobox if cardstoreturn > 0
@@ -2539,8 +2534,9 @@ class ClientState:
         elif self.mode == "move_robber" and self.name == self.current_player_name:
             pr.draw_text_ex(pr.gui_get_font(), " "+rf.to_title(self.mode), (self.info_box.x, self.info_box.y+self.large_text*1.1), self.large_text, 0, pr.BLACK)
             
-            pr.draw_text_ex(pr.gui_get_font(), rf.mode_text["move_robber"], (self.info_box.x, self.info_box.y+self.info_box.height/2-self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
 
+
+        # display dev_card in info_box
         for b_object in self.dev_card_buttons.values():
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
@@ -2558,7 +2554,7 @@ class ClientState:
                 pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
                 pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
 
-                pr.draw_text_ex(pr.gui_get_font(), rf.descriptions[b_object.name], (self.info_box.x, self.info_box.y+self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), rf.hover_text[b_object.name], (self.info_box.x, self.info_box.y+self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
                 break
         
 

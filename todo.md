@@ -9,6 +9,9 @@ things to add to info_box:
     put player selection for stealing at mode "steal"
     put card selection for discarding at mode "discard_cards"
 
+    have general layout of mode title at the top of info_box and mode details below
+    can be wrapped in render_info_box function that includes all the modes
+
 to add to hand UI:
     when selecting something to trade away or discard, show -> minus cards
         when gaining a card, show -> add cards
