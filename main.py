@@ -880,9 +880,6 @@ class ServerState:
         return False
 
 
-    def road_building(self):
-        pass
-
     def play_dev_card(self, kind):
         if self.dev_card_played == True:
             self.send_to_player(self.current_player_name, "log", "You can only play one dev card per turn.")
@@ -906,10 +903,9 @@ class ServerState:
             self.mode = "year_of_plenty" # mode that prompts current_player to pick two resources
         elif kind == "monopoly":
             # get all cards of one type 
-            self.mode = "monopoly" # mode that allows current_player to pick resource
-            # distribute back to current player, possibly using 'steal' code
+            self.mode = "monopoly"
 
-    def dev_card_mode(self, location, action, cards):
+    def dev_card_mode(self, location, action, cards, resource):
         # location = client_request["location"]
         # action = client_request["action"]
         # cards = client_request["cards"]
@@ -946,6 +942,7 @@ class ServerState:
                 self.send_to_player(self.current_player_name, "log", f"Exiting Road Building Mode.")
 
                 self.mode = None
+                self.road_building_counter = 0
 
                 
         elif self.mode == "year_of_plenty" and action == "submit" and cards != None:
@@ -953,6 +950,7 @@ class ServerState:
                 self.send_to_player(self.current_player_name, "log", "You must request two cards.")
                 return
             self.mode = None
+            self.send_to_player(self.current_player_name, "accept", "year_of_plenty")
             cards_recv = []
             for card_type in self.resource_cards:
                 if cards[card_type] > 0:
@@ -965,8 +963,18 @@ class ServerState:
                 self.send_to_player(self.current_player_name, "log", f"You receive 1 {cards_recv[0]} and 1 {cards_recv[1]}.")
             
 
-        elif self.mode == "monopoly" and action == "submit" and cards != None:
-            pass
+        elif self.mode == "monopoly" and action == "submit" and resource != None:
+            collected = 0
+            for p_object in self.players.values():
+                if p_object.name != self.current_player_name:
+                    collected += p_object.hand[resource]
+                    p_object.hand[resource] = 0
+            self.players[self.current_player_name].hand[resource] += collected
+            self.send_broadcast("log", f"{self.current_player_name} stole {collected} {resource} from all players.")
+            self.mode = None
+            # lets client know action was accepted - client resets vars
+            self.send_to_player(self.current_player_name, "accept", "monopoly")
+
         return
 
         
@@ -1301,6 +1309,7 @@ class ServerState:
         # receive input from non-current player for discard_cards
         elif client_request["action"] == "submit" and self.mode == "discard" and client_request["cards"] != None:
             if sum(client_request["cards"].values()) == self.players[client_request["name"]].num_to_discard:
+                self.send_to_player(client_request["name"], "accept", "discard")
                 self.players[client_request["name"]].num_to_discard = 0
                 for card_type in self.resource_cards:
                     if client_request["cards"][card_type] > 0:
@@ -1398,7 +1407,7 @@ class ServerState:
             return                
         # force resolution of dev card before processing more mode changes, actions
         elif self.mode in self.dev_card_modes:
-            self.dev_card_mode(client_request["location"], client_request["action"], client_request["cards"])
+            self.dev_card_mode(client_request["location"], client_request["action"], client_request["cards"], client_request["resource"])
 
         # toggle mode if the same kind, else change server mode to match client mode
         elif self.mode != "roll_dice":
@@ -1671,7 +1680,7 @@ class ClientState:
 
         self.small_text = self.screen_height / 62.5 # 12
         self.med_text = self.screen_height / 44.3 # ~16.9
-        self.large_text = self.screen_height / 37.5 # 20
+        self.large_text = self.screen_height / 31.25 # 24
 
         # 900 / 75 = 12, 900 / 18 = 50
 
@@ -1719,7 +1728,8 @@ class ClientState:
 
         # for discard_cards / year_of_plenty
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        # selecting with arrow keys for now
+        # for monopoly, selected_resource = self.resource_cards[self.card_index]
+        # selecting with arrow keys
         self.card_index = 0
 
         self.to_steal_from = [] # player names
@@ -1878,7 +1888,7 @@ class ClientState:
         for order, name in enumerate(self.player_order):
             self.client_initialize_player(name, order)
 
-    def client_request_to_dict(self, mode=None, action=None, cards=None, player=None, trade_offer=None) -> dict:
+    def client_request_to_dict(self, mode=None, action=None, cards=None, resource=None, player=None, trade_offer=None) -> dict:
         client_request = {"name": self.name}
         client_request["debug"] = self.debug
         client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
@@ -1886,8 +1896,10 @@ class ClientState:
         client_request["mode"] = mode
         client_request["action"] = action
         client_request["cards"] = cards
+        client_request["resource"] = resource
         client_request["selected_player"] = player
         client_request["trade_offer"] = trade_offer
+        
 
         return client_request
 
@@ -2165,10 +2177,6 @@ class ClientState:
             # end function with no client_request if nothing is submitted
             return
 
-        # adapted from "discard" mode actions, maybe will make an arrow keys for incrementing menu function
-        elif self.mode == "steal":
-            return self.client_steal(user_input)
-        
         elif self.mode == "trade":
             if pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["trade"].rec):
                 self.buttons["trade"].hover = True
@@ -2185,6 +2193,14 @@ class ClientState:
                             self.selected_cards[b_object.display] += 1
                 else:
                     b_object.hover = False
+        
+        # anything below only applies to current player
+        if self.name != self.current_player_name:
+            return
+        # adapted from "discard" mode actions, maybe will make an arrow keys for incrementing menu function
+        if self.mode == "steal":
+            return self.client_steal(user_input)
+        
 
         elif self.mode == "bank_trade":
             # toggle bank_trade
@@ -2226,9 +2242,8 @@ class ClientState:
 
         elif self.mode == "year_of_plenty":
             # adapted from discard
-            if self.check_submit(user_input):
-                if sum(self.selected_cards.values()) == 2:
-                    return self.client_request_to_dict(action="submit", cards=self.selected_cards)
+            if self.check_submit(user_input) and sum(self.selected_cards.values()) == 2:
+                return self.client_request_to_dict(action="submit", cards=self.selected_cards)
 
             # select new cards if num_to_discard is above num selected_cards
             if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
@@ -2244,6 +2259,21 @@ class ClientState:
                     self.selected_cards[self.resource_cards[self.card_index]] -= 1
             # end function with no client_request if nothing is submitted
             return
+        
+        elif self.mode == "monopoly":
+            # adapted from discard/yop; selected_cards = 1 if selecting a resource
+            if self.check_submit(user_input):
+                return self.client_request_to_dict(action="submit", resource=self.resource_cards[self.card_index])
+
+            # select new cards if num_to_discard is above num selected_cards
+            if (user_input == pr.KeyboardKey.KEY_UP or user_input == pr.KeyboardKey.KEY_LEFT) and self.card_index > 0:
+                self.card_index -= 1
+            elif (user_input == pr.KeyboardKey.KEY_DOWN or user_input == pr.KeyboardKey.KEY_RIGHT) and self.card_index < 4:
+                self.card_index += 1
+
+            # end function with no client_request if nothing is submitted
+            return
+
 
 
 
@@ -2337,8 +2367,9 @@ class ClientState:
             return
         
         elif server_response["kind"] == "accept":
-            if self.mode == "bank_trade":
-                self.trade_offer = {"offer": {}, "request": {}, "trade_with": ""}
+            self.trade_offer = {"offer": {}, "request": {}, "trade_with": ""}
+            self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+            self.card_index = 0
             return
 
         
@@ -2423,10 +2454,6 @@ class ClientState:
                             self.dev_card_buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.client_players[name].marker.rec.x-(dev_card_offset+1.2)*button_w, self.client_players[name].marker.rec.y, button_w, self.client_players[name].marker.rec.height), self.dev_card_order[position], action=True)
 
                             dev_card_offset += 1
-
-            # clear out card selection if server accepted a submission
-            if self.client_players[self.name].num_to_discard == 0:
-                self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
 
 
     def render_board(self):
@@ -2530,25 +2557,12 @@ class ClientState:
         # draw info_box
         pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
         pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
+        # displays discard/trade info if not current player, otherwise blank
+        rf.draw_info_in_box(self)
 
-        if self.mode in rf.mode_text.keys():
-            pr.draw_text_ex(pr.gui_get_font(), " "+rf.to_title(self.mode), (self.info_box.x, self.info_box.y+self.large_text*1.1), self.large_text, 0, pr.BLACK)
-            pr.draw_text_ex(pr.gui_get_font(), rf.mode_text[self.mode], (self.info_box.x, self.info_box.y+self.info_box.height/2-self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
 
-        if self.mode == "trade":
-            rf.draw_trade_interface(self.trade_buttons, self.info_box, self.med_text, self.selected_cards, self.trade_offer)
-        
-        elif self.mode == "bank_trade":
-            rf.draw_banktrade_interface(self.trade_buttons, self.info_box, self.med_text, self.selected_cards, self.trade_offer, self.client_players[self.name].ratios)
-        
-        elif self.mode == "year_of_plenty":
-            rf.draw_yop_interface(self)
 
-        # draw discard dialog in infobox if cardstoreturn > 0
 
-        elif self.mode == "move_robber" and self.name == self.current_player_name:
-            pr.draw_text_ex(pr.gui_get_font(), " "+rf.to_title(self.mode), (self.info_box.x, self.info_box.y+self.large_text*1.1), self.large_text, 0, pr.BLACK)
-            
 
 
         # display dev_card in info_box
@@ -2565,12 +2579,13 @@ class ClientState:
         for b_object in self.dev_card_buttons.values():
             if b_object.hover == True:
                 rf.draw_button_outline(b_object)
-                # re-draw info_box; override trade or bank_trade info
-                pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
-                pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
+                # this becomes too complicated and the rules are not necessary to show over other info
+                # # re-draw info_box; override trade or bank_trade info
+                # pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
+                # pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
 
-                pr.draw_text_ex(pr.gui_get_font(), rf.hover_text[b_object.name], (self.info_box.x, self.info_box.y+self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
-                break
+                # pr.draw_text_ex(pr.gui_get_font(), rf.hover_text[b_object.name], (self.info_box.x, self.info_box.y+self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
+                # break
         
 
 
@@ -2631,7 +2646,7 @@ class ClientState:
             if self.mode == "discard":
                 if player_name == self.name:
                     if player_object.num_to_discard > 0:
-                        pr.draw_text_ex(pr.gui_get_font(), f"choose {player_object.num_to_discard} cards", (player_object.marker.rec.x- self.screen_width//30, player_object.marker.rec.y - self.med_text*2), self.med_text, 0, pr.BLACK)
+                        pr.draw_text_ex(pr.gui_get_font(), f"Select {player_object.num_to_discard} cards", (player_object.marker.rec.x- self.screen_width//30, player_object.marker.rec.y - self.med_text*2), self.med_text, 0, pr.BLACK)
                 if player_name != self.name:
                     if player_object.num_to_discard > 0:
                         pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.marker.rec.x, player_object.marker.rec.y - 20), 12, 0, pr.BLACK)
