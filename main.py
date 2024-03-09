@@ -88,6 +88,11 @@ class Edge:
         assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
         self.hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
         self.player = None
+        
+        # used for calc_longest_road
+        self.endpoint = False
+        self.segment = False
+        self.fork = False
     
     def __repr__(self):
         return f"Edge('hexes': {self.hexes}, 'player': {self.player})"
@@ -126,7 +131,7 @@ class Edge:
                     adj_nodes.append(node)
         return adj_nodes
     
-    def get_adj_node_edges(self, nodes, edges):
+    def get_adj_node_edges(self, nodes, edges) -> list:
         adj_nodes = self.get_adj_nodes(nodes)
         if len(adj_nodes) < 2:
             return
@@ -726,13 +731,13 @@ class ServerState:
 
         # PLAYERS
         self.players = {} # {player_name: player_object}
-        self.current_player_name = None # name only
+        self.current_player_name = "" # name only
         self.player_order = [] # list of player_names in order of their turns
         self.to_steal_from = []
         self.road_building_counter = 0
         
-        self.longest_road = None
-        self.largest_army = None
+        self.longest_road = ""
+        self.largest_army = ""
 
         # TURNS
         self.die1 = 0
@@ -817,7 +822,7 @@ class ServerState:
             
 
     def print_debug(self):
-        pass
+        self.calc_longest_road()
 
     # adding players to server. order in terms of arrival, will rearrange later
     def add_player(self, name, address):
@@ -850,11 +855,49 @@ class ServerState:
         
         self.player_order.sort(key=lambda player_name: self.players[player_name].order)
 
-    # perform check after building a road
+    # # using points
+    # def get_adj_nodes(self, nodes) -> list:
+    #     edge_points = self.get_edge_points()
+    #     adj_nodes = []
+    #     for point in edge_points:
+    #         for node in nodes:
+    #             if point == node.get_node_point():
+    #                 adj_nodes.append(node)
+    #     return adj_nodes
+
+    # perform check after building a road or settlement
     def calc_longest_road(self):
-        # need (pathfinding?) algorithm for calculating if roads are connected
-        # IS EFFECTED BY SETTLEMENTS, so longest_road must be recalculated if a settlement is built in the middle
-        pass
+        current_leader = self.longest_road
+        for p_object in self.players.values():
+            # would be good to know all end points? then can 'travel' along road until getting to another end point
+            paths_found = []
+            
+            owned_roads = [edge for edge in self.board.edges if edge.player == self.current_player_name]
+            endpoints = []
+            segments = []
+            forks = []
+            total_nodes = {} # node: [list of edges that contain node]
+            
+            for road in owned_roads:
+                # if an edge has 1 valid_connections, it is endpoint
+                # if an edge has 2 valid_connections, it is regular segment (don't need to designate)
+                # if an edge has 3 or 4 valid_connections, it is fork
+                valid_connections = []
+                potential_connections = road.get_adj_node_edges(self.board.nodes, self.board.edges)
+                for edge in potential_connections:
+                    # test if blocked by opponent's settlement
+                    for node in edge.get_adj_node(self.board.nodes):
+                        if node.player == None or node.player == p_object.name:
+                            valid_connections.append(edge)
+                if len(valid_connections) == 1:
+                    road.endpoint = True
+                elif len(valid_connections) >= 3:
+                    road.fork == True
+            # nodes that appear once in total_nodes are endpoints
+            # nodes that appear twice in total_nodes are in the middle of a path
+            # nodes that appear three times in total_nodes are forks - mark spot and come back after main branch is done
+
+
 
     # perform check after playing a knight
     def calc_largest_army(self):
@@ -2580,12 +2623,13 @@ class ClientState:
             if b_object.hover == True:
                 rf.draw_button_outline(b_object)
                 # this becomes too complicated and the rules are not necessary to show over other info
+                if not self.mode in rf.mode_text.keys():
                 # # re-draw info_box; override trade or bank_trade info
                 # pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
                 # pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
 
-                # pr.draw_text_ex(pr.gui_get_font(), rf.hover_text[b_object.name], (self.info_box.x, self.info_box.y+self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
-                # break
+                    pr.draw_text_ex(pr.gui_get_font(), rf.hover_text[b_object.name], (self.info_box.x, self.info_box.y+self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
+                break
         
 
 
