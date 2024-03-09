@@ -949,7 +949,22 @@ class ServerState:
 
                 
         elif self.mode == "year_of_plenty" and action == "submit" and cards != None:
-            pass
+            if sum(cards.values()) != 2:
+                self.send_to_player(self.current_player_name, "log", "You must request two cards.")
+                return
+            self.mode = None
+            cards_recv = []
+            for card_type in self.resource_cards:
+                if cards[card_type] > 0:
+                    self.players[self.current_player_name].hand[card_type] += cards[card_type]
+                    cards_recv.append(card_type)
+            
+            if len(cards_recv) == 1:
+                self.send_to_player(self.current_player_name, "log", f"You receive 2 {cards_recv[0]}.")
+            elif len(cards_recv) == 2:
+                self.send_to_player(self.current_player_name, "log", f"You receive 1 {cards_recv[0]} and 1 {cards_recv[1]}.")
+            
+
         elif self.mode == "monopoly" and action == "submit" and cards != None:
             pass
         return
@@ -2212,7 +2227,7 @@ class ClientState:
         elif self.mode == "year_of_plenty":
             # adapted from discard
             if self.check_submit(user_input):
-                if len(self.selected_cards) == 2:
+                if sum(self.selected_cards.values()) == 2:
                     return self.client_request_to_dict(action="submit", cards=self.selected_cards)
 
             # select new cards if num_to_discard is above num selected_cards
