@@ -95,7 +95,13 @@ class Edge:
         self.fork = False
     
     def __repr__(self):
-        return f"Edge('hexes': {self.hexes}, 'player': {self.player})"
+        # return f"Edge('hexes': {self.hexes}, 'player': {self.player})"
+        code=""
+        for hex in self.hexes:
+            for i in hex[:-1]:
+                i += 2
+                code += str(i)
+        return code
     
     def get_edge_points_set(self) -> set:
         return hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1])
@@ -737,6 +743,7 @@ class ServerState:
         self.road_building_counter = 0
         
         self.longest_road = ""
+        self.longest_road_edges = [] # for debug
         self.largest_army = ""
 
         # TURNS
@@ -821,8 +828,6 @@ class ServerState:
             self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), self.players[name].address)
             
 
-    def print_debug(self):
-        self.calc_longest_road()
 
     # adding players to server. order in terms of arrival, will rearrange later
     def add_player(self, name, address):
@@ -870,32 +875,61 @@ class ServerState:
         current_leader = self.longest_road
         for p_object in self.players.values():
             # would be good to know all end points? then can 'travel' along road until getting to another end point
-            paths_found = []
-            
+            all_paths = []
+            path = set()
+            forked_paths = []
             owned_roads = [edge for edge in self.board.edges if edge.player == self.current_player_name]
             endpoints = []
-            segments = []
-            forks = []
-            total_nodes = {} # node: [list of edges that contain node]
-            
+            forks = {}
+
             for road in owned_roads:
-                # if an edge has 1 valid_connections, it is endpoint
-                # if an edge has 2 valid_connections, it is regular segment (don't need to designate)
-                # if an edge has 3 or 4 valid_connections, it is fork
-                valid_connections = []
-                potential_connections = road.get_adj_node_edges(self.board.nodes, self.board.edges)
-                for edge in potential_connections:
-                    # test if blocked by opponent's settlement
-                    for node in edge.get_adj_node(self.board.nodes):
-                        if node.player == None or node.player == p_object.name:
-                            valid_connections.append(edge)
-                if len(valid_connections) == 1:
-                    road.endpoint = True
-                elif len(valid_connections) >= 3:
-                    road.fork == True
-            # nodes that appear once in total_nodes are endpoints
-            # nodes that appear twice in total_nodes are in the middle of a path
-            # nodes that appear three times in total_nodes are forks - mark spot and come back after main branch is done
+                for road.get_adj_nodes(self.board.nodes):
+            # classify as endpoints, forks
+            # for road in owned_roads:
+            #     path = {road}
+            #     # if an edge has 1 valid_connections, it is endpoint
+            #     # if an edge has 2 valid_connections, it is regular segment (don't need to designate)
+            #     # if an edge has 3 or 4 valid_connections, it is fork
+            #     connections = []
+            #     potential_connections = road.get_adj_node_edges(self.board.nodes, self.board.edges)
+            #     for edge in potential_connections:
+            #         if edge.player == p_object.name:
+            #         # test if blocked by opponent's settlement
+            #             for node in edge.get_adj_nodes(self.board.nodes):
+            #                 if node.player == None or node.player == p_object.name:
+            #                     if len(connections) == 2:
+            #                         connections.append(edge)
+            #                     elif len(connections) >= 3:
+            #                         forks.add(edge)
+
+
+                # if len(connections) == 1:
+                #     road.endpoint = True
+                #     endpoints.append(road)
+                # elif len(connections) == 2:
+                #     road.segment = True
+                # elif len(connections) >= 3:
+                #     road.fork = True
+                #     forks.append(road)
+
+            #     for connection in connections:
+            #         path.add(connection)
+            #     all_paths.append(path)
+            # self.longest_road_edges = path
+            # print(all_paths)
+            self.send_to_player(p_object.name, "debug", self.longest_road_edges)
+            # for endpoint in endpoints:
+            #     for road in owned_roads:
+            #         if road != endpoint:
+            #             for node in endpoint.get_adj_node(self.board.nodes):
+            #                 if node in road.get_adj_node(self.board.nodes):
+
+
+                        
+            #         if node.player == None or node.player == p_object.name:
+            #             valid_connections.append(edge)
+
+
 
 
 
@@ -1497,7 +1531,8 @@ class ServerState:
             self.play_dev_card(client_request["cards"])
         
         elif client_request["action"] == "print_debug":
-            self.print_debug()
+            self.calc_longest_road()
+            
         
         # check if dice need to be rolled after playing dev card
         if self.mode == None:
@@ -1760,8 +1795,9 @@ class ClientState:
         self.dev_card_order = ["knight", "road_building", "year_of_plenty", "monopoly", "victory_point"]
         self.dev_card_modes = ["road_building", "year_of_plenty", "monopoly"]
 
-        
+
         self.longest_road = "" # name of player
+        self.longest_road_edges = [] # for debug
         self.largest_army = "" # name of player
         # for trade
         # self.cards_to_offer = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
@@ -1844,7 +1880,7 @@ class ClientState:
         self.camera.zoom = self.default_zoom
     
     def print_debug(self):
-        print(f"selected cards = {self.selected_cards}")
+        print(f"longest_road_edges = {self.longest_road_edges}")
         
 
     def resize_client(self):
@@ -2413,6 +2449,10 @@ class ClientState:
             self.trade_offer = {"offer": {}, "request": {}, "trade_with": ""}
             self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
             self.card_index = 0
+            return
+        
+        elif server_response["kind"] == "debug":
+            self.longest_road_edges = server_response["msg"]
             return
 
         
