@@ -88,11 +88,6 @@ class Edge:
         assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
         self.hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
         self.player = None
-        
-        # used for calc_longest_road
-        self.endpoint = False
-        self.segment = False
-        self.fork = False
     
     def __repr__(self):
         # return f"Edge('hexes': {self.hexes}, 'player': {self.player})"
@@ -249,7 +244,23 @@ class Node:
         self.port = None
 
     def __repr__(self):
-        return f"Node('hexes': {self.hexes}, 'player': {self.player}, 'town': {self.town}, 'port': {self.port})"
+        # return f"Node('hexes': {self.hexes}, 'player': {self.player}, 'town': {self.town}, 'port': {self.port})"
+        code=""
+        for hex in self.hexes:
+            for i in hex[:-1]:
+                i += 2
+                code += str(i)
+        return code
+    
+    def node_to_int(self):
+        code=""
+        for hex in self.hexes:
+            for i in hex[:-1]:
+                i += 2
+                code += str(i)
+        return code
+        
+
 
     def get_node_point(self):
         node_list = list(hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1]) & hh.hex_corners_set(pointy, self.hexes[2]))
@@ -860,30 +871,58 @@ class ServerState:
         
         self.player_order.sort(key=lambda player_name: self.players[player_name].order)
 
-    # # using points
-    # def get_adj_nodes(self, nodes) -> list:
-    #     edge_points = self.get_edge_points()
-    #     adj_nodes = []
-    #     for point in edge_points:
-    #         for node in nodes:
-    #             if point == node.get_node_point():
-    #                 adj_nodes.append(node)
-    #     return adj_nodes
 
     # perform check after building a road or settlement
     def calc_longest_road(self):
-        current_leader = self.longest_road
-        for p_object in self.players.values():
-            # would be good to know all end points? then can 'travel' along road until getting to another end point
-            all_paths = []
-            path = set()
-            forked_paths = []
-            owned_roads = [edge for edge in self.board.edges if edge.player == self.current_player_name]
-            endpoints = []
-            forks = {}
+        
+        # find all roads that are connected first
+        # at every node of every road, travel in ONE DIRECTION all the way to the end (or the start)
 
-            for road in owned_roads:
-                for road.get_adj_nodes(self.board.nodes):
+        for p_object in self.players.values():
+            all_paths = []
+            # path = set()
+
+            owned_edges = [edge for edge in self.board.edges if edge.player == p_object.name]
+            owned_nodes = [edge.get_adj_nodes(self.board.nodes) for edge in owned_edges]
+            # edges_to_nodes = {edge: edge.get_adj_nodes(self.board.nodes) for edge in owned_edges}
+            # nodes_to_edges = {node: node.get_adj_edges(self.board.edges) for edge in owned_edges}
+            
+            # find all roads that are connected?
+            all_visited = []
+            for node_list in owned_nodes:
+                for node in node_list:
+                    visited_nodes = [node]
+                    if node == node_list[0]:
+                        next_node = node_list[1]
+                    else:
+                        next_node = node_list[0]
+
+                    for adj_edge in next_node.get_adj_edges(self.board.edges):
+                        visited_nodes.append(node_list[1])
+                        path = []
+                        if adj_edge in owned_edges:
+                            path.append(adj_edge)
+
+                        all_paths.append(path)
+                        all_visited.append(visited_nodes)
+                print(all_visited)
+                print(all_paths)
+
+            
+
+
+
+            # if len(node.get_adj_edges()) == 1:
+            #     road.endpoint = True
+            #     endpoints.append(road)
+            # elif len(node.get_adj_edges()) == 2:
+            #     road.segment = True
+            #     segments.append(road)
+            # elif len(node.get_adj_edges()) == 3:
+            #     road.fork = True
+            #     forks.append(road)
+
+
             # classify as endpoints, forks
             # for road in owned_roads:
             #     path = {road}
@@ -2634,6 +2673,7 @@ class ClientState:
 
         if self.debug == True:
             debug_msgs = [f"Screen mouse at: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
+            # debug_msgs = [f"Current Node: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
             for i, msg in enumerate(reversed(debug_msgs)):
                 pr.draw_text_ex(pr.gui_get_font(), msg, pr.Vector2(5, self.screen_height-(i+1)*self.med_text*1.5), self.med_text, 0, pr.BLACK)
 

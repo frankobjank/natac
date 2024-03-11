@@ -2,22 +2,8 @@ import collections
 import math
 from pyray import Vector2
 
-# changed Point to Vector2 to be more compatible with raylib BUT
-# if this needs to go on the server then would need to replace vector2 with Point
-# replacing verbatim caused bug: 
-    # File "/Users/jacobfrank/sources/natac/rendering_functions.py", line 66, in draw_road
-    #     draw_line_ex(edge_endpoints[0], edge_endpoints[1], 10, BLACK)
-    #                  ~~~~~~~~~~~~~~^^^
-    # IndexError: list index out of range
+# source: https://www.redblobgames.com/grids/hexagons/
 
-# prob has to do with how Point and Vector2 are defined differently but not sure
-    # might be Point and Vector2 cannot be compared with each other directly.
-# try Point.x = Vector2.x ?
-
-# will work on getting basic server/client down first then decide what to do about pt/vector2
-
-# this prob doesn't need to go on server because server doesn't need concept of hexes
-# except for calculating edges/nodes?
 Point = collections.namedtuple("Point", ["x", "y"])
 
 Hex = collections.namedtuple("Hex", ["q", "r", "s"])
@@ -222,5 +208,3 @@ def rdoubled_to_cube(h):
     r = h.row
     s = -q - r
     return set_hex(q, r, s)
-
-# source: https://www.redblobgames.com/grids/hexagons/
