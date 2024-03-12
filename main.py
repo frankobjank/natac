@@ -83,6 +83,7 @@ building_costs = {
 }
 
 
+
 class Edge:
     def __init__(self, hex_a, hex_b):
         assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
@@ -91,12 +92,7 @@ class Edge:
     
     def __repr__(self):
         # return f"Edge('hexes': {self.hexes}, 'player': {self.player})"
-        code=""
-        for hex in self.hexes:
-            for i in hex[:-1]:
-                i += 2
-                code += str(i)
-        return code
+        return obj_to_int(self)
     
     def get_edge_points_set(self) -> set:
         return hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1])
@@ -245,21 +241,7 @@ class Node:
 
     def __repr__(self):
         # return f"Node('hexes': {self.hexes}, 'player': {self.player}, 'town': {self.town}, 'port': {self.port})"
-        code=""
-        for hex in self.hexes:
-            for i in hex[:-1]:
-                i += 2
-                code += str(i)
-        return code
-    
-    def node_to_int(self):
-        code=""
-        for hex in self.hexes:
-            for i in hex[:-1]:
-                i += 2
-                code += str(i)
-        return code
-        
+        return obj_to_int(self)       
 
 
     def get_node_point(self):
@@ -382,6 +364,17 @@ class Node:
         print("no conflicts, building city")
         return True
 
+def obj_to_int(obj: Edge|Node|hh.Hex):
+    name=""
+    if type(obj) == hh.Hex:
+        name += str(obj.q+3)+str(obj.r+3)
+    else:
+        for hex in obj.hexes:
+            for i in hex[:-1]:
+                i += 3
+                name += str(i)
+    return name
+
 class Board:
     def __init__(self):
         self.land_hexes = []
@@ -392,9 +385,11 @@ class Board:
         self.port_corners = []
         self.ports_ordered = []
 
+        self.robber_hex = None
         self.edges = []
         self.nodes = []
-        self.robber_hex = None
+        self.int_to_edge = {}
+        self.int_to_node = {}
 
 
     # 4 ore, 4 wheat, 3 sheep, 4 wood, 3 brick, 1 desert
@@ -470,7 +465,7 @@ class Board:
             "forest", "mountain", "field", "pasture",
             "hill", "field", "pasture"
         ]
-                # this is default order, can make to be randomized too
+        # this is default order, can make to be randomized too
         tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
         ports_ordered = [
             "three", None, "wheat", None, 
@@ -601,6 +596,10 @@ class Board:
             for node in self.nodes:
                 if port_node_hexes[i] == node.hexes:
                     node.port = ports_to_nodes[i]
+        
+        self.int_to_edge = {obj_to_int(edge): edge for edge in self.edges}
+        self.int_to_node = {obj_to_int(node): node for node in self.nodes}
+
 
     def set_demo_settlements(self, s_state, player="all"):
         # for demo, initiate default roads and settlements
@@ -880,33 +879,111 @@ class ServerState:
 
         for p_object in self.players.values():
             all_paths = []
-            # path = set()
 
             owned_edges = [edge for edge in self.board.edges if edge.player == p_object.name]
-            owned_nodes = [edge.get_adj_nodes(self.board.nodes) for edge in owned_edges]
-            # edges_to_nodes = {edge: edge.get_adj_nodes(self.board.nodes) for edge in owned_edges}
+            # owned_nodes = [edge.get_adj_nodes(self.board.nodes) for edge in owned_edges]
+            edges_to_nodes = {edge: edge.get_adj_nodes(self.board.nodes) for edge in owned_edges}
             # nodes_to_edges = {node: node.get_adj_edges(self.board.edges) for edge in owned_edges}
+            nodes_to_edges = {}
+            for edge in owned_edges:
+                for node in edges_to_nodes[edge]:
+                    if node in nodes_to_edges.keys():
+                        nodes_to_edges[node].append(edge)
+                    elif node not in nodes_to_edges.keys():
+                        nodes_to_edges[node] = [edge]
+            # print(owned_edges)
+            # print(edges_to_nodes)
+            # print(nodes_to_edges)
+
+            connected_nodes = []
+            all_links = []
+            links_sets = []
+            multiple_edges = []
+            for edge, nodes in edges_to_nodes.items():
+                linked_edges = []
+                edges_set = set()
+                for node in nodes:
+                    if len(nodes_to_edges[node]) > 1:
+                        multiple_edges.append(nodes_to_edges[node])
+                        for addl_edge in nodes_to_edges[node]:
+                            linked_edges.append(addl_edge)
+                            edges_set.add(addl_edge)
+                if len(linked_edges) and len(edges_set) > 0: 
+                    all_links.append(linked_edges)
+                    links_sets.append(edges_set)
+                    # print(f"linked_edges for {edge}: {linked_edges}")
+            print(f"links_sets = {links_sets}")
+
+            union_sets = []
+            # loop through list of sets of edges
+            for i in range(len(links_sets)-1):
+                # if set1 and set2 have a common edge
+                if len(links_sets[i].intersection(links_sets[i+1])) > 0:
+                    # print(f"intersection of i and i+1 = {links_sets[i].intersection(links_sets[i+1])}")
+                    union_set = links_sets[i].union(links_sets[i+1])
+                    # print(f"union_set = {union_set}")
+                    existing = False
+                    # loop through union sets to see if the ones already added share edge with new sets
+                    for j in range(len(union_sets)):
+                        print(j)
+                        if len(union_sets[j].intersection(union_set)) > 0:
+                            print(f"{union_sets[j]} union with {union_set}")
+                            new_union = union_sets[j].union(union_set)
+                            union_sets.remove(union_sets[j])
+                            union_sets.append(new_union)
+                            existing = True
+                    # if a new set, append to union_sets instead of unioning with them
+                    if not existing:
+                        # print(f"not existing, union_sets = {union_sets} appending {union_set}")
+                        union_sets.append(union_set)
+                # if no common edge, just append current set
+            print(f"union_sets = {union_sets}")
+
+
+            
+
+
+
+
+            # for node, edges in nodes_to_edges.items():
+            #     if len(edges) > 1:
+            #         for edge in edges:
+            #             if edge in 
+            # circle road and one road
+            # [3132, 3241, 4142, 2232, 3242, 2332, 3233, 1423]
+            # {3132: [223132, 313241], 3241: [324142, 313241], 4142: [324142, 414251], 2232: [222332, 223132], 3242: [323342, 324142], 2332: [222332, 233233], 3233: [323342, 233233], 1423: [142324, 131423]}
+            # {223132: [3132, 2232], 313241: [3132, 3241], 324142: [3241, 4142, 3242], 414251: [4142], 222332: [2232, 2332], 323342: [3242, 3233], 233233: [2332, 3233], 142324: [1423], 131423: [1423]}
+            # circle road
+            # [3132, 3241, 2232, 3242, 2332, 3233, 1423]
+            # {3132: [223132, 313241], 3241: [324142, 313241], 2232: [222332, 223132], 3242: [323342, 324142], 2332: [222332, 233233], 3233: [323342, 233233], 1423: [142324, 131423]}
+            # {223132: [3132, 2232], 313241: [3132, 3241], 324142: [3241, 3242], 222332: [2232, 2332], 323342: [3242, 3233], 233233: [2332, 3233], 142324: [1423], 131423: [1423]}
+            
+            # starting position plus one road
+            # [3241, 3242, 1423]
+            # {3241: [324142, 313241], 3242: [323342, 324142], 1423: [142324, 131423]}
+            # {324142: 3242, 313241: 3241, 323342: 3242, 142324: 1423, 131423: 1423}
+
+
             
             # find all roads that are connected?
-            all_visited = []
-            for node_list in owned_nodes:
-                for node in node_list:
-                    visited_nodes = [node]
-                    if node == node_list[0]:
-                        next_node = node_list[1]
-                    else:
-                        next_node = node_list[0]
+            # all_visited = []
+            # for node_list in owned_nodes:
+            #     for node in node_list:
+            #         visited_nodes = [node]
+            #         if node == node_list[0]:
+            #             next_node = node_list[1]
+            #         else:
+            #             next_node = node_list[0]
 
-                    for adj_edge in next_node.get_adj_edges(self.board.edges):
-                        visited_nodes.append(node_list[1])
-                        path = []
-                        if adj_edge in owned_edges:
-                            path.append(adj_edge)
+            #         for adj_edge in next_node.get_adj_edges(self.board.edges):
+            #             visited_nodes.append(node_list[1])
+            #             path = []
+            #             if adj_edge in owned_edges:
+            #                 path.append(adj_edge)
 
-                        all_paths.append(path)
-                        all_visited.append(visited_nodes)
-                print(all_visited)
-                print(all_paths)
+            #             all_paths.append(path)
+
+            #     print(all_paths)
 
             
 
@@ -2646,19 +2723,35 @@ class ClientState:
     def render_mouse_hover(self):
         # self.hover could prob be replaced with other logic about current player, mode
         # highlight current node if building is possible
-        if self.current_hex_3 and self.mode == "build_settlement":
-            node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
-            pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
-        # could highlight settlement when building city
+        if self.debug == False:
+            if self.current_hex_3 and self.mode == "build_settlement":
+                node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
+                pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
+            # could highlight settlement when building city
 
-        # highlight current edge if building is possible
-        elif self.current_hex_2 and (self.mode == "build_road" or self.mode == "road_building"):
-            edge_object = Edge(self.current_hex, self.current_hex_2)
-            pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
+            # highlight current edge if building is possible
+            elif self.current_hex_2 and (self.mode == "build_road" or self.mode == "road_building"):
+                edge_object = Edge(self.current_hex, self.current_hex_2)
+                pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
 
-        # highlight current hex if moving robber is possible
-        elif self.current_hex and self.mode == "move_robber":
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
+            # highlight current hex if moving robber is possible
+            elif self.current_hex and self.mode == "move_robber":
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
+        elif self.debug == True:
+            # highlight current node if building is possible
+            if self.current_hex_3:
+                node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
+                pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
+            # could highlight settlement when building city
+
+            # highlight current edge if building is possible
+            elif self.current_hex_2:
+                edge_object = Edge(self.current_hex, self.current_hex_2)
+                pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
+
+            # highlight current hex if moving robber is possible
+            elif self.current_hex:
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
 
             
     def render_client(self):
@@ -2673,7 +2766,16 @@ class ClientState:
 
         if self.debug == True:
             debug_msgs = [f"Screen mouse at: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
-            # debug_msgs = [f"Current Node: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
+            if self.current_hex_3:
+                msg1 = f"Current Node: {Node(self.current_hex, self.current_hex_2, self.current_hex_3)}"
+            elif self.current_hex_2:
+                msg1 = f"Current Edge: {Edge(self.current_hex, self.current_hex_2)}"
+            elif self.current_hex:
+                msg1 = f"Current Hex: {obj_to_int(self.current_hex)}"
+            else:
+                msg1 = ""
+
+            debug_msgs = [msg1, f"Current player = {self.current_player_name}", f"Mode: {self.mode}"]
             for i, msg in enumerate(reversed(debug_msgs)):
                 pr.draw_text_ex(pr.gui_get_font(), msg, pr.Vector2(5, self.screen_height-(i+1)*self.med_text*1.5), self.med_text, 0, pr.BLACK)
 
