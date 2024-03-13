@@ -870,17 +870,28 @@ class ServerState:
         
         self.player_order.sort(key=lambda player_name: self.players[player_name].order)
 
-    def get_next_node(self, edges_to_nodes, nodes_to_edges):
-        for node, edges in nodes_to_edges.items():
-            next_node = ""
-            for edge in edges:
-                potential_nodes = edges_to_nodes[edge]
-                for pot_node in potential_nodes:
-                    # pick 'other' node of edge to go to next
-                    if pot_node != node:
-                        next_node = pot_node
-
+    def get_next_node(self, visited_nodes, current_edge, edges_to_nodes):
+        # nodes_to_edges = {324142: [3241, 3242], 313241: [3241], 323342: [3242, 3233], 233233: [3233], 142324: [1423], 131423: [1423]}
+        # edges_to_nodes = {3241: [324142, 313241], 3242: [323342, 324142], 3233: [323342, 233233], 1423: [142324, 131423]}
+        # 313241 -> 3241 -> 324142 -> 3242 -> 323342 -> 3233 -> 233233
+        next_node = None
+        for pot_node in edges_to_nodes[current_edge]:
+            if pot_node not in visited_nodes:
+                next_node = pot_node
         return next_node
+    
+    def get_next_edge(self, visited_edges, current_node, nodes_to_edges):
+        # nodes_to_edges = {324142: [3241, 3242], 313241: [3241], 323342: [3242, 3233], 233233: [3233], 142324: [1423], 131423: [1423]}
+        # edges_to_nodes = {3241: [324142, 313241], 3242: [323342, 324142], 3233: [323342, 233233], 1423: [142324, 131423]}
+        # 313241 -> 3241 -> 324142 -> 3242 -> 323342 -> 3233 -> 233233
+        next_edge = None
+        for pot_edge in nodes_to_edges[current_node]:
+            # pick 'other' node of edge to go to next, without backtracking over edge OR node
+            if pot_edge not in visited_edges:
+                next_edge = pot_edge
+        # if returning "" should end current path
+        # 324142 -> 3241 -> 313241 | -> | 3241 - will not link to 3241 since it's in visited
+        return next_edge
 
 
     # perform check after building a road or settlement
@@ -903,52 +914,6 @@ class ServerState:
                         nodes_to_edges[node].append(edge)
                     elif node not in nodes_to_edges.keys():
                         nodes_to_edges[node] = [edge]
-            # print(owned_edges)
-            # print(edges_to_nodes)
-            # print(nodes_to_edges)
-
-            # BEGINNING NOTE finds all connected edges, but not connections themselves
-            # connected_nodes = []
-            # all_links = []
-            # links_sets = []
-            # multiple_edges = []
-            # for edge, nodes in edges_to_nodes.items():
-            #     linked_edges = []
-            #     edges_set = set()
-            #     for node in nodes:
-            #         if len(nodes_to_edges[node]) > 1:
-            #             multiple_edges.append(nodes_to_edges[node])
-            #             for addl_edge in nodes_to_edges[node]:
-            #                 linked_edges.append(addl_edge)
-            #                 edges_set.add(addl_edge)
-            #     if len(linked_edges) and len(edges_set) > 0: 
-            #         all_links.append(linked_edges)
-            #         links_sets.append(edges_set)
-
-            # union_sets = []
-            # # loop through list of sets of edges
-            # for i in range(len(links_sets)-1):
-            #     # if set1 and set2 have a common edge
-            #     if len(links_sets[i].intersection(links_sets[i+1])) > 0:
-            #         # print(f"intersection of i and i+1 = {links_sets[i].intersection(links_sets[i+1])}")
-            #         union_set = links_sets[i].union(links_sets[i+1])
-            #         # print(f"union_set = {union_set}")
-            #         existing = False
-            #         # loop through union sets to see if the ones already added share edge with new sets
-            #         for j in range(len(union_sets)):
-            #             if len(union_sets[j].intersection(union_set)) > 0:
-            #                 # print(f"{union_sets[j]} union with {union_set}")
-            #                 new_union = union_sets[j].union(union_set)
-            #                 union_sets.remove(union_sets[j])
-            #                 union_sets.append(new_union)
-            #                 existing = True
-            #         # if a new set, append to union_sets instead of unioning with them
-            #         if not existing:
-            #             # print(f"not existing, union_sets = {union_sets} appending {union_set}")
-            #             union_sets.append(union_set)
-            #     # if no common edge, just append current set
-            # union_lists = [list(union_set) for union_set in union_sets]
-            # ENDING NOTE finds all connected edges, but not connections themselves
             
             # print(f"nodes_to_edges = {nodes_to_edges}")
             # print(f"edges_to_nodes = {edges_to_nodes}")
@@ -956,15 +921,31 @@ class ServerState:
             # edges_to_nodes = {3241: [324142, 313241], 3242: [323342, 324142], 3233: [323342, 233233], 1423: [142324, 131423]}
             # 313241 -> 3241 -> 324142 -> 3242 -> 323342 -> 3233 -> 233233
             node_paths = {}
-            for node, edges in nodes_to_edges.items():
-                node_paths[node] = [node]
-                next_node = self.get_next_node(edges_to_nodes, nodes_to_edges)
+            edge_paths = {}
+            for node in nodes_to_edges.keys():
+                current_node = node
+                visited_nodes = [current_node]
+                visited_edges = []
+                while True:
+                    next_edge = self.get_next_edge(visited_edges, current_node, nodes_to_edges)
+                    if next_edge == None:
+                        break
+                    visited_edges.append(next_edge)
+                    print(f"visited edges = {visited_edges}")
+                    next_node = self.get_next_node(visited_nodes, next_edge, edges_to_nodes)
+                    if next_node == None:
+                        break
+                    visited_nodes.append(next_node)
+                    print(f"visited nodes = {visited_nodes}")
 
-                node_paths[node].append(next_node)
+                node_paths[node] = visited_nodes
+                edge_paths[visited_edges[0]] = visited_edges
 
             
             print(f"node_paths = {node_paths}")
-
+            print(f"edge_paths = {edge_paths}")
+            node_paths = {324142: [324142, 323342, 313241], 313241: [313241, 324142], 323342: [323342, 334243, 324142], 334243: [334243, 323342], 142324: [142324, 131423], 131423: [131423, 142324]}
+            edge_paths = {3242: [3242, 3241], 3241: [3241], 3342: [3342], 1423: [1423]}
 
 
 
