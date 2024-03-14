@@ -718,13 +718,13 @@ class Player:
 
 
 class ServerState:
-    def __init__(self, combined=False, debug=True):
+    def __init__(self, IP_address, port, combined=False, debug=True):
         # NETWORKING
         self.msg_number_recv = 0
         self.combined = combined
         if self.combined == False:
             self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-            self.socket.bind((local_IP, local_port))
+            self.socket.bind((IP_address, port))
         
         
         # use this for an undo button??? can store actions like "Player {name} built road"
@@ -2855,7 +2855,7 @@ class ClientState:
 
 
 
-def run_client(name):
+def run_client(name, ):
     c_state = ClientState(name=name, combined=False)
 
     pr.set_trace_log_level(7) # removes raylib log msgs
@@ -2890,8 +2890,8 @@ def run_client(name):
     c_state.socket.close()
 
 
-def run_server():
-    s_state = ServerState(combined=False) # initialize socket
+def local_server(IP_address=local_IP, port=local_port):
+    s_state = ServerState(IP_address=IP_address, port=port, combined=False) # initialize socket
 
     s_state.initialize_game() # initialize board, players
     while True:
@@ -2943,16 +2943,6 @@ def run_combined():
     pr.close_window()
 
 
-
-
-def test():
-    s_state = ServerState()
-    s_state.initialize_game() # initialize board, players
-    c_state = ClientState()
-
-    server_response = s_state.build_msg_to_client()
-    c_state.update_client(server_response)
-
     
 
 
@@ -2965,7 +2955,7 @@ def test():
 # once board is initiated, all server has to send back is update on whatever has been updated 
 
 # sys.argv = list of args passed thru command line
-cmd_line_input = sys.argv[-1]
+cmd_line_input = sys.argv[1:]
 
 # test_players = ["red", "white", "orange", "blue"]
 if cmd_line_input == "blue":
@@ -2977,7 +2967,7 @@ elif cmd_line_input == "white":
 elif cmd_line_input == "red":
     run_client("red")
 elif cmd_line_input == "server":
-    run_server()
+    local_server()
 
 elif cmd_line_input == "test":
     test()

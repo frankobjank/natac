@@ -7,7 +7,7 @@ import math
 import time
 import json
 import collections
-
+import sys
 
 def offset(lst, offset):
     return lst[offset:] + lst[:offset]
@@ -241,3 +241,6 @@ for num in lst_test:
         lst_test.append(55)
     tracking.append(num)
     print(num)
+
+cmd_line_input = sys.argv[1:]
+print(cmd_line_input)
