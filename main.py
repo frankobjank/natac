@@ -949,8 +949,7 @@ class ServerState:
                 edge_paths.append(visited_edges)
 
             visited_forks = []
-            for i, fork in enumerate(forks):
-                # print(f"Fork {i+1}: {fork}")
+            for fork in forks:
                 current_edge = fork["current_edge"]
                 visited_nodes = fork["visited_nodes"]
                 visited_edges = fork["visited_edges"]
@@ -958,17 +957,17 @@ class ServerState:
                 while True:
                     current_node = self.get_next_node(visited_nodes, current_edge, edges_to_nodes)
                     if current_node == None:
-                        print(f"breaking fork at {current_edge}, no other Nodes found")
-                        print(f"total visited nodes: {visited_nodes}, visited edges: {visited_edges}")
+                        # print(f"breaking fork at {current_edge}, no other Nodes found")
+                        # print(f"total visited nodes: {visited_nodes}, visited edges: {visited_edges}")
                         break
                     visited_nodes.append(current_node)
-                    print(f"current_node = {current_node}")
+                    # print(f"current_node = {current_node}")
 
                     pot_edges = self.get_next_edge(visited_edges, current_node, nodes_to_edges)
                     current_edge = ""
                     if len(pot_edges) == 0:
-                        print(f"breaking fork at {current_node}, no other Edges found")
-                        print(f"total visited nodes: {visited_nodes}, visited edges: {visited_edges}")
+                        # print(f"breaking fork at {current_node}, no other Edges found")
+                        # print(f"total visited nodes: {visited_nodes}, visited edges: {visited_edges}")
                         break
                     current_edge = pot_edges.pop()
                     if len(pot_edges) > 0:
@@ -977,7 +976,7 @@ class ServerState:
                             forks.append({"current_edge": pot_edge, "visited_edges": [edge for edge in visited_edges], "visited_nodes": [node for node in visited_nodes]})
 
                     visited_edges.append(current_edge)
-                    print(f"current_edge = {current_edge}")
+                    # print(f"current_edge = {current_edge}")
 
 
                 node_paths.append(visited_nodes)
@@ -986,66 +985,17 @@ class ServerState:
             all_paths[p_object.name] = max([len(edge_path) for edge_path in edge_paths])
 
             
-            print(f"node_paths = {node_paths}")
-            print(f"edge_paths = {sorted(edge_paths, key=lambda x: len(x))}")
+            # print(f"node_paths = {node_paths}")
+            # print(f"edge_paths = {sorted(edge_paths, key=lambda x: len(x))}")
 
         print(f"longest roads: {all_paths}")
-
-        # visited edges = [3242]
-        # visited nodes = [324142, 323342]
-        # visited edges = [3242, 3342]
-        # visited nodes = [324142, 323342, 334243]
-        # visited edges = [3241]
-        # visited nodes = [313241, 324142]
-        # visited edges = [3241, 3242]
-        # visited nodes = [313241, 324142, 323342]
-        # visited edges = [3241, 3242, 3342]
-        # visited nodes = [313241, 324142, 323342, 334243]
-        # visited edges = [3342]
-        # visited nodes = [323342, 334243]
-        # visited edges = [2333]
-        # visited nodes = [233233, 232433]
-        # visited edges = [2333, 2324]
-        # visited nodes = [233233, 232433, 142324]
-        # visited edges = [2333, 2324, 1423]
-        # visited nodes = [233233, 232433, 142324, 131423]
-        # visited edges = [3342]
-        # visited nodes = [334243, 323342]
-        # visited edges = [3342, 3233]
-        # visited nodes = [334243, 323342, 233233]
-        # visited edges = [3342, 3233, 2333]
-        # visited nodes = [334243, 323342, 233233, 232433]
-        # visited edges = [3342, 3233, 2333, 2324]
-        # visited nodes = [334243, 323342, 233233, 232433, 142324]
-        # visited edges = [3342, 3233, 2333, 2324, 1423]
-        # visited nodes = [334243, 323342, 233233, 232433, 142324, 131423]
-        # visited edges = [2324]
-        # visited nodes = [232433, 142324]
-        # visited edges = [2324, 1423]
-        # visited nodes = [232433, 142324, 131423]
-        # visited edges = [2324]
-        # visited nodes = [142324, 232433]
-        # visited edges = [2324, 2333]
-        # visited nodes = [142324, 232433, 233233]
-        # visited edges = [2324, 2333, 3233]
-        # visited nodes = [142324, 232433, 233233, 323342]
-        # visited edges = [2324, 2333, 3233, 3342]
-        # visited nodes = [142324, 232433, 233233, 323342, 334243]
-        # visited edges = [1423]
-        # visited nodes = [131423, 142324]
-        # visited edges = [1423, 2324]
-        # visited nodes = [131423, 142324, 232433]
-        # visited edges = [1423, 2324, 2333]
-        # visited nodes = [131423, 142324, 232433, 233233]
-        # visited edges = [1423, 2324, 2333, 3233]
-        # visited nodes = [131423, 142324, 232433, 233233, 323342]
-        # visited edges = [1423, 2324, 2333, 3233, 3342]
-        # visited nodes = [131423, 142324, 232433, 233233, 323342, 334243]
-        # longest roads: {'red': 5}
-        # should be 6, it doesn't run over all possibilities
-
-
-
+        if all(5 > num_roads for num_roads in all_paths.values()):
+            return
+        
+        if len(self.longest_road) == 0 and all_paths[self.current_player_name] >= 5:
+            self.longest_road = self.current_player_name
+        elif len(self.longest_road) > 0 and all_paths[self.current_player_name] > all_paths[self.longest_road]:
+                self.longest_road = self.current_player_name
 
 
 
@@ -1054,10 +1004,9 @@ class ServerState:
         # will be None if not yet assigned
         if 3 > self.players[self.current_player_name].visible_knights:
             return
-        elif self.largest_army == None and self.players[self.current_player_name].visible_knights >= 3:
+        elif len(self.largest_army) == 0 and self.players[self.current_player_name].visible_knights >= 3:
             self.largest_army = self.current_player_name
-        elif self.largest_army != None:
-            if self.players[self.current_player_name].visible_knights > self.players[self.largest_army].visible_knights:
+        elif len(self.largest_army) > 0 and self.players[self.current_player_name].visible_knights > self.players[self.largest_army].visible_knights:
                 self.largest_army = self.current_player_name
 
     def can_build_road(self) -> bool:
@@ -1130,6 +1079,8 @@ class ServerState:
                     location_edge.player = self.current_player_name
                     self.road_building_counter += 1
                     self.send_to_player(self.current_player_name, "log", f"Road placed, you have {2-self.road_building_counter} left.")
+                    self.calc_longest_road()
+                    
 
             if self.road_building_counter == 2:
                 self.send_to_player(self.current_player_name, "log", f"Exiting Road Building Mode.")
@@ -1357,12 +1308,12 @@ class ServerState:
 
     def check_for_win(self):
         if self.players[self.current_player_name].get_vp_public(self.longest_road, self.largest_army) + self.players[self.current_player_name].dev_cards["victory_point"] >= 10:
+            msg = f"{self.current_player_name} had {self.players[self.current_player_name].dev_cards['victory_point']} hidden victory point"
             if self.players[self.current_player_name].dev_cards["victory_point"] > 1:
-                msg = f"{self.current_player_name} had {self.players[self.current_player_name].dev_cards['victory_point']} hidden victory point"
                 self.send_broadcast("log", msg)
-                if self.players[self.current_player_name].dev_cards["victory_point"] > 2:
-                    msg+="s"
-                    self.send_broadcast("log", msg)
+            elif self.players[self.current_player_name].dev_cards["victory_point"] > 2:
+                msg+="s"
+                self.send_broadcast("log", msg)
 
             self.send_broadcast("log", f"{self.current_player_name} won!")
             self.game_over = True
@@ -1699,6 +1650,7 @@ class ServerState:
             if client_request["action"] == "build_road":
                 if location_edge.build_check_road(self) and self.cost_check("road"):
                     self.build_road(location_edge)
+                    self.calc_longest_road()
 
         # only checks if current player is at 10+ vps per the official rulebook
         self.check_for_win()
@@ -2890,7 +2842,11 @@ class ClientState:
         score_font = (self.small_text + self.med_text)/2
         pr.draw_text_ex(pr.gui_get_font(), "Scores:", (score_x, score_font), score_font, 0, pr.BLACK)
         for i, player_name in enumerate(self.player_order):
-            pr.draw_text_ex(pr.gui_get_font(), f"{player_name}: {self.client_players[player_name].victory_points}", (score_x, score_font + score_font*((i+1)*1.5)), score_font, 0, pr.BLACK)
+            msg = f"{player_name}: {self.client_players[player_name].victory_points}"
+            if self.name == player_name and self.client_players[player_name].dev_cards["victory_point"] > 0:
+                msg += f" (+{self.client_players[player_name].dev_cards['victory_point']} hidden)"
+            pr.draw_text_ex(pr.gui_get_font(), msg, (score_x, score_font + score_font*((i+1)*1.5)), score_font, 0, pr.BLACK)
+
         pr.draw_text_ex(pr.gui_get_font(), f"Longest Road: {self.longest_road}", (score_x, score_font + score_font*(len(self.player_order)+1)*1.5), score_font, 0, pr.BLACK)
         pr.draw_text_ex(pr.gui_get_font(), f"Largest Army: {self.largest_army}", (score_x, score_font + score_font*(len(self.player_order)+2)*1.5), score_font, 0, pr.BLACK)
 
