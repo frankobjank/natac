@@ -884,14 +884,14 @@ class ServerState:
         # nodes_to_edges = {324142: [3241, 3242], 313241: [3241], 323342: [3242, 3233], 233233: [3233], 142324: [1423], 131423: [1423]}
         # edges_to_nodes = {3241: [324142, 313241], 3242: [323342, 324142], 3233: [323342, 233233], 1423: [142324, 131423]}
         # 313241 -> 3241 -> 324142 -> 3242 -> 323342 -> 3233 -> 233233
-        next_edge = None
+        pot_edges = []
         for pot_edge in nodes_to_edges[current_node]:
             # pick 'other' node of edge to go to next, without backtracking over edge OR node
             if pot_edge not in visited_edges:
-                next_edge = pot_edge
+                pot_edges.append(pot_edge)
         # if returning "" should end current path
         # 324142 -> 3241 -> 313241 | -> | 3241 - will not link to 3241 since it's in visited
-        return next_edge
+        return pot_edges
 
 
     # perform check after building a road or settlement
@@ -920,36 +920,74 @@ class ServerState:
             # nodes_to_edges = {324142: [3241, 3242], 313241: [3241], 323342: [3242, 3233], 233233: [3233], 142324: [1423], 131423: [1423]}
             # edges_to_nodes = {3241: [324142, 313241], 3242: [323342, 324142], 3233: [323342, 233233], 1423: [142324, 131423]}
             # 313241 -> 3241 -> 324142 -> 3242 -> 323342 -> 3233 -> 233233
-            node_paths = {}
-            edge_paths = {}
+            node_paths = []
+            edge_paths = []
+            forks = []
             for node in nodes_to_edges.keys():
                 current_node = node
                 visited_nodes = [current_node]
                 visited_edges = []
-                fork = []
                 while True:
-                    current_edge = self.get_next_edge(visited_edges, current_node, nodes_to_edges)
-                    if current_edge == None:
+                    pot_edges = self.get_next_edge(visited_edges, current_node, nodes_to_edges)
+                    current_edge = ""
+                    if len(pot_edges) == 0:
                         break
+                    # take first edge out
+                    current_edge = pot_edges.pop()
+                    if len(pot_edges) > 0:
+                        # add rest of edges (if any) to forks, along with visited
+                        for pot_edge in pot_edges:
+                            forks.append({"current_edge": pot_edge, "visited_edges": [edge for edge in visited_edges], "visited_nodes": [node for node in visited_nodes]})
                     visited_edges.append(current_edge)
-                    print(f"visited edges = {visited_edges}")
+                    # print(f"visited edges = {visited_edges}")
                     current_node = self.get_next_node(visited_nodes, current_edge, edges_to_nodes)
                     if current_node == None:
                         break
                     visited_nodes.append(current_node)
-                    print(f"visited nodes = {visited_nodes}")
-                
-                while len(fork) > 0:
-                    current_fork = fork.pop()
+                    # print(f"visited nodes = {visited_nodes}")
+                node_paths.append(visited_nodes)
+                edge_paths.append(visited_edges)
 
-                # node_paths[node] = visited_nodes
-                edge_paths[visited_edges[0]] = visited_edges
+            visited_forks = []
+            for i, fork in enumerate(forks):
+                # print(f"Fork {i+1}: {fork}")
+                current_edge = fork["current_edge"]
+                visited_nodes = fork["visited_nodes"]
+                visited_edges = fork["visited_edges"]
+                visited_edges.append(current_edge)
+                while True:
+                    current_node = self.get_next_node(visited_nodes, current_edge, edges_to_nodes)
+                    if current_node == None:
+                        print(f"breaking fork at {current_edge}, no other Nodes found")
+                        print(f"total visited nodes: {visited_nodes}, visited edges: {visited_edges}")
+                        break
+                    visited_nodes.append(current_node)
+                    print(f"current_node = {current_node}")
 
-            all_paths[p_object.name] = max([len(edge_path) for edge_path in edge_paths.values()])
+                    pot_edges = self.get_next_edge(visited_edges, current_node, nodes_to_edges)
+                    current_edge = ""
+                    if len(pot_edges) == 0:
+                        print(f"breaking fork at {current_node}, no other Edges found")
+                        print(f"total visited nodes: {visited_nodes}, visited edges: {visited_edges}")
+                        break
+                    current_edge = pot_edges.pop()
+                    if len(pot_edges) > 0:
+                        # continue adding to forks until all have been covered
+                        for pot_edge in pot_edges:
+                            forks.append({"current_edge": pot_edge, "visited_edges": [edge for edge in visited_edges], "visited_nodes": [node for node in visited_nodes]})
+
+                    visited_edges.append(current_edge)
+                    print(f"current_edge = {current_edge}")
+
+
+                node_paths.append(visited_nodes)
+                edge_paths.append(visited_edges)
+
+            all_paths[p_object.name] = max([len(edge_path) for edge_path in edge_paths])
 
             
-            # print(f"node_paths = {node_paths}")
-            # print(f"edge_paths = {edge_paths}")
+            print(f"node_paths = {node_paths}")
+            print(f"edge_paths = {sorted(edge_paths, key=lambda x: len(x))}")
 
         print(f"longest roads: {all_paths}")
 
