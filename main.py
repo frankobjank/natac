@@ -1799,10 +1799,12 @@ class ClientPlayer:
 
 
 class ClientState:
-    def __init__(self, name, combined=False):
+    def __init__(self, name, server_IP, server_port, combined=False):
         print("starting client")
         # Networking
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.server_IP = server_IP
+        self.server_port = server_port
         self.num_msgs_sent = 0
         self.num_msgs_recv = 0
         self.name = name # for debug, start as "red" and shift to current_player_name every turn
@@ -2344,6 +2346,7 @@ class ClientState:
         # anything below only applies to current player
         if self.name != self.current_player_name:
             return
+
         # adapted from "discard" mode actions, maybe will make an arrow keys for incrementing menu function
         if self.mode == "steal":
             return self.client_steal(user_input)
@@ -2452,7 +2455,7 @@ class ClientState:
         if combined == False:
             if msg_to_send != b'null':
                 self.num_msgs_sent += 1
-                self.socket.sendto(msg_to_send, (local_IP, local_port))
+                self.socket.sendto(msg_to_send, (self.server_IP, self.server_port))
             
             # receive message from server
             try:
@@ -2855,8 +2858,8 @@ class ClientState:
 
 
 
-def run_client(name, ):
-    c_state = ClientState(name=name, combined=False)
+def run_client(name, server_IP=local_IP, server_port=local_port):
+    c_state = ClientState(name=name, server_IP=server_IP, server_port=server_port, combined=False)
 
     pr.set_trace_log_level(7) # removes raylib log msgs
     # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
@@ -2891,7 +2894,24 @@ def run_client(name, ):
 
 
 def local_server(IP_address=local_IP, port=local_port):
-    s_state = ServerState(IP_address=IP_address, port=port, combined=False) # initialize socket
+    s_state = ServerState(IP_address=IP_address, port=port, combined=False, debug=True) # initialize socket
+
+    s_state.initialize_game() # initialize board, players
+    while True:
+        # receives msg, updates s_state, then sends message
+        try:
+            s_state.server_to_client()
+        # except Exception as e:
+            # print(e)
+            # break
+        except KeyboardInterrupt:
+            break
+    s_state.send_broadcast("log", "Server is offline.")
+    print("\nclosing server")
+    s_state.socket.close()
+
+def run_server(IP_address, port):
+    s_state = ServerState(IP_address=IP_address, port=port, combined=False, debug=True) # initialize socket
 
     s_state.initialize_game() # initialize board, players
     while True:
@@ -2910,42 +2930,8 @@ def local_server(IP_address=local_IP, port=local_port):
 
 
 
-def run_combined():
-    s_state = ServerState(combined=True)
-    
-    s_state.initialize_game() # initialize board, players
-    
-    c_state = ClientState(combined=True)
-
-    # set_config_flags(ConfigFlags.FLAG_MSAA_4X_HINT)
-    pr.init_window(c_state.default_screen_w, c_state.default_screen_h, "Natac")
-    pr.set_target_fps(60)
-    pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
-
-    while not pr.window_should_close():
-        # get user input
-        user_input = c_state.get_user_input()
-        # update client-specific settings unrelated to server
-        c_state.update_client_settings(user_input)
-
-        # encode msg based on user_input
-        client_request = c_state.build_client_request(user_input)
-        # return encoded client_request
-        encoded_request = c_state.client_to_server(client_request, combined=True)
-        
-        # if combined, pass in client_request
-        server_response = s_state.server_to_client(encoded_request, combined=True)
-
-        # use server_response to update and render
-        c_state.update_client(server_response)
-        c_state.render_client()
-    pr.unload_font(pr.gui_get_font())
-    pr.close_window()
-
 
     
-
-
 
 # 3 ways to play:
 # computer to computer
@@ -2958,19 +2944,14 @@ def run_combined():
 cmd_line_input = sys.argv[1:]
 
 # test_players = ["red", "white", "orange", "blue"]
-if cmd_line_input == "blue":
+if cmd_line_input[0] == "blue":
     run_client("blue")
-elif cmd_line_input == "orange":
+elif cmd_line_input[0] == "orange":
     run_client("orange")
-elif cmd_line_input == "white":
+elif cmd_line_input[0] == "white":
     run_client("white")
-elif cmd_line_input == "red":
+elif cmd_line_input[0] == "red":
     run_client("red")
-elif cmd_line_input == "server":
+elif cmd_line_input[0] == "local_server":
     local_server()
 
-elif cmd_line_input == "test":
-    test()
-
-elif cmd_line_input == "combined":
-    run_combined()

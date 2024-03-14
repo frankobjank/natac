@@ -281,8 +281,14 @@ def draw_info_in_box(c_state):
         pr.draw_text_ex(pr.gui_get_font(), " "+to_title(c_state.mode), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
         for i, line in enumerate(reversed(mode_text[c_state.mode].split("\n"))):
             pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
+    
+    
+    if c_state.mode == None:
+        pr.draw_text_ex(pr.gui_get_font(), " "+to_title("your_turn"), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
+        for i, line in enumerate(reversed(" Pick an action or end your\n turn.".split("\n"))):
+            pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
 
-    if c_state.mode == "trade":
+    elif c_state.mode == "trade":
         draw_trade_interface(c_state.trade_buttons, c_state.info_box, c_state.med_text, c_state.selected_cards, c_state.trade_offer)
     
     elif c_state.mode == "bank_trade":
@@ -413,6 +419,7 @@ mode_text = {
     "road_building": " Pick a location to place a\n free road",
     "year_of_plenty": " Pick 2 resources to receive.\n Use arrow keys to select cards.\n Press Space or Enter to submit.",
     "monopoly": " Pick a type of resource to\n steal from all players.\n Use arrow keys to select cards.\n Press Space or Enter to submit.",
+    "roll_dice": " Click on the dice to roll.",
 }
 
 hover_text = {
