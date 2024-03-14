@@ -900,8 +900,8 @@ class ServerState:
         # find all roads that are connected first
         # at every node of every road, travel in ONE DIRECTION all the way to the end (or the start)
 
+        all_paths = {} # player: longest_road
         for p_object in self.players.values():
-            all_paths = []
 
             owned_edges = [edge for edge in self.board.edges if edge.player == p_object.name]
             # owned_nodes = [edge.get_adj_nodes(self.board.nodes) for edge in owned_edges]
@@ -926,48 +926,87 @@ class ServerState:
                 current_node = node
                 visited_nodes = [current_node]
                 visited_edges = []
+                fork = []
                 while True:
-                    next_edge = self.get_next_edge(visited_edges, current_node, nodes_to_edges)
-                    if next_edge == None:
+                    current_edge = self.get_next_edge(visited_edges, current_node, nodes_to_edges)
+                    if current_edge == None:
                         break
-                    visited_edges.append(next_edge)
+                    visited_edges.append(current_edge)
                     print(f"visited edges = {visited_edges}")
-                    next_node = self.get_next_node(visited_nodes, next_edge, edges_to_nodes)
-                    if next_node == None:
+                    current_node = self.get_next_node(visited_nodes, current_edge, edges_to_nodes)
+                    if current_node == None:
                         break
-                    visited_nodes.append(next_node)
+                    visited_nodes.append(current_node)
                     print(f"visited nodes = {visited_nodes}")
+                
+                while len(fork) > 0:
+                    current_fork = fork.pop()
 
-                node_paths[node] = visited_nodes
+                # node_paths[node] = visited_nodes
                 edge_paths[visited_edges[0]] = visited_edges
 
+            all_paths[p_object.name] = max([len(edge_path) for edge_path in edge_paths.values()])
+
             
-            print(f"node_paths = {node_paths}")
-            print(f"edge_paths = {edge_paths}")
-            node_paths = {324142: [324142, 323342, 313241], 313241: [313241, 324142], 323342: [323342, 334243, 324142], 334243: [334243, 323342], 142324: [142324, 131423], 131423: [131423, 142324]}
-            edge_paths = {3242: [3242, 3241], 3241: [3241], 3342: [3342], 1423: [1423]}
+            # print(f"node_paths = {node_paths}")
+            # print(f"edge_paths = {edge_paths}")
+
+        print(f"longest roads: {all_paths}")
+
+        # visited edges = [3242]
+        # visited nodes = [324142, 323342]
+        # visited edges = [3242, 3342]
+        # visited nodes = [324142, 323342, 334243]
+        # visited edges = [3241]
+        # visited nodes = [313241, 324142]
+        # visited edges = [3241, 3242]
+        # visited nodes = [313241, 324142, 323342]
+        # visited edges = [3241, 3242, 3342]
+        # visited nodes = [313241, 324142, 323342, 334243]
+        # visited edges = [3342]
+        # visited nodes = [323342, 334243]
+        # visited edges = [2333]
+        # visited nodes = [233233, 232433]
+        # visited edges = [2333, 2324]
+        # visited nodes = [233233, 232433, 142324]
+        # visited edges = [2333, 2324, 1423]
+        # visited nodes = [233233, 232433, 142324, 131423]
+        # visited edges = [3342]
+        # visited nodes = [334243, 323342]
+        # visited edges = [3342, 3233]
+        # visited nodes = [334243, 323342, 233233]
+        # visited edges = [3342, 3233, 2333]
+        # visited nodes = [334243, 323342, 233233, 232433]
+        # visited edges = [3342, 3233, 2333, 2324]
+        # visited nodes = [334243, 323342, 233233, 232433, 142324]
+        # visited edges = [3342, 3233, 2333, 2324, 1423]
+        # visited nodes = [334243, 323342, 233233, 232433, 142324, 131423]
+        # visited edges = [2324]
+        # visited nodes = [232433, 142324]
+        # visited edges = [2324, 1423]
+        # visited nodes = [232433, 142324, 131423]
+        # visited edges = [2324]
+        # visited nodes = [142324, 232433]
+        # visited edges = [2324, 2333]
+        # visited nodes = [142324, 232433, 233233]
+        # visited edges = [2324, 2333, 3233]
+        # visited nodes = [142324, 232433, 233233, 323342]
+        # visited edges = [2324, 2333, 3233, 3342]
+        # visited nodes = [142324, 232433, 233233, 323342, 334243]
+        # visited edges = [1423]
+        # visited nodes = [131423, 142324]
+        # visited edges = [1423, 2324]
+        # visited nodes = [131423, 142324, 232433]
+        # visited edges = [1423, 2324, 2333]
+        # visited nodes = [131423, 142324, 232433, 233233]
+        # visited edges = [1423, 2324, 2333, 3233]
+        # visited nodes = [131423, 142324, 232433, 233233, 323342]
+        # visited edges = [1423, 2324, 2333, 3233, 3342]
+        # visited nodes = [131423, 142324, 232433, 233233, 323342, 334243]
+        # longest roads: {'red': 5}
+        # should be 6, it doesn't run over all possibilities
 
 
-
-
-
-            # for u_list in union_lists:
-            #     for i, edge in enumerate(u_list):
-            #         key = len(links.keys())
-
-            #         try: links[key].append(edge)
-            #         except KeyError: links[key] = []
-
-            #         for j in range(len(u_list)-1):
-                            
-            #         if len(set(edges_to_nodes[u_list[i]]).intersection(set(edges_to_nodes[u_list[i+1]])))>0:
-
-
-
-
-
-
-            self.send_to_player(p_object.name, "debug", self.longest_road_edges)
 
 
 
