@@ -22,7 +22,7 @@ from enum import Enum
 
 
 local_IP = '127.0.0.1'
-local_port = 12345
+default_port = 12345
 buffer_size = 10000
 
 def to_json(obj):
@@ -72,7 +72,7 @@ all_terrains = ["mountain", "field", "pasture", "forest", "hill", "desert", "oce
 all_resources = ["ore", "wheat", "sheep", "wood", "brick"]
 all_ports = ["three", "wood", "brick", "sheep", "wheat", "ore"]
 
-terrain_to_resource = {"mountain": "ore", "field": "wheat", "pasture": "sheep", "forest": "wood", "hill": "brick"}
+terrain_to_resource = {"mountain": "ore", "field": "wheat", "pasture": "sheep", "forest": "wood", "hill": "brick", "desert": None}
 resource_to_terrain = {"ore": "mountain", "wheat": "field", "sheep": "pasture", "wood": "forest", "brick": "hill"}
 
 building_costs = {
@@ -330,18 +330,7 @@ class Node:
             s_state.send_to_player(s_state.current_player_name, "log", f"You have no adjacent roads")
             print("no adjacent roads")
             return False
-        
-        # this is actually legal so commenting it out
-        # # if between opponent's road
-        # adj_edge_players = [edge.player for edge in adj_edges]
-        # if s_state.current_player_name in adj_edge_players:
-        #     adj_edge_players.remove(s_state.current_player_name)
-        #     if adj_edge_players[0] == adj_edge_players[1]:
-        #         if None not in adj_edge_players and s_state.current_player_name not in adj_edge_players:
-        #             s_state.send_to_player(s_state.current_player_name, "log", f"You cannot build in the middle of another player's road")
-        #             print("can't build in middle of road")
-        #             return False
-                
+                        
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a settlement")
         print("no conflicts, building settlement")
         return True
@@ -603,18 +592,26 @@ class Board:
 
 
     def set_demo_settlements(self, s_state, player="all"):
+        # self.land_hexes = []
+        # self.terrains = []
+        # self.tokens = []
+
+        hex_to_resource = {self.land_hexes[i]: terrain_to_resource[self.terrains[i]] for i in range(len(self.land_hexes))}
         # for demo, initiate default roads and settlements
         # Red
         red_nodes = [Node(hh.Hex(0, -2, 2), hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Node(hh.Hex(-2, 0, 2), hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
         red_edges = [Edge(hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Edge(hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
 
+
         # Blue
         blue_nodes = [Node(hh.Hex(-2, 1, 1), hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Node(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2), hh.Hex(0, 2, -2))]
         blue_edges = [Edge(hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Edge(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2))]
 
+
         # White
         white_nodes = [Node(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1), hh.Hex(q=0, r=-1, s=1)), Node(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=1, r=1, s=-2), hh.Hex(q=2, r=0, s=-2))]
         white_edges = [Edge(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=2, r=0, s=-2)), Edge(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1))]
+
 
         # Orange
         orange_nodes_hexes = [sort_hexes([hh.Hex(q=-1, r=1, s=0), hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1)]), sort_hexes([hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0), hh.Hex(q=2, r=-1, s=-1)])]
@@ -622,55 +619,65 @@ class Board:
 
 
 
-        for node in self.nodes:
-            if player == "all" or player == "orange":
+        if player == "orange":
+            for node in self.nodes:
                 for orange_node_hexes in orange_nodes_hexes:
                     if node.hexes == orange_node_hexes:
                         s_state.players["orange"].num_settlements += 1
                         node.player = "orange"
                         node.town = "settlement"
+            for edge in self.edges:
+                for orange_edge in orange_edges:
+                    if edge.hexes[0] == orange_edge.hexes[0] and edge.hexes[1] == orange_edge.hexes[1]:
+                        edge.player = "orange"
+            for hex in orange_nodes_hexes[1]:
+                s_state.players["orange"].hand[hex_to_resource[hex]] += 1
             
-            if player == "all" or player == "blue":
+        if player == "blue":
+            for node in self.nodes:
                 for blue_node in blue_nodes:
                     if node.hexes[0] == blue_node.hexes[0] and node.hexes[1] == blue_node.hexes[1] and node.hexes[2] == blue_node.hexes[2]:
                         s_state.players["blue"].num_settlements += 1
                         node.player = "blue"
                         node.town = "settlement"
+            for edge in self.edges:
+                for blue_edge in blue_edges:
+                    if edge.hexes[0] == blue_edge.hexes[0] and edge.hexes[1] == blue_edge.hexes[1]:
+                        edge.player = "blue"
+            for hex in blue_nodes[1].hexes:
+                s_state.players["blue"].hand[hex_to_resource[hex]] += 1
 
-            if player == "all" or player == "red":
+        if player == "red":
+            for node in self.nodes:
                 for red_node in red_nodes:
                     if node.hexes[0] == red_node.hexes[0] and node.hexes[1] == red_node.hexes[1] and node.hexes[2] == red_node.hexes[2]:
                         s_state.players["red"].num_settlements += 1
                         node.player = "red"
                         node.town = "settlement"
+            for edge in self.edges:
+                for red_edge in red_edges:
+                    if edge.hexes[0] == red_edge.hexes[0] and edge.hexes[1] == red_edge.hexes[1]:
+                        edge.player = "red"
+            for hex in red_nodes[1].hexes:
+                s_state.players["red"].hand[hex_to_resource[hex]] += 1
             
-            if player == "all" or player == "white":
+        if player == "white":
+            for node in self.nodes:
                 for white_node in white_nodes:
                     if node.hexes[0] == white_node.hexes[0] and node.hexes[1] == white_node.hexes[1] and node.hexes[2] == white_node.hexes[2]:
                         s_state.players["white"].num_settlements += 1
                         node.player = "white"
                         node.town = "settlement"
-
-        for edge in self.edges:
-            if "orange" in s_state.players:
-                for orange_edge in orange_edges:
-                    if edge.hexes[0] == orange_edge.hexes[0] and edge.hexes[1] == orange_edge.hexes[1]:
-                        edge.player = "orange"
-
-            if "blue" in s_state.players:
-                for blue_edge in blue_edges:
-                    if edge.hexes[0] == blue_edge.hexes[0] and edge.hexes[1] == blue_edge.hexes[1]:
-                        edge.player = "blue"
-
-            if "red" in s_state.players:
-                for red_edge in red_edges:
-                    if edge.hexes[0] == red_edge.hexes[0] and edge.hexes[1] == red_edge.hexes[1]:
-                        edge.player = "red"
-            
-            if "white" in s_state.players:
+            for edge in self.edges:
                 for white_edge in white_edges:
                     if edge.hexes[0] == white_edge.hexes[0] and edge.hexes[1] == white_edge.hexes[1]:
                         edge.player = "white"
+            for hex in white_nodes[1].hexes:
+                s_state.players["white"].hand[hex_to_resource[hex]] += 1
+
+
+
+            
 
 
 
@@ -679,8 +686,8 @@ class Player:
         # gameplay
         self.name = name
         self.order = order
-        # self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 3}
+        self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        # self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 3}
         self.num_to_discard = 0
         self.trade_offer = {}
         self.dev_cards = {"knight": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
@@ -1732,10 +1739,6 @@ class ServerState:
 
 
 
-    def remove_card(self):
-        # for returning cards on a 7, put cards on an overlay like the options menu so no overlapping cards to select
-        pass
-
 
 
 
@@ -1840,12 +1843,12 @@ class ClientPlayer:
 
 
 class ClientState:
-    def __init__(self, name, server_IP, server_port, combined=False):
+    def __init__(self, name, server_IP, port, combined=False):
         print("starting client")
         # Networking
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_IP = server_IP
-        self.server_port = server_port
+        self.port = port
         self.num_msgs_sent = 0
         self.num_msgs_recv = 0
         self.name = name # for debug, start as "red" and shift to current_player_name every turn
@@ -2496,7 +2499,7 @@ class ClientState:
         if combined == False:
             if msg_to_send != b'null':
                 self.num_msgs_sent += 1
-                self.socket.sendto(msg_to_send, (self.server_IP, self.server_port))
+                self.socket.sendto(msg_to_send, (self.server_IP, self.port))
             
             # receive message from server
             try:
@@ -2899,8 +2902,8 @@ class ClientState:
 
 
 
-def run_client(name, server_IP=local_IP, server_port=local_port):
-    c_state = ClientState(name=name, server_IP=server_IP, server_port=server_port, combined=False)
+def run_client(name, server_IP=local_IP):
+    c_state = ClientState(name=name, server_IP=server_IP, port=default_port, combined=False)
 
     pr.set_trace_log_level(7) # removes raylib log msgs
     # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
@@ -2934,8 +2937,9 @@ def run_client(name, server_IP=local_IP, server_port=local_port):
     c_state.socket.close()
 
 
-def local_server(IP_address=local_IP, port=local_port):
-    s_state = ServerState(IP_address=IP_address, port=port, combined=False, debug=True) # initialize socket
+def local_server(IP_address=local_IP):
+    # initialize socket
+    s_state = ServerState(IP_address=IP_address, port=default_port, combined=False, debug=True)
 
     s_state.initialize_game() # initialize board, players
     while True:

@@ -248,8 +248,14 @@ def draw_button_outline(button_object):
     outer_rec = pr.Rectangle(button_object.rec.x-outer_offset, button_object.rec.y-outer_offset, button_object.rec.width+2*outer_offset, button_object.rec.height+2*outer_offset)
     pr.draw_rectangle_lines_ex(outer_rec, 5, pr.BLACK)
 
+def draw_mode_text(c_state, title, text):
+    pr.draw_text_ex(pr.gui_get_font(), " "+to_title(title), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
+    for i, line in enumerate(reversed(text.split("\n"))):
+        pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
+
+
 def draw_info_in_box(c_state):
-    # draw discard for all players; also will need separate if statement for trade
+    # all players
     if c_state.mode == "discard":
         pr.draw_text_ex(pr.gui_get_font(), " "+to_title(c_state.mode), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
         # pr.draw_text_ex(pr.gui_get_font(), mode_text[c_state.mode], (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*2.2), c_state.med_text*.9, 0, pr.BLACK)
@@ -273,20 +279,24 @@ def draw_info_in_box(c_state):
         elif c_state.client_players[c_state.name].num_to_discard == 0:
             pr.draw_text_ex(pr.gui_get_font(), f" Waiting for others to discard.", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
         return
-    # end if not current player
+
+        
+
+    # non-current players
     if c_state.name != c_state.current_player_name:
+        if c_state.mode == "trade":
+            pass
+            # draw accept/reject buttons
+        else:
+            draw_mode_text(c_state, f"{c_state.current_player_name}'s_turn", "")
         return
 
+    # ONLY CURRENT PLAYER
     if c_state.mode in mode_text.keys():
-        pr.draw_text_ex(pr.gui_get_font(), " "+to_title(c_state.mode), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
-        for i, line in enumerate(reversed(mode_text[c_state.mode].split("\n"))):
-            pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
-    
-    
+        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])    
+
     if c_state.mode == None:
-        pr.draw_text_ex(pr.gui_get_font(), " "+to_title("your_turn"), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
-        for i, line in enumerate(reversed(" Pick an action or end your\n turn.".split("\n"))):
-            pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
+        draw_mode_text(c_state, "your_turn", " Pick an action or end your\n turn.")
 
     elif c_state.mode == "trade":
         draw_trade_interface(c_state.trade_buttons, c_state.info_box, c_state.med_text, c_state.selected_cards, c_state.trade_offer)
