@@ -331,15 +331,16 @@ class Node:
             print("no adjacent roads")
             return False
         
-        # if between opponent's road
-        adj_edge_players = [edge.player for edge in adj_edges]
-        if s_state.current_player_name in adj_edge_players:
-            adj_edge_players.remove(s_state.current_player_name)
-            if adj_edge_players[0] == adj_edge_players[1]:
-                if None not in adj_edge_players and s_state.current_player_name not in adj_edge_players:
-                    s_state.send_to_player(s_state.current_player_name, "log", f"You cannot build in the middle of another player's road")
-                    print("can't build in middle of road")
-                    return False
+        # this is actually legal so commenting it out
+        # # if between opponent's road
+        # adj_edge_players = [edge.player for edge in adj_edges]
+        # if s_state.current_player_name in adj_edge_players:
+        #     adj_edge_players.remove(s_state.current_player_name)
+        #     if adj_edge_players[0] == adj_edge_players[1]:
+        #         if None not in adj_edge_players and s_state.current_player_name not in adj_edge_players:
+        #             s_state.send_to_player(s_state.current_player_name, "log", f"You cannot build in the middle of another player's road")
+        #             print("can't build in middle of road")
+        #             return False
                 
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a settlement")
         print("no conflicts, building settlement")
@@ -943,12 +944,15 @@ class ServerState:
                     current_node = self.get_next_node(visited_nodes, current_edge, edges_to_nodes)
                     if current_node == None:
                         break
+                    if current_node.player != None and current_node.player != p_object.name:
+                        print(f"finding path for {p_object.name}, node {current_node} player = {current_node.player}")
+                        break
+
                     visited_nodes.append(current_node)
                     # print(f"visited nodes = {visited_nodes}")
                 node_paths.append(visited_nodes)
                 edge_paths.append(visited_edges)
 
-            visited_forks = []
             for fork in forks:
                 current_edge = fork["current_edge"]
                 visited_nodes = fork["visited_nodes"]
@@ -960,6 +964,10 @@ class ServerState:
                         # print(f"breaking fork at {current_edge}, no other Nodes found")
                         # print(f"total visited nodes: {visited_nodes}, visited edges: {visited_edges}")
                         break
+                    elif current_node.player != None and current_node.player != p_object.name:
+                        print(f"finding path for {p_object.name}, node {current_node} player = {current_node.player}")
+                        break
+
                     visited_nodes.append(current_node)
                     # print(f"current_node = {current_node}")
 
@@ -990,12 +998,44 @@ class ServerState:
 
         print(f"longest roads: {all_paths}")
         if all(5 > num_roads for num_roads in all_paths.values()):
+            self.longest_road = ""
             return
         
-        if len(self.longest_road) == 0 and all_paths[self.current_player_name] >= 5:
-            self.longest_road = self.current_player_name
-        elif len(self.longest_road) > 0 and all_paths[self.current_player_name] > all_paths[self.longest_road]:
-                self.longest_road = self.current_player_name
+        
+
+        tie = set()
+        current_leader = ""
+        for name, path in all_paths.items():
+            if len(current_leader) > 0:
+                if path > all_paths[current_leader]:
+                    current_leader = name
+                elif path == all_paths[current_leader]:
+                    tie = set(name, current_leader)
+            else:
+                current_leader = name
+        if len(tie) > 0:
+            if self.longest_road in tie:
+                # no change, end function
+                return
+            elif self.longest_road not in tie:
+                self.longest_road = ""
+                return
+            
+        # assign longest_road if no tie
+        if 5 > all_paths[current_leader]:
+            self.longest_road = ""
+        
+        elif all_paths[current_leader] >= 5:
+            self.longest_road = current_leader
+
+
+        """ Special Case: If your longest road is broken and you are
+        tied for longest road, you still keep the “Longest Road” card.
+        However, if you no longer have the longest road, but two or
+        more players tie for the new longest road, set the “Longest
+        Road” card aside. Do the same if no one has a 5+ segment
+        road. The “Longest Road” card comes into play again when only
+        1 player has the longest road (of at least 5 road pieces). """
 
 
 
@@ -1007,7 +1047,7 @@ class ServerState:
         elif len(self.largest_army) == 0 and self.players[self.current_player_name].visible_knights >= 3:
             self.largest_army = self.current_player_name
         elif len(self.largest_army) > 0 and self.players[self.current_player_name].visible_knights > self.players[self.largest_army].visible_knights:
-                self.largest_army = self.current_player_name
+            self.largest_army = self.current_player_name
 
     def can_build_road(self) -> bool:
         # check if any roads can be built
@@ -1638,6 +1678,7 @@ class ServerState:
             if client_request["action"] == "build_settlement":
                 if location_node.build_check_settlement(self) and self.cost_check("settlement"):
                     self.build_settlement(location_node)
+                    self.calc_longest_road()
             elif client_request["action"] == "build_city":
                 if location_node.build_check_city(self) and self.cost_check("city"):
                     self.build_city(location_node)
