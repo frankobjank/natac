@@ -2115,6 +2115,7 @@ class ClientState:
         return
 
     def check_submit(self, user_input):
+        # if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["submit"].rec):
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["submit"].rec):
             print("submit")
             return True
@@ -2326,7 +2327,8 @@ class ClientState:
             
             elif self.name == self.current_player_name:
                 if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
-                    if b_object.name == "roll_dice":
+                    # special rules for "roll_dice" and "submit"; handle separately
+                    if b_object.name == "roll_dice" or b_object.name == "submit":
                         continue
                     b_object.hover = True
                     if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
@@ -2846,8 +2848,6 @@ class ClientState:
             pr.draw_line_ex((int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y)), (int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y+self.buttons["roll_dice"].rec.height)), 2, pr.BLACK)
 
         self.buttons["end_turn"].draw_display()
-        
-        # pr.draw_text_ex(pr.gui_get_font(), "Submit", (((self.buttons["submit"].rec.x + (self.buttons["submit"].rec.width//2-40)//2)), (self.buttons["submit"].rec.y + (self.buttons["submit"].rec.height-22)//2)), self.med_text, 0, pr.BLACK)
         
 
 
