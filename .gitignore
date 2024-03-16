@@ -1,6 +1,5 @@
 .venv/
 .DS_Store
 .vscode
-scratch
 natac.code-workspace
-server_packet_example.json
+__pycache__
