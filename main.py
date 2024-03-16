@@ -686,10 +686,9 @@ class Player:
         # gameplay
         self.name = name
         self.order = order
-        self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        # self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 3}
+        # self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 3}
         self.num_to_discard = 0
-        self.trade_offer = {}
         self.dev_cards = {"knight": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
         self.visible_knights = 0 # can use to count largest army
         self.num_cities = 0
@@ -752,6 +751,7 @@ class ServerState:
         self.dev_cards_avl = {} # cannot play dev_card the turn it is bought. Reset every turn
         self.dev_card_modes = ["road_building", "year_of_plenty", "monopoly"]
 
+        self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
 
         # PLAYERS
         self.players = {} # {player_name: player_object}
@@ -1036,16 +1036,6 @@ class ServerState:
             self.longest_road = current_leader
 
 
-        """ Special Case: If your longest road is broken and you are
-        tied for longest road, you still keep the “Longest Road” card.
-        However, if you no longer have the longest road, but two or
-        more players tie for the new longest road, set the “Longest
-        Road” card aside. Do the same if no one has a 5+ segment
-        road. The “Longest Road” card comes into play again when only
-        1 player has the longest road (of at least 5 road pieces). """
-
-
-
     # perform check after playing a knight
     def calc_largest_army(self):
         # will be None if not yet assigned
@@ -1060,14 +1050,12 @@ class ServerState:
         # check if any roads can be built
         # TODO general rules question - can you exit early if you only want one road?
         owned_roads = [edge for edge in self.board.edges if edge.player == self.current_player_name]
-
         for road in owned_roads:
             adj_edges = road.get_adj_node_edges(self.board.nodes, self.board.edges)
             for adj in adj_edges:
                 if adj.build_check_road(self, verbose=False):
                     return True
         return False
-
 
     def play_dev_card(self, kind):
         if self.dev_card_played == True:
@@ -1168,8 +1156,6 @@ class ServerState:
 
         return
 
-        
-
     # build functions
     def build_settlement(self, location_node):
         self.mode = None # immediately switch off build mode
@@ -1179,7 +1165,6 @@ class ServerState:
         if location_node.port:
             self.players[location_node.player].ports.append(location_node.port)
         self.pay_for("settlement")
-
 
     def build_city(self, location_node):
         self.mode = None # immediately switch off build mode
@@ -1205,7 +1190,6 @@ class ServerState:
         if card == "victory_point":
             self.check_for_win()
         
-
     def pay_for(self, item):
         for resource, count in building_costs[item].items():
             self.players[self.current_player_name].hand[resource] -= count
@@ -1253,8 +1237,21 @@ class ServerState:
         self.to_steal_from = []
         
 
-    def transfer_cards(self, from_player:str, to_player:str, cards_from_player:dict, cards_to_player:dict):
-        pass
+    def complete_trade(self, player1, player2):
+        # player1 = current_player (- player_trade["offer"], + player_trade["request"])
+        # player2 = non-current_player (+ player_trade["offer"], - player_trade["request"])
+
+        for card, num in self.player_trade["offer"].items():
+            self.players[player1].hand[card] -= num
+            self.players[player2].hand[card] += num
+
+        for card, num in self.player_trade["request"].items():
+            self.players[player1].hand[card] += num
+            self.players[player2].hand[card] -= num
+
+        self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
+        self.send_broadcast("accept", "trade")
+        
             
             
     def move_robber(self, location_hex):
@@ -1341,6 +1338,7 @@ class ServerState:
 
     def end_turn(self):
         # increment turn number, reset dev_card counter, set new current_player
+        self.send_to_player(self.current_player_name, "accept", "end_turn")
         self.turn_num += 1
         self.dev_card_played = False
         self.mode = "roll_dice"
@@ -1398,7 +1396,18 @@ class ServerState:
                 new_edge["hexes"] = [hex[:2] for hex in edge.hexes]
                 new_edge["player"] = edge.player
                 road_edges.append(new_edge)
-
+        
+        trade = [] # format [[0, 0, 1, 1, 0], [1, 1, 0, 0, 0], "player_name_string"]
+        trade_partial = []
+        for card in self.player_trade["offer"].values():
+            trade_partial.append(card)
+        trade.append(trade_partial)
+        trade_partial = []
+        for card in self.player_trade["request"].values():
+            trade_partial.append(card)
+        trade.append(trade_partial)
+        trade.append(self.player_trade["trade_with"])
+        
         # loop thru players to build hands, VPs, logs
         hands = []
         dev_cards = []
@@ -1460,7 +1469,8 @@ class ServerState:
             "ports": self.players[recipient].ports,
             "longest_road": self.longest_road, 
             "largest_army": self.largest_army,
-        }
+            "trade": self.player_trade
+            }
 
         combined = packet|self.package_board()
 
@@ -1477,7 +1487,9 @@ class ServerState:
         # client_request["mode"] = "move_robber" or "build_town" or "build_road" or "trade"
         # client_request["debug"] = self.debug
         # client_request["cards"] = card to return, card to play, 
+        # client_request["trade_offer"] = [offer], [request], "player_name"
         # client_request["selected_player"] = other player name
+
 
         if client_request == None or len(client_request) == 0:
             return
@@ -1497,7 +1509,7 @@ class ServerState:
             self.socket.sendto(to_json(self.package_state(client_request["name"], include_board=True)).encode(), address)
             return
 
-        # receive input from non-current player for discard_cards
+        # receive input from non-current player for discard_cards and trade
         elif client_request["action"] == "submit" and self.mode == "discard" and client_request["cards"] != None:
             if sum(client_request["cards"].values()) == self.players[client_request["name"]].num_to_discard:
                 self.send_to_player(client_request["name"], "accept", "discard")
@@ -1512,12 +1524,13 @@ class ServerState:
 
             return
         
-        if client_request["action"] == "submit" and self.mode == "trade" and client_request["cards"] != None:
-            pass
+        elif client_request["action"] == "submit" and self.mode == "trade" and len(self.player_trade["trade_with"]) > 0:
+            self.complete_trade(self.current_player_name, client_request["name"])
 
-        elif client_request["action"] == "randomize_board" and 0 >= self.turn_num:
-            self.send_broadcast("log", "Re-rolling board")
-            self.board.initialize_board()
+        # elif client_request["action"] == "randomize_board" and 0 >= self.turn_num:
+        #     This currently breaks the game (lol)
+        #     self.send_broadcast("log", "Re-rolling board")
+        #     self.board.initialize_board()
         
         # cheats
         elif client_request["action"] == "ITSOVER9000":
@@ -1555,7 +1568,16 @@ class ServerState:
                 self.play_dev_card(client_request["cards"])
             return
         
-        
+        elif self.mode == "trade":
+            if client_request["action"] == "submit" and client_request["trade_offer"] != None:
+                self.player_trade = client_request["trade_offer"]
+                self.send_broadcast("log", f"Player {self.player_trade["trade_with"]} is offering a trade.")
+                return
+            elif client_request["action"] == "cancel":
+                self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
+                self.send_to_player("")
+
+
         # trade_offer = {"offer": {"ore": -4}, "request": {"wheat": 1}, "trade_with": ""}
         elif self.mode == "bank_trade":
             if client_request["action"] == "submit" and client_request["trade_offer"] != None:
@@ -1619,8 +1641,10 @@ class ServerState:
 
         if client_request["mode"] != None:
             if self.mode == client_request["mode"]:
+                self.send_to_player(self.current_player_name, "accept", {"new_mode": None})
                 self.mode = None
             elif self.mode not in self.dev_card_modes:
+                self.send_to_player(self.current_player_name, "accept", {"new_mode": self.mode})
                 self.mode = client_request["mode"]
         
 
@@ -1916,8 +1940,8 @@ class ClientState:
         # for trade
         # self.cards_to_offer = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # self.cards_to_request = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        # self.bank_trade = {"offer": "", "request": ""}
-        self.trade_offer = {"offer": {}, "request": {}, "trade_with": ""}
+        self.bank_trade = {"offer": {}, "request": {}, "trade_with": ""}
+        self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
 
         # for discard_cards / year_of_plenty
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
@@ -1930,9 +1954,6 @@ class ClientState:
 
         self.debug = True
 
-        # self.menu_links = {"options": Button(pr.Rectangle(self.screen_width//20, self.screen_height//20, self.screen_width//25, self.screen_height//20), "options_link", pr.DARKGRAY)}
-
-        # self.options_menu = Menu(self, "Options", self.menu_links["options"], *["mute", "borderless_windowed", "close"])
 
         # offset from right side of screen for buttons,  info_box, and logbox
         offset = self.screen_height/27.5 # 27.7 with height = 750
@@ -1943,7 +1964,7 @@ class ClientState:
         button_w = self.screen_width//button_division
         button_h = self.screen_height//button_division
 
-        b_names_to_displays = {"build_road": "Road", "build_city": "City", "build_settlement": "Settle", "trade": "Trade", "bank_trade": "Bank\nTrade", "buy_dev_card": "Dev\nCard"} #"move_robber": "Robber", 
+        b_names_to_displays = {"build_road": "Road", "build_city": "City", "build_settlement": "Settle", "trade": "Trade", "bank_trade": "Bank\nTrade", "buy_dev_card": "Dev\nCard"}
         for i, b_name in enumerate(b_names_to_displays.keys()):
             # separate because buy dev card is action, not mode
             if b_name == "buy_dev_card":
@@ -1967,7 +1988,7 @@ class ClientState:
         for i, resource in enumerate(self.resource_cards):
             self.trade_buttons[f"offer_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+offset, infobox_w//6, infobox_h/8), f"offer_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
             self.trade_buttons[f"request_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+infobox_h-2.7*offset, infobox_w//6, infobox_h/8), f"request_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
-
+        
         self.dev_card_buttons = {}
 
         # log
@@ -2194,6 +2215,9 @@ class ClientState:
             return pr.KeyboardKey.KEY_ZERO
         
         # cheats
+        # 7 for ROLL7
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_SEVEN):
+            return pr.KeyboardKey.KEY_SEVEN
         # 9 for ITSOVER9000
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_NINE):
             return pr.KeyboardKey.KEY_NINE
@@ -2333,9 +2357,6 @@ class ClientState:
                     b_object.hover = True
                     if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                         if b_object.mode:
-                            if "trade" in b_object.name:
-                                self.trade_offer["offer"] = {}
-                                self.trade_offer["request"] = {}
                             return self.client_request_to_dict(mode=b_object.name)
                         elif b_object.action:
                             return self.client_request_to_dict(action=b_object.name)
@@ -2343,7 +2364,7 @@ class ClientState:
                     b_object.hover = False
 
         
-        # selecting cards
+        # selecting cards - available for ALL players, not just current
         if self.mode == "discard":
             if self.client_players[self.name].num_to_discard == 0:
                 return self.client_request_to_dict()
@@ -2372,13 +2393,11 @@ class ClientState:
             # end function with no client_request if nothing is submitted
             return
 
+        # non-current player has option to accept incoming trade
         elif self.mode == "trade":
             if self.name != self.current_player_name:
-                if pr.check_collision_point_rec(pr.get_mouse_position(), )
-            if pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["trade"].rec):
-                self.buttons["trade"].hover = True
-                if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                    return self.client_request_to_dict(mode="trade")
+                if self.check_submit(user_input):
+                    return self.client_request_to_dict(action="submit")
 
         
         # anything below only applies to current player
@@ -2389,41 +2408,62 @@ class ClientState:
         if self.mode == "steal":
             return self.client_steal(user_input)
         
+        elif self.mode == "trade":
+            # bank trade needs empty dict but regular trade needs hand dicts
+            if self.check_submit(user_input):
+                if sum(self.player_trade["offer"].values()) == 0:
+                    self.log_msgs.append("You must offer at least 1 resource.")
+                self.player_trade["trade_with"] = self.name
+                return self.client_request_to_dict(action="submit", trade_offer=self.player_trade)
+
+            if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
+                self.card_index -= 1
+            elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 9:
+                self.card_index += 1
+            # add to trade_offer
+            if 4 >= self.card_index:
+                if user_input == pr.KeyboardKey.KEY_RIGHT and self.client_players[self.name].hand[self.resource_cards[self.card_index]] > self.player_trade["offer"][self.resource_cards[self.card_index]]:
+                    self.player_trade["offer"][self.resource_cards[self.card_index]] += 1
+                elif user_input == pr.KeyboardKey.KEY_LEFT:
+                    if self.player_trade["offer"][self.resource_cards[self.card_index]] > 0:
+                        self.player_trade["offer"][self.resource_cards[self.card_index]] -= 1
+            # add to trade_request using %5 on self.card_index
+            elif 9 >= self.card_index >= 5:
+                if user_input == pr.KeyboardKey.KEY_RIGHT:
+                    self.player_trade["request"][self.resource_cards[self.card_index%5]] += 1
+                elif user_input == pr.KeyboardKey.KEY_LEFT:
+                    if self.player_trade["request"][self.resource_cards[self.card_index%5]] > 0:
+                        self.player_trade["request"][self.resource_cards[self.card_index%5]] -= 1
+
 
         elif self.mode == "bank_trade":
-            # toggle bank_trade
-            if pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["bank_trade"].rec):
-                self.buttons["bank_trade"].hover = True
-                if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                    return self.client_request_to_dict(mode="bank_trade")
-            
             # submit with enter, space, or submit button
             if self.check_submit(user_input):
-                if len(self.trade_offer["offer"]) > 0 and len(self.trade_offer["request"]) > 0:
-                    self.trade_offer["trade_with"] = "bank"
-                    return self.client_request_to_dict(action="submit", trade_offer=self.trade_offer)
+                if len(self.bank_trade["offer"]) > 0 and len(self.bank_trade["request"]) > 0:
+                    self.bank_trade["trade_with"] = "bank"
+                    return self.client_request_to_dict(action="submit", trade_offer=self.bank_trade)
 
             for b_object in self.trade_buttons.values():
                 if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and self.name == self.current_player_name:
                     if "offer" in b_object.name and self.client_players[self.name].hand[b_object.display] >= self.client_players[self.name].ratios[b_object.display]:
                         b_object.hover = True
                         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                                if b_object.display not in self.trade_offer["offer"].keys():
-                                    self.trade_offer["offer"] = {}
-                                    self.trade_offer["offer"][b_object.display] = -self.client_players[self.name].ratios[b_object.display]
+                                if b_object.display not in self.bank_trade["offer"].keys():
+                                    self.bank_trade["offer"] = {}
+                                    self.bank_trade["offer"][b_object.display] = -self.client_players[self.name].ratios[b_object.display]
                                     
-                                elif b_object.display in self.trade_offer["offer"].keys():
-                                    self.trade_offer["offer"] = {}
+                                elif b_object.display in self.bank_trade["offer"].keys():
+                                    self.bank_trade["offer"] = {}
                                     return
 
                     elif "request" in b_object.name:
                         b_object.hover = True
                         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                            if b_object.display not in self.trade_offer["request"].keys():
-                                self.trade_offer["request"] = {}
-                                self.trade_offer["request"][b_object.display] = 1
-                            elif b_object.display in self.trade_offer["request"].keys():
-                                self.trade_offer["request"] = {}
+                            if b_object.display not in self.bank_trade["request"].keys():
+                                self.bank_trade["request"] = {}
+                                self.bank_trade["request"][b_object.display] = 1
+                            elif b_object.display in self.bank_trade["request"].keys():
+                                self.bank_trade["request"] = {}
                                 return
                 else:
                     b_object.hover = False
@@ -2512,7 +2552,8 @@ class ClientState:
         pass
     
     def reset_selections(self):
-        self.trade_offer = {"offer": {}, "request": {}, "trade_with": ""}
+        self.bank_trade = {"offer": {}, "request": {}, "trade_with": ""}
+        self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.card_index = 0
 
@@ -2541,6 +2582,7 @@ class ClientState:
         # num_to_discard : [3, 1, 0, 0] use 1 if waiting, 0 if not (i.e. True/False)
         # to_steal_from : []
         # ports : []
+        # trade : [] [[0, 0, 1, 1, 0], [1, 1, 0, 0, 0], "player_name_string"]
 
         server_response = json.loads(encoded_server_response)
         # print(server_response)
@@ -2586,6 +2628,17 @@ class ClientState:
 
         self.longest_road = server_response["longest_road"]
         self.largest_army = server_response["largest_army"]
+
+        # trade : [] [[0, 0, 1, 1, 0], [1, 1, 0, 0, 0], "player_name_string"]
+        # unpack trade from server for NON-CURRENT PLAYERS (request and offer are switched)
+        if self.current_player_name != self.name:
+            if len(server_response["trade"][2]) > 0:
+                self.player_trade["request"] = server_response["trade"][0]
+                self.player_trade["offer"] = server_response["trade"][1]
+                self.player_trade["trade_with"] = server_response["trade"][2]
+            else:
+                self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
+
 
 
         # PLAYERS
