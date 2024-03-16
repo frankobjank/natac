@@ -2373,31 +2373,13 @@ class ClientState:
             return
 
         elif self.mode == "trade":
+            if self.name != self.current_player_name:
+                if pr.check_collision_point_rec(pr.get_mouse_position(), )
             if pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["trade"].rec):
                 self.buttons["trade"].hover = True
                 if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                     return self.client_request_to_dict(mode="trade")
 
-            for b_object in self.trade_buttons.values():
-                if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and self.name == self.current_player_name:
-                    b_object.hover = True
-                        # from bank_trade
-                        # if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                        #         if b_object.display not in self.trade_offer["offer"].keys():
-                        #             self.trade_offer["offer"] = {}
-                        #             self.trade_offer["offer"][b_object.display] = -self.client_players[self.name].ratios[b_object.display]
-                                    
-                        #         elif b_object.display in self.trade_offer["offer"].keys():
-                        #             self.trade_offer["offer"] = {}
-                        #             return
-                    if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                        if "offer" in b_object.name:
-                            if self.client_players[self.name].hand[b_object.display] > self.trade_offer["offer"][b_object.display]:
-                                self.trade_offer["offer"][b_object.display] += 1
-                        elif "request" in b_object.name:
-                            self.trade_offer["request"][b_object.display] += 1
-                else:
-                    b_object.hover = False
         
         # anything below only applies to current player
         if self.name != self.current_player_name:
