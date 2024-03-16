@@ -4,8 +4,8 @@ Getting started:
 
 Create a virtual environment:
 ```
-$ python3 -m venv .venv (only do this for first time setup)
-$ source .venv/bin/activate
+python3 -m venv .venv (only do this for first time setup)
+source .venv/bin/activate
 ```
 Update pip and install setuptools and raylib:
 ```
