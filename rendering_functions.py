@@ -286,7 +286,7 @@ def draw_info_in_box(c_state):
     if c_state.name != c_state.current_player_name:
         if c_state.mode == "trade":
             pass
-            # draw accept/reject buttons
+            # draw accept/reject buttons and trade offer received from server
         else:
             draw_mode_text(c_state, f"{c_state.current_player_name}'s_turn", "")
         return
@@ -353,23 +353,25 @@ def draw_trade_interface(buttons, info_box, font_size, selected_cards, trade_off
     pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (info_box.x, 4+info_box.y), font_size, 0, pr.BLACK)
     pr.draw_text_ex(pr.gui_get_font(), " Cards to receive", (info_box.x, info_box.y+info_box.height-font_size*1.1), font_size, 0, pr.BLACK)
 
-    for button_object in buttons.values():
-        # font was too big, resizing
-        font_resize = button_object.font_size-2
-        pr.draw_rectangle_rec(button_object.rec, button_object.color)
-        pr.draw_rectangle_lines_ex(button_object.rec, 1, pr.BLACK)
-        pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*font_resize/1.4)//2, button_object.rec.y+14), font_resize, 0, pr.BLACK)
+
+    # colored buttons for resources - will require more time to implement. replacing with discard/ add card interfaces
+    # for button_object in buttons.values():
+    #     # font was too big, resizing
+    #     font_resize = button_object.font_size-2
+    #     pr.draw_rectangle_rec(button_object.rec, button_object.color)
+    #     pr.draw_rectangle_lines_ex(button_object.rec, 1, pr.BLACK)
+    #     pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*font_resize/1.4)//2, button_object.rec.y+14), font_resize, 0, pr.BLACK)
 
 
-        if "request" in button_object.name and selected_cards[button_object.display] > 0:
-            pr.draw_text_ex(pr.gui_get_font(), "^", (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*button_object.font_size/1.4)//2, -button_object.rec.y+14), button_object.font_size, 0, pr.BLACK)
-        # elif "offer" in button_object.name and 0 > selected_cards[button_object.display]:
+    #     if "request" in button_object.name and selected_cards[button_object.display] > 0:
+    #         pr.draw_text_ex(pr.gui_get_font(), "^", (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*button_object.font_size/1.4)//2, -button_object.rec.y+14), button_object.font_size, 0, pr.BLACK)
+    #     # elif "offer" in button_object.name and 0 > selected_cards[button_object.display]:
 
     
-    for button_object in buttons.values():
-        if button_object.hover:
-            draw_button_outline(button_object)
-            break
+    # for button_object in buttons.values():
+    #     if button_object.hover:
+    #         draw_button_outline(button_object)
+    #         break
 
 def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, trade_offer, ratios):
     # draw horizontal line in info_box

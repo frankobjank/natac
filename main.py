@@ -2381,11 +2381,21 @@ class ClientState:
             for b_object in self.trade_buttons.values():
                 if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and self.name == self.current_player_name:
                     b_object.hover = True
+                        # from bank_trade
+                        # if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                        #         if b_object.display not in self.trade_offer["offer"].keys():
+                        #             self.trade_offer["offer"] = {}
+                        #             self.trade_offer["offer"][b_object.display] = -self.client_players[self.name].ratios[b_object.display]
+                                    
+                        #         elif b_object.display in self.trade_offer["offer"].keys():
+                        #             self.trade_offer["offer"] = {}
+                        #             return
                     if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                         if "offer" in b_object.name:
-                            self.selected_cards[b_object.display] -= 1
+                            if self.client_players[self.name].hand[b_object.display] > self.trade_offer["offer"][b_object.display]:
+                                self.trade_offer["offer"][b_object.display] += 1
                         elif "request" in b_object.name:
-                            self.selected_cards[b_object.display] += 1
+                            self.trade_offer["request"][b_object.display] += 1
                 else:
                     b_object.hover = False
         
@@ -2519,6 +2529,11 @@ class ClientState:
         # resize and reorder the hand
         pass
     
+    def reset_selections(self):
+        self.trade_offer = {"offer": {}, "request": {}, "trade_with": ""}
+        self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        self.card_index = 0
+
     # unpack server response and update state
     def update_client(self, encoded_server_response):
         # name : self.name
@@ -2563,9 +2578,7 @@ class ClientState:
             return
         
         elif server_response["kind"] == "accept":
-            self.trade_offer = {"offer": {}, "request": {}, "trade_with": ""}
-            self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-            self.card_index = 0
+            self.reset_selections()
             return
         
         elif server_response["kind"] == "debug":
