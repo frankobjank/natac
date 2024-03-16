@@ -1285,7 +1285,7 @@ class ServerState:
         self.send_broadcast("accept", "trade")
         self.send_broadcast("log", f"{player2} accepted the trade.")
         self.mode = None
-        
+
     def distribute_resources(self):
         token_indices = [i for i, token in enumerate(self.board.tokens) if token == (self.die1 + self.die2)]
 
@@ -2399,6 +2399,10 @@ class ClientState:
         # non-current player has option to accept incoming trade
         elif self.mode == "trade":
             if self.name != self.current_player_name:
+                for card, num in self.client_players[self.name].hand.items():
+                    if self.player_trade["request"][card] > num:
+                        self.log_msgs.append("Insufficient resources for completing trade.")
+                        return
                 if self.check_submit(user_input):
                     return self.client_request_to_dict(action="submit")
 
@@ -2614,7 +2618,12 @@ class ClientState:
             self.longest_road_edges = server_response["msg"]
             return
 
+
+        # chop log even if no new log recv from server - client can generate log msgs
+        if len(self.log_msgs) > 7:
+            self.log_to_display = self.log_msgs[-7:]
         
+
         # if self.name in self.client_players:
             # if not self.does_board_exist():
         self.data_verification(server_response)
@@ -2636,24 +2645,14 @@ class ClientState:
 
         # trade : [] [[0, 0, 1, 1, 0], [1, 1, 0, 0, 0], "player_name_string"]
         # unpack trade from server for NON-CURRENT PLAYERS (request and offer are switched)
-        if self.current_player_name != self.name:
-            if len(server_response["trade"][2]) > 0:
-                for i, num in enumerate(server_response["trade"][0]):
-                    self.player_trade["request"][self.resource_cards[i]] = num
-                for i, num in enumerate(server_response["trade"][1]):
-                    self.player_trade["offer"][self.resource_cards[i]] = num
-                self.player_trade["trade_with"] = server_response["trade"][2]
-            else:
-                self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
-        elif self.current_player_name == self.name:
-            if len(server_response["trade"][2]) > 0:
-                for i, num in enumerate(server_response["trade"][0]):
-                    self.player_trade["offer"][self.resource_cards[i]] = num
-                for i, num in enumerate(server_response["trade"][1]):
-                    self.player_trade["request"][self.resource_cards[i]] = num
-                self.player_trade["trade_with"] = server_response["trade"][2]
-            else:
-                self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
+        if len(server_response["trade"][2]) > 0:
+            for i, num in enumerate(server_response["trade"][0]):
+                self.player_trade["offer"][self.resource_cards[i]] = num
+            for i, num in enumerate(server_response["trade"][1]):
+                self.player_trade["request"][self.resource_cards[i]] = num
+            self.player_trade["trade_with"] = server_response["trade"][2]
+        else:
+            self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
 
 
 
@@ -2763,7 +2762,7 @@ class ClientState:
                         midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
                         pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
-        if self.name == self.current_player_name:
+        if self.debug:
             self.render_mouse_hover()
         
         # draw roads, settlements, cities

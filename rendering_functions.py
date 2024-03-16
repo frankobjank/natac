@@ -301,13 +301,13 @@ def draw_info_in_box(c_state):
             pr.draw_text_ex(pr.gui_get_font(), f" Received Trade Request from\n {c_state.player_trade['trade_with']}", (c_state.info_box.x, 4+c_state.info_box.y), c_state.med_text, 0, pr.BLACK)
 
             request = f" Player {c_state.player_trade['trade_with']} is requesting:\n"
-            for card, num in c_state.player_trade["offer"].items():
+            for card, num in c_state.player_trade["request"].items():
                 if num > 0:
                     request += f" {num} {card}\n"
             pr.draw_text_ex(pr.gui_get_font(), request, (c_state.info_box.x, 4+c_state.info_box.y+c_state.info_box.height//4), c_state.med_text, 0, pr.BLACK)
 
             receive = " You would receive:\n"
-            for card, num in c_state.player_trade["request"].items():
+            for card, num in c_state.player_trade["offer"].items():
                 if num > 0:
                     receive += f" {num} {card}\n"
             pr.draw_text_ex(pr.gui_get_font(), receive, (c_state.info_box.x, 4+c_state.info_box.y+c_state.info_box.height//1.5), c_state.med_text, 0, pr.BLACK)
