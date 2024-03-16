@@ -195,7 +195,6 @@ def draw_discard_cards(selected_cards, location:pr.Vector2, card_type:str, num_c
     card_type_display = card_type
     while 5 > len(card_type_display):
         card_type_display += " "
-
     pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards - selected_cards[card_type]}", (location.x+x_offset, location.y-size+(i*size)), size, 0, color)
     if selected_cards[card_type] > 0:
         pr.draw_text_ex(pr.gui_get_font(), f"-> {selected_cards[card_type]}", (location.x+x_offset+(size*6), location.y-size+(i*size)), size, 0, color)
@@ -208,6 +207,7 @@ def draw_added_cards(mode, selected_cards, location:pr.Vector2, card_type:str, n
     if mode == "year_of_plenty":
         if selected_cards[card_type] > 0:
             pr.draw_text_ex(pr.gui_get_font(), f" +{selected_cards[card_type]}", (location.x+x_offset+(size*6), location.y-size+(i*size)), size, 0, color)
+
 
 # includes dev_cards for other players, not dev card buttons for self
 def draw_hands(c_state, player_name, player_object):
@@ -295,13 +295,25 @@ def draw_info_in_box(c_state):
             pr.draw_text_ex(pr.gui_get_font(), f" Waiting for others to discard.", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
         return
 
-        
-
     # non-current players
     if c_state.name != c_state.current_player_name:
-        if c_state.mode == "trade":
-            # draw trade offer received from server
-            pass
+        if c_state.mode == "trade" and len(c_state.player_trade['trade_with'])> 0:
+            pr.draw_text_ex(pr.gui_get_font(), f" Received Trade Request from\n {c_state.player_trade['trade_with']}", (c_state.info_box.x, 4+c_state.info_box.y), c_state.med_text, 0, pr.BLACK)
+
+            request = f" Player {c_state.player_trade['trade_with']} is requesting:\n"
+            for card, num in c_state.player_trade["offer"].items():
+                if num > 0:
+                    request += f" {num} {card}\n"
+            pr.draw_text_ex(pr.gui_get_font(), request, (c_state.info_box.x, 4+c_state.info_box.y+c_state.info_box.height//4), c_state.med_text, 0, pr.BLACK)
+
+            receive = " You would receive:\n"
+            for card, num in c_state.player_trade["request"].items():
+                if num > 0:
+                    receive += f" {num} {card}\n"
+            pr.draw_text_ex(pr.gui_get_font(), receive, (c_state.info_box.x, 4+c_state.info_box.y+c_state.info_box.height//1.5), c_state.med_text, 0, pr.BLACK)
+
+            
+
         else:
             draw_mode_text(c_state, f"{c_state.current_player_name}'s_turn", "")
         return

@@ -1214,6 +1214,38 @@ class ServerState:
 
         # self.send_to_player(self.current_player_name, "log", f"Not enough {', '.join(still_needed)} for {item}")
     
+                 
+    def move_robber(self, location_hex):
+        if location_hex == self.board.robber_hex or location_hex not in self.board.land_hexes:
+            self.send_to_player(self.current_player_name, "log", "Invalid location for robber.")
+            return
+
+        self.mode = None # only one robber move at a time
+        self.board.robber_hex = location_hex
+        
+        adj_players = []
+        for node in self.board.nodes:
+            # if node is associated with player and contains the robber hex, add to list
+            if self.board.robber_hex in node.hexes and node.player != None and node.player != self.current_player_name:
+                adj_players.append(node.player)
+        
+        self.to_steal_from = []
+        # if no adj players, do nothing
+        if len(adj_players) == 0:
+            return
+        
+        # check if adj players have any cards
+        for player_name in adj_players:
+            if sum(self.players[player_name].hand.values()) > 0:
+                self.to_steal_from.append(player_name)
+        
+        # if only one player in targets, steal random card
+        if len(self.to_steal_from) == 1:
+            self.steal_card(self.to_steal_from.pop(), self.current_player_name)
+        # if more than one player, change mode to steal and get player to select
+        elif len(self.to_steal_from) > 1:
+            self.mode = "steal"
+
 
     def steal_card(self, from_player: str, to_player: str):
         card_index = random.randint(0, sum(self.players[from_player].hand.values())-1)
@@ -1251,40 +1283,8 @@ class ServerState:
 
         self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
         self.send_broadcast("accept", "trade")
-        
-            
-            
-    def move_robber(self, location_hex):
-        if location_hex == self.board.robber_hex or location_hex not in self.board.land_hexes:
-            self.send_to_player(self.current_player_name, "log", "Invalid location for robber.")
-            return
-
-        self.mode = None # only one robber move at a time
-        self.board.robber_hex = location_hex
-        
-        adj_players = []
-        for node in self.board.nodes:
-            # if node is associated with player and contains the robber hex, add to list
-            if self.board.robber_hex in node.hexes and node.player != None and node.player != self.current_player_name:
-                adj_players.append(node.player)
-        
-        self.to_steal_from = []
-        # if no adj players, do nothing
-        if len(adj_players) == 0:
-            return
-        
-        # check if adj players have any cards
-        for player_name in adj_players:
-            if sum(self.players[player_name].hand.values()) > 0:
-                self.to_steal_from.append(player_name)
-        
-        # if only one player in targets, steal random card
-        if len(self.to_steal_from) == 1:
-            self.steal_card(self.to_steal_from.pop(), self.current_player_name)
-        # if more than one player, change mode to steal and get player to select
-        elif len(self.to_steal_from) > 1:
-            self.mode = "steal"
-
+        self.send_broadcast("log", f"{player2} accepted the trade.")
+        self.mode = None
         
     def distribute_resources(self):
         token_indices = [i for i, token in enumerate(self.board.tokens) if token == (self.die1 + self.die2)]
@@ -1469,7 +1469,7 @@ class ServerState:
             "ports": self.players[recipient].ports,
             "longest_road": self.longest_road, 
             "largest_army": self.largest_army,
-            "trade": self.player_trade
+            "trade": trade
             }
 
         combined = packet|self.package_board()
@@ -1526,6 +1526,7 @@ class ServerState:
         
         elif client_request["action"] == "submit" and self.mode == "trade" and len(self.player_trade["trade_with"]) > 0:
             self.complete_trade(self.current_player_name, client_request["name"])
+            return
 
         # elif client_request["action"] == "randomize_board" and 0 >= self.turn_num:
         #     This currently breaks the game (lol)
@@ -1571,11 +1572,12 @@ class ServerState:
         elif self.mode == "trade":
             if client_request["action"] == "submit" and client_request["trade_offer"] != None:
                 self.player_trade = client_request["trade_offer"]
-                self.send_broadcast("log", f"Player {self.player_trade["trade_with"]} is offering a trade.")
+                self.send_broadcast("log", f"Player {self.player_trade['trade_with']} is offering a trade.")
                 return
             elif client_request["action"] == "cancel":
                 self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
-                self.send_to_player("")
+                self.send_broadcast("log", "Trade offer cancelled.")
+                self.send_broadcast("accept", "trade")
 
 
         # trade_offer = {"offer": {"ore": -4}, "request": {"wheat": 1}, "trade_with": ""}
@@ -2138,10 +2140,8 @@ class ClientState:
     def check_submit(self, user_input):
         # if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["submit"].rec):
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["submit"].rec):
-            print("submit")
             return True
         elif user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
-            print("submit")
             return True
         return False
         
@@ -2357,7 +2357,10 @@ class ClientState:
                     b_object.hover = True
                     if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                         if b_object.mode:
-                            return self.client_request_to_dict(mode=b_object.name)
+                            if self.mode != "trade" and b_object.name == "trade":
+                                self.log_msgs.append("Press trade button again to cancel.")
+                                self.reset_selections()
+                            return self.client_request_to_dict(mode=b_object.name, action="cancel")
                         elif b_object.action:
                             return self.client_request_to_dict(action=b_object.name)
                 else:
@@ -2415,7 +2418,9 @@ class ClientState:
                     self.log_msgs.append("You must offer at least 1 resource.")
                 self.player_trade["trade_with"] = self.name
                 return self.client_request_to_dict(action="submit", trade_offer=self.player_trade)
-
+            # no further input if current offer is submitted
+            if len(self.player_trade["trade_with"]) > 0:
+                return
             if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
                 self.card_index -= 1
             elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 9:
@@ -2633,8 +2638,19 @@ class ClientState:
         # unpack trade from server for NON-CURRENT PLAYERS (request and offer are switched)
         if self.current_player_name != self.name:
             if len(server_response["trade"][2]) > 0:
-                self.player_trade["request"] = server_response["trade"][0]
-                self.player_trade["offer"] = server_response["trade"][1]
+                for i, num in enumerate(server_response["trade"][0]):
+                    self.player_trade["request"][self.resource_cards[i]] = num
+                for i, num in enumerate(server_response["trade"][1]):
+                    self.player_trade["offer"][self.resource_cards[i]] = num
+                self.player_trade["trade_with"] = server_response["trade"][2]
+            else:
+                self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
+        elif self.current_player_name == self.name:
+            if len(server_response["trade"][2]) > 0:
+                for i, num in enumerate(server_response["trade"][0]):
+                    self.player_trade["offer"][self.resource_cards[i]] = num
+                for i, num in enumerate(server_response["trade"][1]):
+                    self.player_trade["request"][self.resource_cards[i]] = num
                 self.player_trade["trade_with"] = server_response["trade"][2]
             else:
                 self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
@@ -2985,9 +3001,9 @@ def run_client(name, server_IP=local_IP):
     c_state.socket.close()
 
 
-def local_server(IP_address=local_IP):
+def run_server(IP_address, port=default_port):
     # initialize socket
-    s_state = ServerState(IP_address=IP_address, port=default_port, combined=False, debug=True)
+    s_state = ServerState(IP_address=IP_address, port=port, combined=False, debug=True)
 
     s_state.initialize_game() # initialize board, players
     while True:
@@ -3002,24 +3018,6 @@ def local_server(IP_address=local_IP):
     s_state.send_broadcast("log", "Server is offline.")
     print("\nclosing server")
     s_state.socket.close()
-
-def run_server(IP_address, port):
-    s_state = ServerState(IP_address=IP_address, port=port, combined=False, debug=True) # initialize socket
-
-    s_state.initialize_game() # initialize board, players
-    while True:
-        # receives msg, updates s_state, then sends message
-        try:
-            s_state.server_to_client()
-        # except Exception as e:
-            # print(e)
-            # break
-        except KeyboardInterrupt:
-            break
-    s_state.send_broadcast("log", "Server is offline.")
-    print("\nclosing server")
-    s_state.socket.close()
-
 
 
 
@@ -3037,14 +3035,28 @@ def run_server(IP_address, port):
 cmd_line_input = sys.argv[1:]
 
 # test_players = ["red", "white", "orange", "blue"]
-if cmd_line_input[0] == "blue":
-    run_client("blue")
-elif cmd_line_input[0] == "orange":
-    run_client("orange")
-elif cmd_line_input[0] == "white":
-    run_client("white")
-elif cmd_line_input[0] == "red":
-    run_client("red")
-elif cmd_line_input[0] == "local_server":
-    local_server()
+if len(cmd_line_input) == 1:
+    if cmd_line_input[0] == "blue":
+        run_client("blue")
+    elif cmd_line_input[0] == "orange":
+        run_client("orange")
+    elif cmd_line_input[0] == "white":
+        run_client("white")
+    elif cmd_line_input[0] == "red":
+        run_client("red")
+    elif cmd_line_input[0] == "server":
+        run_server(local_IP)
+
+# provide IP as 2nd argument
+elif len(cmd_line_input) > 1:
+    if cmd_line_input[0] == "blue":
+        run_client("blue", cmd_line_input[1])
+    elif cmd_line_input[0] == "orange":
+        run_client("orange", cmd_line_input[1])
+    elif cmd_line_input[0] == "white":
+        run_client("white", cmd_line_input[1])
+    elif cmd_line_input[0] == "red":
+        run_client("red", cmd_line_input[1])
+    elif cmd_line_input[0] == "server":
+        run_server(cmd_line_input[1])
 
