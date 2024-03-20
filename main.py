@@ -2539,9 +2539,7 @@ class ClientState:
                 self.num_msgs_sent += 1
                 self.socket.sendto(msg_to_send, (self.server_IP, self.port))
                 self.time_last_sent = time.time()
-                print(f"sent {self.num_msgs_sent}")
 
-            
             # receive message from server
             try:
                 msg_recv, address = self.socket.recvfrom(buffer_size, socket.MSG_DONTWAIT)
