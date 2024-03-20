@@ -24,6 +24,7 @@ from enum import Enum
 local_IP = '127.0.0.1'
 default_port = 12345
 buffer_size = 10000
+buffer_time = .5
 
 def to_json(obj):
     return json.dumps(obj, default=lambda o: o.__dict__)
@@ -687,6 +688,7 @@ class Player:
         self.name = name
         self.order = order
         self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        # 7 card starting hand for debug
         # self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 3}
         self.num_to_discard = 0
         self.dev_cards = {"knight": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
@@ -697,16 +699,12 @@ class Player:
 
         # networking
         self.address = address
-        self.num_msgs_sent_to = 0
-        # self.num_msgs_recv_from = 0
-        self.last_state = {}
-        self.current_state = {}
         self.has_board = False
         self.time_joined = time.time()
         self.last_updated = time.time()
 
     def __repr__(self):
-        return f"Player {self.name}: \nHand: {self.hand}, Victory points: {self.victory_points}"
+        return f"Player {self.name}"
     
     def __str__(self):
         return f"Player {self.name}"
@@ -1743,21 +1741,16 @@ class ServerState:
         # update server if msg_recv is not 0b'' (empty)
         if len(msg_recv) > 2:
             packet_recv = json.loads(msg_recv) # loads directly from bytes
-            # print(f"msg # {self.msg_number_recv}: {packet_recv}")
             self.update_server(packet_recv, address)
             
 
         if combined == False:
             # use socket to respond
             for p_name, p_object in self.players.items():
-                p_object.current_state = self.package_state(p_name)
-                if p_object.last_state == p_object.current_state and time.time() - p_object.last_updated > 1.2:
-                    return
-                else:
-                    self.socket.sendto(to_json(self.package_state(p_name)).encode(), p_object.address)
-                    p_object.last_state = p_object.current_state
-
-                
+                # print(f"current_time = {time.time()}, last_updated = {p_object.last_updated}")
+                # if time.time() - p_object.last_updated > buffer_time:
+                self.socket.sendto(to_json(self.package_state(p_name)).encode(), p_object.address)
+                p_object.last_updated = time.time()
 
         else:
             # or just return
@@ -1877,6 +1870,7 @@ class ClientState:
         self.port = port
         self.num_msgs_sent = 0
         self.num_msgs_recv = 0
+        self.time_last_sent = 0 # time.time()
         self.name = name # for debug, start as "red" and shift to current_player_name every turn
         self.combined = combined # combined client and server vs separate client and server, use for debug
         self.previous_packet = {}
@@ -2540,9 +2534,13 @@ class ClientState:
         msg_to_send = json.dumps(client_request).encode()
 
         if combined == False:
-            if msg_to_send != b'null':
+            # send pulse b'null' every once a second to force server response
+            if msg_to_send != b'null' or time.time() - self.time_last_sent > buffer_time:
                 self.num_msgs_sent += 1
                 self.socket.sendto(msg_to_send, (self.server_IP, self.port))
+                self.time_last_sent = time.time()
+                print(f"sent {self.num_msgs_sent}")
+
             
             # receive message from server
             try:
