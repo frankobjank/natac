@@ -1576,7 +1576,7 @@ class ServerState:
                 self.player_trade = client_request["trade_offer"]
                 self.send_broadcast("log", f"Player {self.player_trade['trade_with']} is offering a trade.")
                 return
-            elif client_request["action"] == "cancel":
+            elif client_request["action"] == "cancel" and len(self.player_trade["trade_with"]) > 0:
                 self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
                 self.send_broadcast("log", "Trade offer cancelled.")
                 self.send_broadcast("accept", "trade")
