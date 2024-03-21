@@ -970,7 +970,7 @@ class ServerState:
                         # print(f"total visited nodes: {visited_nodes}, visited edges: {visited_edges}")
                         break
                     elif current_node.player != None and current_node.player != p_object.name:
-                        print(f"finding path for {p_object.name}, node {current_node} player = {current_node.player}")
+                        # print(f"finding path for {p_object.name}, node {current_node} player = {current_node.player}")
                         break
 
                     visited_nodes.append(current_node)
@@ -1015,7 +1015,8 @@ class ServerState:
                 if path > all_paths[current_leader]:
                     current_leader = name
                 elif path == all_paths[current_leader]:
-                    tie = set(name, current_leader)
+                    tie.add(name)
+                    tie.add(current_leader)
             else:
                 current_leader = name
         if len(tie) > 0:
