@@ -456,7 +456,7 @@ def to_title(mode):
 
 mode_text = {
     # modes
-    "build_road": "Select a location to build\n a road.",
+    "build_road": " Select a location to build\n a road.",
     "build_settlement": " Select a location to build\n a settlement.",
     "build_city": " Select a settlement to\n upgrade to a city.",
     "move_robber": " You must move the robber.\n Please select a land hex.",

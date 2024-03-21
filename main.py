@@ -1213,7 +1213,7 @@ class ServerState:
 
         # self.send_to_player(self.current_player_name, "log", f"Not enough {', '.join(still_needed)} for {item}")
     
-                 
+
     def move_robber(self, location_hex):
         if location_hex == self.board.robber_hex or location_hex not in self.board.land_hexes:
             self.send_to_player(self.current_player_name, "log", "Invalid location for robber.")
@@ -1523,7 +1523,7 @@ class ServerState:
 
             return
         
-        elif client_request["action"] == "submit" and self.mode == "trade" and len(self.player_trade["trade_with"]) > 0:
+        elif client_request["action"] == "submit" and self.mode == "trade" and len(self.player_trade["trade_with"]) > 0 and self.current_player_name != client_request["name"]:
             self.complete_trade(self.current_player_name, client_request["name"])
             return
 
@@ -1570,6 +1570,9 @@ class ServerState:
         
         elif self.mode == "trade":
             if client_request["action"] == "submit" and client_request["trade_offer"] != None:
+                # don't let current player send trade offer multiple times
+                if client_request["trade_offer"] == self.player_trade:
+                    return
                 self.player_trade = client_request["trade_offer"]
                 self.send_broadcast("log", f"Player {self.player_trade['trade_with']} is offering a trade.")
                 return
@@ -2415,6 +2418,7 @@ class ClientState:
             if self.check_submit(user_input):
                 if sum(self.player_trade["offer"].values()) == 0:
                     self.log_msgs.append("You must offer at least 1 resource.")
+                    return
                 self.player_trade["trade_with"] = self.name
                 return self.client_request_to_dict(action="submit", trade_offer=self.player_trade)
             # no further input if current offer is submitted
@@ -2621,11 +2625,8 @@ class ClientState:
             self.log_to_display = self.log_msgs[-7:]
         
 
-        # if self.name in self.client_players:
-            # if not self.does_board_exist():
         self.data_verification(server_response)
         self.construct_client_board(server_response)
-        # return
 
         # DICE/TURNS
         self.dice = server_response["dice"]
@@ -2642,14 +2643,12 @@ class ClientState:
 
         # trade : [] [[0, 0, 1, 1, 0], [1, 1, 0, 0, 0], "player_name_string"]
         # unpack trade from server for NON-CURRENT PLAYERS (request and offer are switched)
-        if len(server_response["trade"][2]) > 0:
+        if self.name != self.current_player_name and len(server_response["trade"][2]) > 0:
             for i, num in enumerate(server_response["trade"][0]):
                 self.player_trade["offer"][self.resource_cards[i]] = num
             for i, num in enumerate(server_response["trade"][1]):
                 self.player_trade["request"][self.resource_cards[i]] = num
             self.player_trade["trade_with"] = server_response["trade"][2]
-        else:
-            self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
 
 
 
@@ -2969,7 +2968,6 @@ def run_client(name, server_IP=local_IP):
     # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
     pr.init_window(c_state.default_screen_w, c_state.default_screen_h, f"Natac - {name}")
     pr.set_target_fps(60)
-    # pr.gui_set_font(pr.load_font("assets/classic_memesbruh03.ttf"))
     pr.gui_set_font(pr.load_font("assets/F25_Bank_Printer.ttf"))
 
     while not pr.window_should_close():
