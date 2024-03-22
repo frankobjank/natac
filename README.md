@@ -7,13 +7,13 @@ Create a virtual environment
 python3 -m venv .venv (only do this for first time setup)
 source .venv/bin/activate
 ```
-The required modules are listed below:
-cffi==1.15.1
-inflection==0.5.1
-pycparser==2.21
-raylib==5.0.0.0
+The required modules are listed below:<br>
+cffi==1.15.1<br>
+inflection==0.5.1<br>
+pycparser==2.21<br>
+raylib==5.0.0.0<br>
 
-Use this to install the requirements
+Use this to install the requirements:
 ```
 pip install -r requirements.txt
 ```

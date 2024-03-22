@@ -1271,18 +1271,25 @@ class ServerState:
     def complete_trade(self, player1, player2):
         # player1 = current_player (- player_trade["offer"], + player_trade["request"])
         # player2 = non-current_player (+ player_trade["offer"], - player_trade["request"])
-
+        p1_recv = ""
+        p2_recv = ""
         for card, num in self.player_trade["offer"].items():
             self.players[player1].hand[card] -= num
             self.players[player2].hand[card] += num
+            if num > 0:
+                p2_recv += f"{num} {card}, "
 
         for card, num in self.player_trade["request"].items():
             self.players[player1].hand[card] += num
             self.players[player2].hand[card] -= num
+            if num > 0:
+                p1_recv += f"{num} {card}, "
 
         self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
         self.send_broadcast("accept", "trade")
         self.send_broadcast("log", f"{player2} accepted the trade.")
+        self.send_broadcast("log", f"{player1} received {p1_recv[:-2]}.")
+        self.send_broadcast("log", f"{player2} received {p2_recv[:-2]}.")
         self.mode = None
 
     def distribute_resources(self):
@@ -1335,11 +1342,20 @@ class ServerState:
                 # if self.debug == True:
                     # self.move_robber()
 
+    def reset_turn_vars(self):
+        self.dev_card_played = False
+        if self.mode == "trade":
+            self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
+            self.send_broadcast("log", "Trade offer cancelled.")
+            self.send_broadcast("accept", "trade")
+
+
+
     def end_turn(self):
         # increment turn number, reset dev_card counter, set new current_player
-        self.send_to_player(self.current_player_name, "accept", "end_turn")
+        self.reset_turn_vars() # reset server vars
+        self.send_broadcast("accept", "end_turn") # reset client vars
         self.turn_num += 1
-        self.dev_card_played = False
         self.mode = "roll_dice"
         # TODO this loop could be related to Bug 3
         for player_name, player_object in self.players.items():
@@ -1556,7 +1572,7 @@ class ServerState:
             if self.dice_rolls == self.turn_num:
                 self.mode = "roll_dice"
 
-        # force roll_dice before doing anything else except play soldier (in which case mode will shift to move_robber and must go back to roll_dice after robber is moved, could do with a soldier_flag or something...)
+        # force roll_dice before doing anything except play_dev_card
 
         if self.mode == "roll_dice":
             if client_request["action"] == "roll_dice" and self.dice_rolls == self.turn_num:
@@ -2355,10 +2371,23 @@ class ClientState:
                     b_object.hover = True
                     if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                         if b_object.mode:
-                            if self.mode != "trade" and b_object.name == "trade":
-                                self.log_msgs.append("Press trade button again to cancel.")
-                                self.reset_selections()
-                            return self.client_request_to_dict(mode=b_object.name, action="cancel")
+                            # special rules for trade, include a 'cancel' msg to server if toggled
+                            if b_object.name == "trade":
+                                if self.mode != "trade":
+                                    self.log_msgs.append("Press trade button again to cancel.")
+                                    return self.client_request_to_dict(mode=b_object.name)
+                                if self.mode == "trade":
+                                    # cancel trade, send cancel msg to server if trade has been submitted
+                                    if len(self.player_trade["trade_with"]) > 0:
+                                        self.reset_selections()
+                                        return self.client_request_to_dict(mode=b_object.name, action="cancel")
+                                    # if not submitted yet, trade is just reset for client
+                                    else:
+                                        self.reset_selections()
+                                        return self.client_request_to_dict(mode=b_object.name)
+
+                            elif b_object.name != "trade":
+                                return self.client_request_to_dict(mode=b_object.name, action="cancel")
                         elif b_object.action:
                             return self.client_request_to_dict(action=b_object.name)
                 else:
@@ -2593,9 +2622,14 @@ class ClientState:
         # to_steal_from : []
         # ports : []
         # trade : [] [[0, 0, 1, 1, 0], [1, 1, 0, 0, 0], "player_name_string"]
-
         server_response = json.loads(encoded_server_response)
-        # print(server_response)
+
+
+        # chop log even if no new log recv from server - client can generate log msgs
+        if len(self.log_msgs) > 7:
+            self.log_to_display = self.log_msgs[-7:]
+
+
         # split kind of response by what kind of message is received, update_log(), update_board(), etc
         try:
             server_response["kind"]
@@ -2617,13 +2651,7 @@ class ClientState:
         
         elif server_response["kind"] == "debug":
             self.longest_road_edges = server_response["msg"]
-            return
-
-
-        # chop log even if no new log recv from server - client can generate log msgs
-        if len(self.log_msgs) > 7:
-            self.log_to_display = self.log_msgs[-7:]
-        
+            return        
 
         self.data_verification(server_response)
         self.construct_client_board(server_response)
