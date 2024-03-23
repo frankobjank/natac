@@ -1593,6 +1593,7 @@ class ServerState:
                 self.send_broadcast("log", f"Player {self.player_trade['trade_with']} is offering a trade.")
                 return
             elif client_request["action"] == "cancel" and len(self.player_trade["trade_with"]) > 0:
+                self.mode = None
                 self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
                 self.send_broadcast("log", "Trade offer cancelled.")
                 self.send_broadcast("accept", "trade")
@@ -2379,7 +2380,6 @@ class ClientState:
                                 if self.mode == "trade":
                                     # cancel trade, send cancel msg to server if trade has been submitted
                                     if len(self.player_trade["trade_with"]) > 0:
-                                        self.reset_selections()
                                         return self.client_request_to_dict(mode=b_object.name, action="cancel")
                                     # if not submitted yet, trade is just reset for client
                                     else:
