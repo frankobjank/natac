@@ -126,10 +126,10 @@ def draw_settlement(node_point, color):
 
 def draw_city(node_point, color):
     # settlement on top of city
-    city_st_width = 20
-    city_st_height = 14
+    city_st_width = 18
+    city_st_height = 13
     city_offset = 5
-    node_x = node_point[0]+city_offset
+    node_x = node_point[0]+city_offset-3
     node_y = node_point[1]-city_offset
     city_st_x = node_x-city_st_width//2
     city_st_y = node_y-city_st_height//2
@@ -138,8 +138,8 @@ def draw_city(node_point, color):
     city_tri_lt = (city_st_x-city_st_width//2, city_st_y-city_st_height//2)
     city_stmt_rec = pr.Rectangle(city_st_x-city_st_width//2, city_st_y-city_st_height//2, city_st_width, city_st_height)
     # city base
-    city_base_width = 40
-    city_base_height = 22
+    city_base_width = city_st_width * 2
+    city_base_height = 20
     city_base_rec = pr.Rectangle(node_x-city_base_width//2, node_y, city_base_width, city_base_height)
 
     # draw city settlement outline

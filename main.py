@@ -637,9 +637,9 @@ class Board:
             for node in self.nodes:
                 for blue_node in blue_nodes:
                     if node.hexes[0] == blue_node.hexes[0] and node.hexes[1] == blue_node.hexes[1] and node.hexes[2] == blue_node.hexes[2]:
-                        s_state.players["blue"].num_settlements += 1
+                        s_state.players["blue"].num_cities += 1
                         node.player = "blue"
-                        node.town = "settlement"
+                        node.town = "city"
             for edge in self.edges:
                 for blue_edge in blue_edges:
                     if edge.hexes[0] == blue_edge.hexes[0] and edge.hexes[1] == blue_edge.hexes[1]:
