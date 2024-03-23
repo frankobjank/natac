@@ -10,7 +10,6 @@ import rendering_functions as rf
 import sys
 import time
 import logging
-from enum import Enum
 
 # UI_SCALE constant for changing scale (fullscreen)
 
@@ -797,7 +796,7 @@ class ServerState:
         if self.combined:
             self.initialize_dummy_players("red", "white", "orange", "blue")
         self.board = Board()
-        self.board.initialize_board(fixed=True)
+        self.board.initialize_board(fixed=False)
         self.shuffle_dev_cards()
 
     

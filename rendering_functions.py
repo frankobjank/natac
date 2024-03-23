@@ -217,24 +217,14 @@ def draw_hands(c_state, player_name, player_object):
     if player_object.visible_knights > 0:
         pr.draw_text_ex(pr.gui_get_font(), f"Knights played: {player_object.visible_knights}", (player_object.marker.rec.x, player_object.marker.rec.y-2*size), size, 0, pr.BLACK)
     if c_state.name == player_name:
+        total_cards = sum(player_object.hand.values())
+        pr.draw_text_ex(pr.gui_get_font(), f"Total: {total_cards}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y-size*3), size, 0, pr.BLACK)
         for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
             # put card_type into new var to bring all resource names to 5 chars
             card_type_display = card_type
             while 5 > len(card_type_display):
                 card_type_display += " "
             pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y-size+(i*size)), size, 0, pr.BLACK)
-        # # moving this from hand to info_box
-        # position = pr.Vector2(player_object.marker.rec.x, player_object.marker.rec.y)
-        # if c_state.mode == "discard" and player_object.num_to_discard > 0:
-        #     for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
-        #         # not current card index, draw in black
-        #         color = pr.BLACK
-        #         # if current card_index, draw in white
-        #         if i == c_state.card_index:
-        #             color = pr.WHITE
-        #         draw_discard_cards(c_state.selected_cards, position, card_type, num_cards, i, x_offset, size, color)
-        # draw regular hand
-        # else:
 
     # hand size for all other players
     elif c_state.name != player_name:
