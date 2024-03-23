@@ -687,9 +687,9 @@ class Player:
         # gameplay
         self.name = name
         self.order = order
-        self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        # self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # 7 card starting hand for debug
-        # self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 3}
+        self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 0}
         self.num_to_discard = 0
         self.dev_cards = {"knight": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
         self.visible_knights = 0 # can use to count largest army
@@ -2800,10 +2800,9 @@ class ClientState:
                 rf.draw_city(node.get_node_point(), rf.game_color_dict[node.player])
 
         # draw robber; gray-out to see number if mouse hover
+        alpha = 255
         if self.current_hex == self.board["robber_hex"]:
             alpha = 50
-        else:
-            alpha = 255
         robber_hex_center = vector2_round(hh.hex_to_pixel(pointy, self.board["robber_hex"]))
         rf.draw_robber(robber_hex_center, alpha)
 

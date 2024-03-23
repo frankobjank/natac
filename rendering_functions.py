@@ -261,28 +261,31 @@ def draw_info_in_box(c_state):
     if c_state.mode == "discard":
         pr.draw_text_ex(pr.gui_get_font(), " "+to_title(c_state.mode), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
 
-        for i, line in enumerate(reversed(mode_text[c_state.mode].split("\n"))):
-            pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
-
-        # redraw hand w arrows in info box 
-        x_offset = c_state.screen_width//20
-        size = c_state.med_text-2
-        location = pr.Vector2(c_state.info_box.x+c_state.info_box.width/8, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*6)
-
-        for i, (card_type, num_cards) in enumerate(c_state.client_players[c_state.name].hand.items()):
-            # not current card index, draw in black
-            color = pr.BLACK
-            # if current card_index, draw in white
-            if i == c_state.card_index:
-                color = pr.WHITE
-            draw_discard_cards(c_state.selected_cards, location, card_type, num_cards, i, x_offset, size, color)
 
 
         if c_state.client_players[c_state.name].num_to_discard > 0:
+            # instructions on discarding
+            for i, line in enumerate(reversed(mode_text[c_state.mode].split("\n"))):
+                pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
+
             # number to select
             pr.draw_text_ex(pr.gui_get_font(), f" Select {c_state.client_players[c_state.name].num_to_discard} cards", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
+            
             # number cards left
             # pr.draw_text_ex(pr.gui_get_font(), f" Cards left: {c_state.client_players[c_state.name].num_to_discard-sum(c_state.selected_cards.values())}", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*2.2), c_state.med_text, 0, pr.BLACK)
+
+            # redraw hand w arrows in info box 
+            x_offset = c_state.screen_width//20
+            size = c_state.med_text-2
+            location = pr.Vector2(c_state.info_box.x+c_state.info_box.width/8, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*6)
+
+            for i, (card_type, num_cards) in enumerate(c_state.client_players[c_state.name].hand.items()):
+                # not current card index, draw in black
+                color = pr.BLACK
+                # if current card_index, draw in white
+                if i == c_state.card_index:
+                    color = pr.WHITE
+                draw_discard_cards(c_state.selected_cards, location, card_type, num_cards, i, x_offset, size, color)
 
             # list selected on new lines, same as year_of_plenty
             selected_txt = ""
@@ -292,7 +295,7 @@ def draw_info_in_box(c_state):
             # draw current selection
             pr.draw_text_ex(pr.gui_get_font(), f" Currently selected:\n {selected_txt}", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2+c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
         elif c_state.client_players[c_state.name].num_to_discard == 0:
-            pr.draw_text_ex(pr.gui_get_font(), f" Waiting for others to discard.", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f" Waiting for others to\n discard.", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
         return
 
     # non-current players
