@@ -217,8 +217,10 @@ def draw_hands(c_state, player_name, player_object):
     if player_object.visible_knights > 0:
         pr.draw_text_ex(pr.gui_get_font(), f"Knights played: {player_object.visible_knights}", (player_object.marker.rec.x, player_object.marker.rec.y-2*size), size, 0, pr.BLACK)
     if c_state.name == player_name:
+        # hand size for self
         total_cards = sum(player_object.hand.values())
         pr.draw_text_ex(pr.gui_get_font(), f"Total: {total_cards}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y-size*3), size, 0, pr.BLACK)
+        # draw hand for self
         for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
             # put card_type into new var to bring all resource names to 5 chars
             card_type_display = card_type

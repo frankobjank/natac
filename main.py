@@ -686,9 +686,9 @@ class Player:
         # gameplay
         self.name = name
         self.order = order
-        # self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # 7 card starting hand for debug
-        self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 0}
+        # self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 0}
         self.num_to_discard = 0
         self.dev_cards = {"knight": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
         self.visible_knights = 0 # can use to count largest army
@@ -796,7 +796,7 @@ class ServerState:
         if self.combined:
             self.initialize_dummy_players("red", "white", "orange", "blue")
         self.board = Board()
-        self.board.initialize_board(fixed=False)
+        self.board.initialize_board(fixed=True)
         self.shuffle_dev_cards()
 
     
@@ -1410,6 +1410,16 @@ class ServerState:
                 new_edge["hexes"] = [hex[:2] for hex in edge.hexes]
                 new_edge["player"] = edge.player
                 road_edges.append(new_edge)
+
+        mode = None
+        if recipient == self.current_player_name:
+            mode = self.mode
+        # only send trade or discard to non-current player
+        elif recipient != self.current_player_name:
+            # only send "trade" to non-current player if there is a current trade offer
+            if len(self.player_trade["trade_with"]) > 0 or self.mode == "discard":
+                mode = self.mode
+
         
         trade = [] # format [[0, 0, 1, 1, 0], [1, 1, 0, 0, 0], "player_name_string"]
         trade_partial = []
@@ -1470,7 +1480,7 @@ class ServerState:
             "robber_hex": self.board.robber_hex[:2],
             "dice": [self.die1, self.die2],
             "turn_num": self.turn_num,
-            "mode": self.mode,
+            "mode": mode,
             "hover": self.hover,
             "current_player": self.current_player_name,
             "player_order": self.player_order,
