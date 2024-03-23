@@ -2954,13 +2954,8 @@ class ClientState:
 
             # split up by modes
             # draw "waiting" for non-self players if wating on them to return cards
-            if self.mode == "discard":
-                if player_name == self.name:
-                    if player_object.num_to_discard > 0:
-                        pr.draw_text_ex(pr.gui_get_font(), f"Select {player_object.num_to_discard} cards", (player_object.marker.rec.x- self.screen_width//30, player_object.marker.rec.y - self.med_text*2), self.med_text, 0, pr.BLACK)
-                if player_name != self.name:
-                    if player_object.num_to_discard > 0:
-                        pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.marker.rec.x, player_object.marker.rec.y - 20), 12, 0, pr.BLACK)
+            if self.mode == "discard" and player_name != self.name and player_object.num_to_discard > 0:
+                pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.marker.rec.x, player_object.marker.rec.y - 20), 12, 0, pr.BLACK)
 
 
             # for current player, highlight possible targets and selected player
