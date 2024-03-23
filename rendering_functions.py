@@ -328,6 +328,10 @@ def draw_info_in_box(c_state):
     if c_state.mode == None:
         draw_mode_text(c_state, "", " You may pick an action or end\n your turn.")
 
+        for line in building_costs:
+            pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/4), c_state.med_text, 0, pr.BLACK)
+
+
     elif c_state.mode == "trade":
         draw_trade_interface(c_state)
     
@@ -479,15 +483,15 @@ hover_text = {
     "monopoly": " Monopoly\n\n Choose a resource. All players\n must give you all of the\n resource of that type that\n they own.\n\n Can be played before or after\n you roll the dice.",
 
     # building costs related to buttons
-    "build_road": "Road costs:\n1 Lumber\n1 Brick",
-    "build_settlement": "Settlement costs:\n1 Wheat\n1 Sheep\n1 Lumber\n1 Brick",
+    "build_road": "Road costs:\n1 Wood\n1 Brick",
+    "build_settlement": "Settlement costs:\n1 Wheat\n1 Sheep\n1 Wood\n1 Brick",
     "build_city": "City costs:\n3 Ore\n2 Wheat",
-    "buy_dev_card": "City costs:\n1 Ore\n1 Wheat\n1 Sheep",
+    "buy_dev_card": "Dev Card costs:\n1 Ore\n1 Wheat\n1 Sheep",
 
     "longest_road": "Longest Road\nThis is awarded to the player with at least 5 contiguous road segments. A tie goes to the original holder of Longest Road.",
     "largest_army": "Largest Army\nThis is given to the player with at least 3 knights. A tie goes to the original holder of Largest Army.",
 }
-
+building_costs = [" Building costs\n\n Road: 1 Wood, 1 Brick\n\n Settlement: 1 Wheat,\n 1 Sheep, 1 Wood, 1 Brick\n\n City: 3 Ore, 2 Wheat\n\n Dev Card: 1 Ore, 1 Wheat,\n 1 Sheep"]
 
 # DEBUG
 def draw_axes():
