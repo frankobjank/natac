@@ -280,7 +280,7 @@ class Node:
         return adj_nodes
 
     def build_check_settlement(self, s_state):
-        print("build_check_settlement")
+        # print("build_check_settlement")
 
         if s_state.current_player_name == None:
             return False
@@ -745,7 +745,7 @@ class ServerState:
 
         self.dev_card_deck = []
         self.dev_card_played = False # True after a card is played. Only one can be played per turn
-        self.dev_cards_avl = {} # cannot play dev_card the turn it is bought. Reset every turn
+        self.dev_cards_avl = [] # cannot play dev_card the turn it is bought. Reset every turn
         self.dev_card_modes = ["road_building", "year_of_plenty", "monopoly"]
 
         self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
@@ -1000,7 +1000,6 @@ class ServerState:
             # print(f"node_paths = {node_paths}")
             # print(f"edge_paths = {sorted(edge_paths, key=lambda x: len(x))}")
 
-        print(f"longest roads: {all_paths}")
         if all(5 > num_roads for num_roads in all_paths.values()):
             self.longest_road = ""
             return
@@ -1360,8 +1359,9 @@ class ServerState:
         for player_name, player_object in self.players.items():
             if self.turn_num % len(self.players) == player_object.order:
                 self.current_player_name = player_name
+                # turning into list so it's not a copy of player's dev_cards var, also doesn't matter how many dev cards are available as only can be played per turn
                 # set available dev_cards for new turn
-                self.dev_cards_avl = self.players[self.current_player_name].dev_cards
+                self.dev_cards_avl = [card for card, num in self.players[self.current_player_name].dev_cards.items() if num != 0]
                 self.send_broadcast("log", f"It is now {self.current_player_name}'s turn.")
 
 
@@ -1504,7 +1504,7 @@ class ServerState:
         return combined
 
     def update_server(self, client_request, address) -> None:
-
+        print(self.dev_cards_avl)
         # client_request["name"] = player name
         # client_request["action"] = action
         # client_request["location"] = {"hex_a": [1, -1, 0], "hex_b": [0, 0, 0], "hex_c": None}
@@ -1693,7 +1693,7 @@ class ServerState:
                 self.buy_dev_card()
 
         elif client_request["action"] == "play_dev_card":
-            if not client_request["cards"] in self.dev_cards_avl.keys():
+            if not client_request["cards"] in self.dev_cards_avl:
                 self.send_to_player(self.current_player_name, "log", "You cannot play a dev card you got this turn.")
                 return
             self.play_dev_card(client_request["cards"])
