@@ -316,19 +316,19 @@ def draw_info_in_box(c_state):
     if c_state.mode in mode_text.keys():
         draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])    
 
-    if c_state.mode == None:
-        draw_mode_text(c_state, "", " You may pick an action or end\n your turn.")
+    # if c_state.mode == None:
+    #     draw_mode_text(c_state, "", " You may pick an action or end\n your turn.")
 
         # for line in building_costs:
         #     pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/4), c_state.med_text, 0, pr.BLACK)
 
 
-    elif c_state.mode == "trade":
+    if c_state.mode == "trade":
         draw_trade_interface(c_state)
     
     elif c_state.mode == "bank_trade":
         draw_banktrade_interface(c_state.trade_buttons, c_state.info_box, c_state.med_text, c_state.selected_cards, c_state.bank_trade, c_state.client_players[c_state.name].ratios)
-    
+
     elif c_state.mode == "year_of_plenty":
         x_offset = c_state.screen_width//20
         size = c_state.med_text-2

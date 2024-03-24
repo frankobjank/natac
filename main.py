@@ -637,9 +637,9 @@ class Board:
             for node in self.nodes:
                 for blue_node in blue_nodes:
                     if node.hexes[0] == blue_node.hexes[0] and node.hexes[1] == blue_node.hexes[1] and node.hexes[2] == blue_node.hexes[2]:
-                        s_state.players["blue"].num_cities += 1
+                        s_state.players["blue"].num_settlements += 1
                         node.player = "blue"
-                        node.town = "city"
+                        node.town = "settlement"
             for edge in self.edges:
                 for blue_edge in blue_edges:
                     if edge.hexes[0] == blue_edge.hexes[0] and edge.hexes[1] == blue_edge.hexes[1]:
@@ -2355,6 +2355,43 @@ class ClientState:
             return
         
 
+        # selecting cards - available for ALL players, not just current
+        elif self.mode == "discard":
+            if self.client_players[self.name].num_to_discard == 0:
+                return self.client_request_to_dict()
+            # select new cards if num_to_discard is above num selected_cards
+            if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
+                self.card_index -= 1
+            elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 4:
+                self.card_index += 1
+            # if resource in hand - resource in selected > 0, move to selected cards
+            elif user_input == pr.KeyboardKey.KEY_RIGHT:
+                if (self.client_players[self.name].hand[self.resource_cards[self.card_index]] - self.selected_cards[self.resource_cards[self.card_index]])> 0:
+                    if self.client_players[self.name].num_to_discard > sum(self.selected_cards.values()):
+                        self.selected_cards[self.resource_cards[self.card_index]] += 1
+            # if resource in selected > 0, move back to hand
+            elif user_input == pr.KeyboardKey.KEY_LEFT:
+                if self.selected_cards[self.resource_cards[self.card_index]] > 0:
+                    self.selected_cards[self.resource_cards[self.card_index]] -= 1
+
+            # selected enough cards to return, can submit to server
+            if self.check_submit(user_input) == True:
+                if self.client_players[self.name].num_to_discard == sum(self.selected_cards.values()):
+                    return self.client_request_to_dict(action="submit", cards=self.selected_cards)
+                else:
+                    print("need to select more cards")
+            
+            # end function with no client_request if nothing is submitted
+            return
+
+        # non-current player has option to accept incoming trade
+        elif self.mode == "trade":
+            if self.name != self.current_player_name:
+                if self.check_submit(user_input):
+                    if all(self.client_players[self.name].hand[resource] >= self.player_trade["request"][resource] for resource in self.resource_cards):
+                        return self.client_request_to_dict(action="submit")
+                    self.log_msgs.append("Insufficient resources for completing trade.")
+                    return
 
         # tells server and self to print debug
         if user_input == pr.KeyboardKey.KEY_ZERO:
@@ -2403,43 +2440,6 @@ class ClientState:
                     b_object.hover = False
 
         
-        # selecting cards - available for ALL players, not just current
-        if self.mode == "discard":
-            if self.client_players[self.name].num_to_discard == 0:
-                return self.client_request_to_dict()
-            # select new cards if num_to_discard is above num selected_cards
-            if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
-                self.card_index -= 1
-            elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 4:
-                self.card_index += 1
-            # if resource in hand - resource in selected > 0, move to selected cards
-            elif user_input == pr.KeyboardKey.KEY_RIGHT:
-                if (self.client_players[self.name].hand[self.resource_cards[self.card_index]] - self.selected_cards[self.resource_cards[self.card_index]])> 0:
-                    if self.client_players[self.name].num_to_discard > sum(self.selected_cards.values()):
-                        self.selected_cards[self.resource_cards[self.card_index]] += 1
-            # if resource in selected > 0, move back to hand
-            elif user_input == pr.KeyboardKey.KEY_LEFT:
-                if self.selected_cards[self.resource_cards[self.card_index]] > 0:
-                    self.selected_cards[self.resource_cards[self.card_index]] -= 1
-
-            # selected enough cards to return, can submit to server
-            if self.check_submit(user_input) == True:
-                if self.client_players[self.name].num_to_discard == sum(self.selected_cards.values()):
-                    return self.client_request_to_dict(action="submit", cards=self.selected_cards)
-                else:
-                    print("need to select more cards")
-            
-            # end function with no client_request if nothing is submitted
-            return
-
-        # non-current player has option to accept incoming trade
-        elif self.mode == "trade":
-            if self.name != self.current_player_name:
-                if self.check_submit(user_input):
-                    if all(self.client_players[self.name].hand[resource] >= self.player_trade["request"][resource] for resource in self.resource_cards):
-                        return self.client_request_to_dict(action="submit")
-                    self.log_msgs.append("Insufficient resources for completing trade.")
-                    return
 
         
         # anything below only applies to current player
