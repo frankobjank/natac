@@ -1504,7 +1504,7 @@ class ServerState:
         return combined
 
     def update_server(self, client_request, address) -> None:
-        print(self.dev_cards_avl)
+
         # client_request["name"] = player name
         # client_request["action"] = action
         # client_request["location"] = {"hex_a": [1, -1, 0], "hex_b": [0, 0, 0], "hex_c": None}
@@ -2435,12 +2435,11 @@ class ClientState:
         # non-current player has option to accept incoming trade
         elif self.mode == "trade":
             if self.name != self.current_player_name:
-                for card, num in self.client_players[self.name].hand.items():
-                    if self.player_trade["request"][card] > num:
-                        self.log_msgs.append("Insufficient resources for completing trade.")
-                        return
                 if self.check_submit(user_input):
-                    return self.client_request_to_dict(action="submit")
+                    if all(self.client_players[self.name].hand[resource] >= self.player_trade["request"][resource] for resource in self.resource_cards):
+                        return self.client_request_to_dict(action="submit")
+                    self.log_msgs.append("Insufficient resources for completing trade.")
+                    return
 
         
         # anything below only applies to current player
@@ -3044,17 +3043,6 @@ def run_server(IP_address, port=default_port):
     print("\nclosing server")
     s_state.socket.close()
 
-
-
-
-    
-
-# 3 ways to play:
-# computer to computer
-# client to server on own computer
-# "client" to "server" encoding and decoding within same program
-
-# once board is initiated, all server has to send back is update on whatever has been updated 
 
 # sys.argv = list of args passed thru command line
 cmd_line_input = sys.argv[1:]

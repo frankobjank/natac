@@ -219,7 +219,7 @@ def draw_hands(c_state, player_name, player_object):
     if c_state.name == player_name:
         # hand size for self
         total_cards = sum(player_object.hand.values())
-        pr.draw_text_ex(pr.gui_get_font(), f"Total: {total_cards}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y-size*3), size, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), f"num\ncards\n{total_cards}", (player_object.marker.rec.x+x_offset*3, player_object.marker.rec.y), size, 0, pr.BLACK)
         # draw hand for self
         for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
             # put card_type into new var to bring all resource names to 5 chars
@@ -319,8 +319,8 @@ def draw_info_in_box(c_state):
     if c_state.mode == None:
         draw_mode_text(c_state, "", " You may pick an action or end\n your turn.")
 
-        for line in building_costs:
-            pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/4), c_state.med_text, 0, pr.BLACK)
+        # for line in building_costs:
+        #     pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/4), c_state.med_text, 0, pr.BLACK)
 
 
     elif c_state.mode == "trade":
@@ -383,8 +383,8 @@ def draw_trade_interface(c_state):
     for i, (card_type, num_cards) in enumerate(c_state.client_players[c_state.name].hand.items()):
         # not current card index, draw in black
         color = pr.BLACK
-        # if current card_index, draw in white
-        if i == c_state.card_index:
+        # if current card_index, draw in white (only for pre-submit trade)
+        if i == c_state.card_index and len(c_state.player_trade["trade_with"]) == 0:
             color = pr.WHITE
         draw_discard_cards(c_state.player_trade["offer"], location_offer, card_type, num_cards, i, x_offset, size, color)
 
@@ -395,7 +395,7 @@ def draw_trade_interface(c_state):
     for i, (card_type, num_cards) in enumerate(c_state.client_players[c_state.name].hand.items()):
         color = pr.BLACK
         # if current card_index, draw in white
-        if i+5 == c_state.card_index:
+        if i+5 == c_state.card_index and len(c_state.player_trade["trade_with"]) == 0:
             color = pr.WHITE
         draw_added_cards(c_state.mode, c_state.player_trade["request"], location_request, card_type, 0, i, x_offset, size, color)
         # keep track of hand changing in real time??
