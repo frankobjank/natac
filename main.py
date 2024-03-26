@@ -1885,7 +1885,7 @@ class ClientPlayer:
         self.hand = {} # {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.num_to_discard = 0
         self.hand_size = 0
-        self.dev_cards = {} # {"knight": 0, "victory_point": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0}
+        self.dev_cards = {"knight": 0, "victory_point": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0}
         self.dev_cards_size = 0
 
         self.visible_knights = 0
@@ -2720,7 +2720,7 @@ class ClientState:
                     self.client_players[self.name].ratios[resource] = 2
 
             # reset dev cards before unpacking hands
-            self.dev_card_buttons = {}
+            # self.dev_card_buttons = {}
             # UNPACK WITH PLAYER ORDER SINCE NAMES WERE REMOVED TO SAVE BYTES IN SERVER_RESPONSE
             # unpack hands, dev_cards, victory points
             for order, name in enumerate(self.player_order):
@@ -2740,19 +2740,30 @@ class ClientState:
                         self.client_players[name].hand_size = sum(server_response["hands"][order])
                     else:
                         self.client_players[name].hand_size = number
+                
+                # construct dev cards for self player
+                if self.name == name:
+                    print(f"current size={self.client_players[name].dev_cards_size}, recv num={sum(server_response['dev_cards'][order])}")
+                    print(f"self.dev_card_buttons={self.dev_card_buttons}")
+                    # only update if incoming dev_cards is different from current dev_cards
+                    if self.client_players[name].dev_cards_size != sum(server_response["dev_cards"][order]):
+                        self.client_players[name].dev_cards_size = sum(server_response["dev_cards"][order])
+                        # create dev card buttons
+                        dev_card_offset = 0
+                        for position, number in enumerate(server_response["dev_cards"][order]):
+                            self.client_players[name].dev_cards[self.dev_card_order[position]] = number
+                            button_division = 17
+                            button_w = self.screen_width//button_division
+                            if number > 0:
+                                self.dev_card_buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.client_players[name].marker.rec.x-(dev_card_offset+1.2)*button_w, self.client_players[name].marker.rec.y, button_w, self.client_players[name].marker.rec.height), self.dev_card_order[position], action=True)
 
-                self.client_players[name].dev_cards_size = sum(server_response["dev_cards"][order])
-                dev_card_offset = 0
-                for position, number in enumerate(server_response["dev_cards"][order]):
-                    if self.name == name:
-                        self.client_players[name].dev_cards[self.dev_card_order[position]] = number
-                        button_division = 17
-                        button_w = self.screen_width//button_division
+                                dev_card_offset += 1
+                            else:
+                                try:
+                                    del self.dev_card_buttons[self.dev_card_order[position]]
+                                except KeyError:
+                                    pass
 
-                        if number > 0:
-                            self.dev_card_buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.client_players[name].marker.rec.x-(dev_card_offset+1.2)*button_w, self.client_players[name].marker.rec.y, button_w, self.client_players[name].marker.rec.height), self.dev_card_order[position], action=True)
-
-                            dev_card_offset += 1
 
 
     def render_board(self):
@@ -2798,8 +2809,8 @@ class ClientState:
                         midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
                         pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
-        if self.debug:
-            self.render_mouse_hover()
+
+        self.render_mouse_hover()
         
         # draw roads, settlements, cities
         for edge in self.board["road_edges"]:
@@ -2903,12 +2914,7 @@ class ClientState:
         for b_object in self.dev_card_buttons.values():
             if b_object.hover == True:
                 rf.draw_button_outline(b_object)
-                # this becomes too complicated and the rules are not necessary to show over other info
                 if not self.mode in rf.mode_text.keys():
-                # # re-draw info_box; override trade or bank_trade info
-                # pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
-                # pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
-
                     pr.draw_text_ex(pr.gui_get_font(), rf.hover_text[b_object.name], (self.info_box.x, self.info_box.y+self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
                 break
         
