@@ -2473,6 +2473,8 @@ class ClientState:
             if 4 >= self.card_index:
                 if user_input == pr.KeyboardKey.KEY_RIGHT and self.client_players[self.name].hand[self.resource_cards[self.card_index]] > self.player_trade["offer"][self.resource_cards[self.card_index]]:
                     self.player_trade["offer"][self.resource_cards[self.card_index]] += 1
+                elif user_input == pr.KeyboardKey.KEY_RIGHT and self.client_players[self.name].hand[self.resource_cards[self.card_index]] <= self.player_trade["offer"][self.resource_cards[self.card_index]]:
+                    self.log_msgs.append(f"You don't have enough {self.resource_cards[self.card_index]} to offer.")
                 elif user_input == pr.KeyboardKey.KEY_LEFT:
                     if self.player_trade["offer"][self.resource_cards[self.card_index]] > 0:
                         self.player_trade["offer"][self.resource_cards[self.card_index]] -= 1
@@ -2719,8 +2721,6 @@ class ClientState:
                 if resource in server_response["ports"]:
                     self.client_players[self.name].ratios[resource] = 2
 
-            # reset dev cards before unpacking hands
-            # self.dev_card_buttons = {}
             # UNPACK WITH PLAYER ORDER SINCE NAMES WERE REMOVED TO SAVE BYTES IN SERVER_RESPONSE
             # unpack hands, dev_cards, victory points
             for order, name in enumerate(self.player_order):
@@ -2743,8 +2743,6 @@ class ClientState:
                 
                 # construct dev cards for self player
                 if self.name == name:
-                    print(f"current size={self.client_players[name].dev_cards_size}, recv num={sum(server_response['dev_cards'][order])}")
-                    print(f"self.dev_card_buttons={self.dev_card_buttons}")
                     # only update if incoming dev_cards is different from current dev_cards
                     if self.client_players[name].dev_cards_size != sum(server_response["dev_cards"][order]):
                         self.client_players[name].dev_cards_size = sum(server_response["dev_cards"][order])
@@ -2758,7 +2756,7 @@ class ClientState:
                                 self.dev_card_buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.client_players[name].marker.rec.x-(dev_card_offset+1.2)*button_w, self.client_players[name].marker.rec.y, button_w, self.client_players[name].marker.rec.height), self.dev_card_order[position], action=True)
 
                                 dev_card_offset += 1
-                            else:
+                            elif number == 0:
                                 try:
                                     del self.dev_card_buttons[self.dev_card_order[position]]
                                 except KeyError:

@@ -373,33 +373,34 @@ def draw_discard_interface(c_state, player_object):
 
 
 def draw_trade_interface(c_state):
+    # draw line cutting box in half
     pr.draw_line_ex((c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2), (c_state.info_box.x+c_state.info_box.width, c_state.info_box.y+c_state.info_box.height/2), 1, pr.BLACK)
+
     pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (c_state.info_box.x, 4+c_state.info_box.y), c_state.med_text, 0, pr.BLACK)
     # redraw hand w arrows in info box 
     x_offset = c_state.screen_width//20
     size = c_state.med_text-2
     location_offer = pr.Vector2(c_state.info_box.x+c_state.info_box.width/8, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*6)
-
-    for i, (card_type, num_cards) in enumerate(c_state.client_players[c_state.name].hand.items()):
+    for i, card_type in enumerate(c_state.resource_cards):
         # not current card index, draw in black
         color = pr.BLACK
         # if current card_index, draw in white (only for pre-submit trade)
         if i == c_state.card_index and len(c_state.player_trade["trade_with"]) == 0:
             color = pr.WHITE
-        draw_discard_cards(c_state.player_trade["offer"], location_offer, card_type, num_cards, i, x_offset, size, color)
+        draw_added_cards(c_state.mode, c_state.player_trade["offer"], location_offer, card_type, 0, i, x_offset, size, color)
+        # draw_discard_cards(c_state.player_trade["offer"], location_offer, card_type, 0, i, x_offset, size, color)
 
 
     pr.draw_text_ex(pr.gui_get_font(), " Cards to receive", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
 
     location_request = pr.Vector2(c_state.info_box.x+c_state.info_box.width/8, c_state.info_box.y+c_state.info_box.height/2+c_state.med_text*3.3)
-    for i, (card_type, num_cards) in enumerate(c_state.client_players[c_state.name].hand.items()):
+
+    for i, card_type in enumerate(c_state.resource_cards):
         color = pr.BLACK
         # if current card_index, draw in white
         if i+5 == c_state.card_index and len(c_state.player_trade["trade_with"]) == 0:
             color = pr.WHITE
         draw_added_cards(c_state.mode, c_state.player_trade["request"], location_request, card_type, 0, i, x_offset, size, color)
-        # keep track of hand changing in real time??
-        # draw_added_cards(c_state.player_trade["request"], location_request, card_type, num_cards-c_state.player_trade["offer"][card_type], i, x_offset, size, color)
 
 
 
