@@ -686,9 +686,9 @@ class Player:
         # gameplay
         self.name = name
         self.order = order
-        self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        # self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # 7 card starting hand for debug
-        # self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 0}
+        self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 0}
         self.num_to_discard = 0
         self.dev_cards = {"knight": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
         self.visible_knights = 0 # can use to count largest army
@@ -701,6 +701,7 @@ class Player:
         self.has_board = False
         self.time_joined = time.time()
         self.last_updated = time.time()
+        # potentially add timeout to know when to disconnect a player
 
     def __repr__(self):
         return f"Player {self.name}"
@@ -1528,6 +1529,7 @@ class ServerState:
                 return
             else:
                 self.add_player(client_request["name"], address)
+            return
 
         elif client_request["action"] == "request_board":
             self.socket.sendto(to_json(self.package_state(client_request["name"], include_board=True)).encode(), address)
@@ -1636,12 +1638,13 @@ class ServerState:
 
         # don't allow other actions while move_robber or discard_cards is active
         elif self.mode == "move_robber":
-            if client_request["action"] != "move_robber":
+            if client_request["action"] != "move_robber" and client_request["action"] != None:
                 self.send_to_player(client_request["name"], "log", "You must move the robber first.")
                 return
             # move robber
             if client_request["location"]["hex_a"] != None:
                 self.move_robber(hh.set_hex_from_coords(client_request["location"]["hex_a"]))
+            return
 
             
         elif self.mode == "discard":
@@ -2155,14 +2158,13 @@ class ClientState:
                 self.player_index -= len(self.to_steal_from)
 
         # selected enough cards to return, can submit to server
-        if user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
+        if self.check_submit(user_input):
             return self.client_request_to_dict(action="submit", player=self.to_steal_from[self.player_index])
         
         # end function with no client_request if nothing is submitted
         return
 
     def check_submit(self, user_input):
-        # if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["submit"].rec):
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["submit"].rec):
             return True
         elif user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
@@ -2358,7 +2360,7 @@ class ClientState:
         # selecting cards - available for ALL players, not just current
         elif self.mode == "discard":
             if self.client_players[self.name].num_to_discard == 0:
-                return self.client_request_to_dict()
+                return
             # select new cards if num_to_discard is above num selected_cards
             if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
                 self.card_index -= 1
@@ -2390,6 +2392,7 @@ class ClientState:
                 if self.check_submit(user_input):
                     if all(self.client_players[self.name].hand[resource] >= self.player_trade["request"][resource] for resource in self.resource_cards):
                         return self.client_request_to_dict(action="submit")
+                    # should probably move this to the server instead of client
                     self.log_msgs.append("Insufficient resources for completing trade.")
                     return
 
@@ -2406,6 +2409,8 @@ class ClientState:
 
         # button loop - check for hover, then for mouse click
         for b_object in self.buttons.values():
+            if self.mode == "move_robber":
+                break
             # if not current player, no hover or selecting buttons
             if self.name != self.current_player_name:
                 b_object.hover = False
@@ -2421,7 +2426,6 @@ class ClientState:
                             # special rules for trade, include a 'cancel' msg to server if toggled
                             if b_object.name == "trade":
                                 if self.mode != "trade":
-                                    self.log_msgs.append("Press trade button again to cancel.")
                                     return self.client_request_to_dict(mode=b_object.name)
                                 if self.mode == "trade":
                                     # cancel trade, send cancel msg to server if trade has been submitted
