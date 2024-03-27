@@ -2482,7 +2482,6 @@ class ClientState:
 
         # trade_offer = {"offer": ["ore", -4], "request": ["wheat", 1]}
         elif self.mode == "bank_trade":
-            print(self.bank_trade)
             # submit with enter, space, or submit button
             if self.check_submit(user_input):
                 if len(self.bank_trade["offer"]) > 0 and len(self.bank_trade["request"]) > 0:
@@ -2603,7 +2602,25 @@ class ClientState:
 
     def format_log(self):
         if len(self.log_msgs) > 7:
-            self.log_to_display = self.log_msgs[-7:]
+            tent_log = self.log_msgs[-7:]
+        else:
+            tent_log = self.log_msgs
+        
+        log_w_breaks = []
+        max_len = 40
+        for msg in tent_log:
+            if len(msg)>max_len:
+                # find last " " between 0 and 40 of msg. ::-1 reverses the string
+                linebreak = max_len-msg[0:40:-1].find(" ", 0, max_len)
+                log_w_breaks.append(msg[:linebreak])
+                log_w_breaks.append(msg[linebreak:])
+            else:
+                log_w_breaks.append(msg)
+
+        if len(log_w_breaks)>7:
+            self.log_to_display = log_w_breaks[-7:]
+        else:
+            self.log_to_display = log_w_breaks
 
 
     # unpack server response and update state
