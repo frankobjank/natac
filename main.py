@@ -1242,15 +1242,15 @@ class ServerState:
 
 
     def steal_card(self, from_player: str, to_player: str):
-        card_index = random.randint(0, sum(self.players[from_player].hand.values())-1)
+        selection_index = random.randint(0, sum(self.players[from_player].hand.values())-1)
         chosen_card = None
         for card_type, num_cards in self.players[from_player].hand.items():
             # skip if none of that type present
             if num_cards == 0:
                 continue
-            card_index -= num_cards
-            # stop when card_index reaches 0 or below
-            if 0 >= card_index:
+            selection_index -= num_cards
+            # stop when selection_index reaches 0 or below
+            if 0 >= selection_index:
                 chosen_card = card_type
                 break
         
@@ -1930,8 +1930,8 @@ class ClientState:
         # GAMEPLAY
         self.board = {}
         self.dice = [] 
-        self.turn_num = -1
-        self.mode = None # can be move_robber, build_town, build_road, trading, roll dice
+        self.turn_num = -1 # this might be the cause of the bug requiring button pressed before able to roll dice
+        self.mode = None # can be move_robber, build_town, build_road, trade, roll_dice, discard, bank_trade, road_building, year_of_plenty, monopoly, color_selection
 
         # selecting via mouse
         self.world_position = None
@@ -1958,12 +1958,12 @@ class ClientState:
 
         # for discard_cards / year_of_plenty
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        # for monopoly, selected_resource = self.resource_cards[self.card_index]
+
         # selecting with arrow keys
-        self.card_index = 0
+        self.selection_index = 0 # combined player_index and card_index to create generic index
 
         self.to_steal_from = [] # player names
-        self.player_index = 0 # used for selecting
+        # self.player_index = 0 # used for selecting
 
         self.debug = True
 
@@ -2121,17 +2121,17 @@ class ClientState:
     def client_steal(self, user_input):
         # TODO keys sometimes move selection in 'wrong' direction because display_order different from player_order - I think this is fixed
         if user_input == pr.KeyboardKey.KEY_UP or user_input == pr.KeyboardKey.KEY_LEFT:
-            self.player_index -= 1
-            if 0 > self.player_index:
-                self.player_index += len(self.to_steal_from)
+            self.selection_index -= 1
+            if 0 > self.selection_index:
+                self.selection_index += len(self.to_steal_from)
         elif user_input == pr.KeyboardKey.KEY_DOWN or user_input == pr.KeyboardKey.KEY_RIGHT:
-            self.player_index += 1
-            if self.player_index >= len(self.to_steal_from):
-                self.player_index -= len(self.to_steal_from)
+            self.selection_index += 1
+            if self.selection_index >= len(self.to_steal_from):
+                self.selection_index -= len(self.to_steal_from)
 
         # selected enough cards to return, can submit to server
         if self.check_submit(user_input):
-            return self.client_request_to_dict(action="submit", player=self.to_steal_from[self.player_index])
+            return self.client_request_to_dict(action="submit", player=self.to_steal_from[self.selection_index])
         
         # end function with no client_request if nothing is submitted
         return
@@ -2249,9 +2249,13 @@ class ClientState:
             pass
 
     def build_client_request(self, user_input):
-        # before player initiated
-        if not self.name in self.client_players and self.color != None:
+        # player making first contact with server
+        if not self.name in self.client_players:
             return self.client_request_to_dict(action="add_player")
+        
+        if not self.color:
+            self.mode = "color_selection"
+            return
 
         if not self.does_board_exist():
             print("board does not exist")
@@ -2334,19 +2338,19 @@ class ClientState:
             if self.client_players[self.name].num_to_discard == 0:
                 return
             # select new cards if num_to_discard is above num selected_cards
-            if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
-                self.card_index -= 1
-            elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 4:
-                self.card_index += 1
+            if user_input == pr.KeyboardKey.KEY_UP and self.selection_index > 0:
+                self.selection_index -= 1
+            elif user_input == pr.KeyboardKey.KEY_DOWN and self.selection_index < 4:
+                self.selection_index += 1
             # if resource in hand - resource in selected > 0, move to selected cards
             elif user_input == pr.KeyboardKey.KEY_RIGHT:
-                if (self.client_players[self.name].hand[self.resource_cards[self.card_index]] - self.selected_cards[self.resource_cards[self.card_index]])> 0:
+                if (self.client_players[self.name].hand[self.resource_cards[self.selection_index]] - self.selected_cards[self.resource_cards[self.selection_index]])> 0:
                     if self.client_players[self.name].num_to_discard > sum(self.selected_cards.values()):
-                        self.selected_cards[self.resource_cards[self.card_index]] += 1
+                        self.selected_cards[self.resource_cards[self.selection_index]] += 1
             # if resource in selected > 0, move back to hand
             elif user_input == pr.KeyboardKey.KEY_LEFT:
-                if self.selected_cards[self.resource_cards[self.card_index]] > 0:
-                    self.selected_cards[self.resource_cards[self.card_index]] -= 1
+                if self.selected_cards[self.resource_cards[self.selection_index]] > 0:
+                    self.selected_cards[self.resource_cards[self.selection_index]] -= 1
 
             # selected enough cards to return, can submit to server
             if self.check_submit(user_input) == True:
@@ -2437,26 +2441,26 @@ class ClientState:
             # no further input if current offer is submitted
             if len(self.player_trade["trade_with"]) > 0:
                 return
-            if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
-                self.card_index -= 1
-            elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 9:
-                self.card_index += 1
+            if user_input == pr.KeyboardKey.KEY_UP and self.selection_index > 0:
+                self.selection_index -= 1
+            elif user_input == pr.KeyboardKey.KEY_DOWN and self.selection_index < 9:
+                self.selection_index += 1
             # add to trade_offer
-            if 4 >= self.card_index:
-                if user_input == pr.KeyboardKey.KEY_RIGHT and self.client_players[self.name].hand[self.resource_cards[self.card_index]] > self.player_trade["offer"][self.resource_cards[self.card_index]]:
-                    self.player_trade["offer"][self.resource_cards[self.card_index]] += 1
-                elif user_input == pr.KeyboardKey.KEY_RIGHT and self.client_players[self.name].hand[self.resource_cards[self.card_index]] <= self.player_trade["offer"][self.resource_cards[self.card_index]]:
-                    self.log_msgs.append(f"You don't have enough {self.resource_cards[self.card_index]} to offer.")
+            if 4 >= self.selection_index:
+                if user_input == pr.KeyboardKey.KEY_RIGHT and self.client_players[self.name].hand[self.resource_cards[self.selection_index]] > self.player_trade["offer"][self.resource_cards[self.selection_index]]:
+                    self.player_trade["offer"][self.resource_cards[self.selection_index]] += 1
+                elif user_input == pr.KeyboardKey.KEY_RIGHT and self.client_players[self.name].hand[self.resource_cards[self.selection_index]] <= self.player_trade["offer"][self.resource_cards[self.selection_index]]:
+                    self.log_msgs.append(f"You don't have enough {self.resource_cards[self.selection_index]} to offer.")
                 elif user_input == pr.KeyboardKey.KEY_LEFT:
-                    if self.player_trade["offer"][self.resource_cards[self.card_index]] > 0:
-                        self.player_trade["offer"][self.resource_cards[self.card_index]] -= 1
-            # add to trade_request using %5 on self.card_index
-            elif 9 >= self.card_index >= 5:
+                    if self.player_trade["offer"][self.resource_cards[self.selection_index]] > 0:
+                        self.player_trade["offer"][self.resource_cards[self.selection_index]] -= 1
+            # add to trade_request using %5 on self.selection_index
+            elif 9 >= self.selection_index >= 5:
                 if user_input == pr.KeyboardKey.KEY_RIGHT:
-                    self.player_trade["request"][self.resource_cards[self.card_index%5]] += 1
+                    self.player_trade["request"][self.resource_cards[self.selection_index%5]] += 1
                 elif user_input == pr.KeyboardKey.KEY_LEFT:
-                    if self.player_trade["request"][self.resource_cards[self.card_index%5]] > 0:
-                        self.player_trade["request"][self.resource_cards[self.card_index%5]] -= 1
+                    if self.player_trade["request"][self.resource_cards[self.selection_index%5]] > 0:
+                        self.player_trade["request"][self.resource_cards[self.selection_index%5]] -= 1
 
         # trade_offer = {"offer": ["ore", -4], "request": ["wheat", 1]}
         elif self.mode == "bank_trade":
@@ -2493,30 +2497,30 @@ class ClientState:
                 return self.client_request_to_dict(action="submit", cards=self.selected_cards)
 
             # select new cards if num_to_discard is above num selected_cards
-            if user_input == pr.KeyboardKey.KEY_UP and self.card_index > 0:
-                self.card_index -= 1
-            elif user_input == pr.KeyboardKey.KEY_DOWN and self.card_index < 4:
-                self.card_index += 1
+            if user_input == pr.KeyboardKey.KEY_UP and self.selection_index > 0:
+                self.selection_index -= 1
+            elif user_input == pr.KeyboardKey.KEY_DOWN and self.selection_index < 4:
+                self.selection_index += 1
             # add to selected_cards
             elif user_input == pr.KeyboardKey.KEY_RIGHT and 2 > sum(self.selected_cards.values()):
-                self.selected_cards[self.resource_cards[self.card_index]] += 1
+                self.selected_cards[self.resource_cards[self.selection_index]] += 1
             # subtract from selected_cards
             elif user_input == pr.KeyboardKey.KEY_LEFT:
-                if self.selected_cards[self.resource_cards[self.card_index]] > 0:
-                    self.selected_cards[self.resource_cards[self.card_index]] -= 1
+                if self.selected_cards[self.resource_cards[self.selection_index]] > 0:
+                    self.selected_cards[self.resource_cards[self.selection_index]] -= 1
             # end function with no client_request if nothing is submitted
             return
         
         elif self.mode == "monopoly":
             # adapted from discard/yop; selected_cards = 1 if selecting a resource
             if self.check_submit(user_input):
-                return self.client_request_to_dict(action="submit", resource=self.resource_cards[self.card_index])
+                return self.client_request_to_dict(action="submit", resource=self.resource_cards[self.selection_index])
 
             # select new cards if num_to_discard is above num selected_cards
-            if (user_input == pr.KeyboardKey.KEY_UP or user_input == pr.KeyboardKey.KEY_LEFT) and self.card_index > 0:
-                self.card_index -= 1
-            elif (user_input == pr.KeyboardKey.KEY_DOWN or user_input == pr.KeyboardKey.KEY_RIGHT) and self.card_index < 4:
-                self.card_index += 1
+            if (user_input == pr.KeyboardKey.KEY_UP or user_input == pr.KeyboardKey.KEY_LEFT) and self.selection_index > 0:
+                self.selection_index -= 1
+            elif (user_input == pr.KeyboardKey.KEY_DOWN or user_input == pr.KeyboardKey.KEY_RIGHT) and self.selection_index < 4:
+                self.selection_index += 1
 
             # end function with no client_request if nothing is submitted
             return
@@ -2576,7 +2580,7 @@ class ClientState:
         self.bank_trade = {"offer": [], "request": []}
         self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        self.card_index = 0
+        self.selection_index = 0
 
     def format_log(self):
         max_len = 40
@@ -2955,7 +2959,7 @@ class ClientState:
             elif self.mode == "steal" and len(self.to_steal_from) > 0 and self.name == self.current_player_name:
                 for i, player_name in enumerate(self.to_steal_from):
                     # pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].marker.rec, 7), 4, pr.GRAY)
-                    if i == self.player_index:
+                    if i == self.selection_index:
                         pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].marker.rec, 7), 4, pr.GREEN)
 
 
@@ -3034,7 +3038,7 @@ cmd_line_input = sys.argv[1:]
 
 
 # provide IP as 2nd argument
-# client: python3 main.py <username> <IP_address>
+# client: python3 main.py <username> <IP_address> (default to local)
 # server: python3 main.py server <IP_address>
 if len(cmd_line_input) > 0:
     if cmd_line_input[0] == "server":

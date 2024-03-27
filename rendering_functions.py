@@ -273,8 +273,8 @@ def draw_info_in_box(c_state):
             for i, (card_type, num_cards) in enumerate(c_state.client_players[c_state.name].hand.items()):
                 # not current card index, draw in black
                 color = pr.BLACK
-                # if current card_index, draw in white
-                if i == c_state.card_index:
+                # if current selection_index, draw in white
+                if i == c_state.selection_index:
                     color = pr.WHITE
                 draw_discard_cards(c_state.selected_cards, location, card_type, num_cards, i, x_offset, size, color)
 
@@ -335,8 +335,8 @@ def draw_info_in_box(c_state):
         location = pr.Vector2(c_state.info_box.x+c_state.info_box.width/8, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*6)
         for i, (card_type, num_cards) in enumerate(c_state.client_players[c_state.name].hand.items()):
             color = pr.BLACK
-            # if current card_index, draw in white
-            if i == c_state.card_index:
+            # if current selection_index, draw in white
+            if i == c_state.selection_index:
                 color = pr.WHITE
             draw_added_cards(c_state.mode, c_state.selected_cards, location, card_type, num_cards, i, x_offset, size, color)
 
@@ -350,7 +350,7 @@ def draw_info_in_box(c_state):
 
     elif c_state.mode == "monopoly":
         pr.draw_text_ex(pr.gui_get_font(), " Selected resource:", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2+c_state.med_text*2.2), c_state.med_text, 0, pr.BLACK)
-        pr.draw_text_ex(pr.gui_get_font(), f" {c_state.resource_cards[c_state.card_index]}", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2+c_state.med_text*3.3), c_state.med_text, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), f" {c_state.resource_cards[c_state.selection_index]}", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2+c_state.med_text*3.3), c_state.med_text, 0, pr.BLACK)
 
         size = c_state.med_text-2
 
@@ -358,7 +358,7 @@ def draw_info_in_box(c_state):
 
         for i, resource in enumerate(c_state.resource_cards):
             color = pr.BLACK
-            if i == c_state.card_index:
+            if i == c_state.selection_index:
                 color = pr.WHITE
             pr.draw_text_ex(pr.gui_get_font(), resource, (location.x, location.y+size*(i*1.1+1.1)), size, 0, color)
 
@@ -384,8 +384,8 @@ def draw_trade_interface(c_state):
     for i, card_type in enumerate(c_state.resource_cards):
         # not current card index, draw in black
         color = pr.BLACK
-        # if current card_index, draw in white (only for pre-submit trade)
-        if i == c_state.card_index and len(c_state.player_trade["trade_with"]) == 0:
+        # if current selection_index, draw in white (only for pre-submit trade)
+        if i == c_state.selection_index and len(c_state.player_trade["trade_with"]) == 0:
             color = pr.WHITE
         draw_added_cards(c_state.mode, c_state.player_trade["offer"], location_offer, card_type, 0, i, x_offset, size, color)
         # draw_discard_cards(c_state.player_trade["offer"], location_offer, card_type, 0, i, x_offset, size, color)
@@ -397,8 +397,8 @@ def draw_trade_interface(c_state):
 
     for i, card_type in enumerate(c_state.resource_cards):
         color = pr.BLACK
-        # if current card_index, draw in white
-        if i+5 == c_state.card_index and len(c_state.player_trade["trade_with"]) == 0:
+        # if current selection_index, draw in white
+        if i+5 == c_state.selection_index and len(c_state.player_trade["trade_with"]) == 0:
             color = pr.WHITE
         draw_added_cards(c_state.mode, c_state.player_trade["request"], location_request, card_type, 0, i, x_offset, size, color)
 
