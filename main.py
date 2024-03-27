@@ -682,11 +682,11 @@ class Board:
 
 
 class Player:
-    def __init__(self, name, color, order, address="local"):
+    def __init__(self, name, order, address="local"):
         # gameplay
         self.name = name
-        self.color = color
         self.order = order
+        self.color = None
         # self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # 7 card starting hand for debug
         self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 0}
@@ -750,6 +750,7 @@ class ServerState:
 
         # PLAYERS
         self.players = {} # {player_name: player_object}
+        self.colors_avl = ["red", "white", "orange", "blue"] # for picking colors in beginning of game
         self.current_player_name = "" # name only
         self.player_order = [] # list of player_names in order of their turns
         self.to_steal_from = []
@@ -842,7 +843,7 @@ class ServerState:
 
 
     # adding players to server. order in terms of arrival, will rearrange later
-    def add_player(self, name, color, address):
+    def add_player(self, name, address):
         if name in self.players:
             if self.players[name].address != address:
                 self.players[name].address = address
@@ -853,7 +854,7 @@ class ServerState:
 
         elif not name in self.players:
             order = len(self.player_order)
-            self.players[name] = Player(name, color, order, address)
+            self.players[name] = Player(name, order, address)
             self.player_order.append(name)
             self.board.set_demo_settlements(self, name)
             self.send_broadcast("log", f"Adding Player {name}.")
@@ -908,7 +909,6 @@ class ServerState:
             owned_edges = [edge for edge in self.board.edges if edge.player == p_object.name]
             # owned_nodes = [edge.get_adj_nodes(self.board.nodes) for edge in owned_edges]
             edges_to_nodes = {edge: edge.get_adj_nodes(self.board.nodes) for edge in owned_edges}
-            # nodes_to_edges = {node: node.get_adj_edges(self.board.edges) for edge in owned_edges}
             nodes_to_edges = {}
             for edge in owned_edges:
                 for node in edges_to_nodes[edge]:
@@ -1484,6 +1484,7 @@ class ServerState:
             "current_player": self.current_player_name,
             "player_order": self.player_order,
             "colors": colors,
+            "colors_avl": self.colors_avl,
             "victory_points": victory_points,
             "hands": hands,
             "dev_cards": dev_cards,
@@ -1527,7 +1528,7 @@ class ServerState:
             if self.is_server_full(client_request["name"], address) == True:
                 return
             else:
-                self.add_player(client_request["name"], client_request["color"], address)
+                self.add_player(client_request["name"], address)
             return
 
         elif client_request["action"] == "request_board":
@@ -1862,9 +1863,9 @@ class Menu:
 
 
 class ClientPlayer:
-    def __init__(self, name: str, color: str, display_order: int, marker: pr.Rectangle):
+    def __init__(self, name: str, display_order: int, marker: pr.Rectangle):
         self.name = name
-        self.color = rf.game_color_dict[color]
+        self.color = None # rf.game_color_dict[color]
         self.display_order = display_order
         self.marker = marker
 
@@ -1888,11 +1889,12 @@ class ClientState:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_IP = server_IP
         self.port = port
-        self.num_msgs_sent = 0
-        self.num_msgs_recv = 0
+        self.num_msgs_sent = 0 # for debug
+        self.num_msgs_recv = 0 # for debug
         self.time_last_sent = 0 # time.time()
-        self.name = name # for debug, start as "red" and shift to current_player_name every turn
-        self.color = None
+        self.time_last_recv = 0 # time.time()
+        self.name = name # username (name that will be associated with Player)
+        self.colors_avl = []
         self.combined = combined # combined client and server vs separate client and server, use for debug
         self.previous_packet = {}
 
@@ -2038,6 +2040,28 @@ class ClientState:
     def does_board_exist(self):
         if len(self.board) > 0:
             return True
+        else:
+            print("board does not exist")
+
+    def is_connected(self):
+        if 10 > time.time() - self.time_last_recv:
+            return True
+        else:
+            print(f"Client {self.name} not connected to server")
+            
+
+    def select_color(self, user_input):
+        if (user_input == pr.KeyboardKey.KEY_UP or user_input == pr.KeyboardKey.KEY_LEFT) and self.selection_index > 0:
+            self.selection_index -= 1
+        elif (user_input == pr.KeyboardKey.KEY_DOWN or user_input == pr.KeyboardKey.KEY_RIGHT) and len(self.colors_avl)-1 > self.selection_index:
+            self.selection_index += 1
+
+        if self.check_submit(user_input):
+            return self.client_request_to_dict(action="submit", color=self.colors_avl[self.selection_index])
+        
+
+        
+
 
 
     def data_verification(self, packet):
@@ -2102,9 +2126,8 @@ class ClientState:
             color=name
             self.client_initialize_player(name, color, order)
 
-    def client_request_to_dict(self, mode=None, action=None, cards=None, resource=None, player=None, trade_offer=None) -> dict:
+    def client_request_to_dict(self, mode=None, action=None, cards=None, resource=None, player=None, trade_offer=None, color=None) -> dict:
         client_request = {"name": self.name}
-        client_request["color"] = self.color
         client_request["debug"] = self.debug
         client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
 
@@ -2114,6 +2137,7 @@ class ClientState:
         client_request["resource"] = resource
         client_request["selected_player"] = player
         client_request["trade_offer"] = trade_offer
+        client_request["color"] = color
         
 
         return client_request
@@ -2249,16 +2273,14 @@ class ClientState:
             pass
 
     def build_client_request(self, user_input):
-        # player making first contact with server
-        if not self.name in self.client_players:
+        if not self.is_connected():
             return self.client_request_to_dict(action="add_player")
         
-        if not self.color:
-            self.mode = "color_selection"
-            return
+        # player making first contact with server
+        if self.client_players[self.name].color == None:
+            return self.select_color(user_input)
 
         if not self.does_board_exist():
-            print("board does not exist")
             return self.client_request_to_dict(action="request_board")
 
 
@@ -2564,6 +2586,7 @@ class ClientState:
             try:
                 msg_recv, address = self.socket.recvfrom(buffer_size, socket.MSG_DONTWAIT)
                 self.num_msgs_recv += 1
+                self.time_last_recv = time.time()
             except BlockingIOError:
                 return None
             return msg_recv
