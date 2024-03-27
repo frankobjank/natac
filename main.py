@@ -682,9 +682,10 @@ class Board:
 
 
 class Player:
-    def __init__(self, name, order, address="local"):
+    def __init__(self, name, color, order, address="local"):
         # gameplay
         self.name = name
+        self.color = color
         self.order = order
         # self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # 7 card starting hand for debug
@@ -705,11 +706,7 @@ class Player:
 
     def __repr__(self):
         return f"Player {self.name}"
-    
-    def __str__(self):
-        return f"Player {self.name}"
             
-    # have to work out where to calc longest_road and largest_army
     def get_vp_public(self, longest_road, largest_army):
         # settlements/ cities
         victory_points = self.num_cities*2 + self.num_settlements
@@ -845,7 +842,7 @@ class ServerState:
 
 
     # adding players to server. order in terms of arrival, will rearrange later
-    def add_player(self, name, address):
+    def add_player(self, name, color, address):
         if name in self.players:
             if self.players[name].address != address:
                 self.players[name].address = address
@@ -856,7 +853,7 @@ class ServerState:
 
         elif not name in self.players:
             order = len(self.player_order)
-            self.players[name] = Player(name, order, address)
+            self.players[name] = Player(name, color, order, address)
             self.player_order.append(name)
             self.board.set_demo_settlements(self, name)
             self.send_broadcast("log", f"Adding Player {name}.")
@@ -1433,12 +1430,14 @@ class ServerState:
         trade.append(self.player_trade["trade_with"])
         
         # loop thru players to build hands, VPs, logs
+        colors = []
         hands = []
         dev_cards = []
         visible_knights = []
         victory_points = []
         num_to_discard = []
         for player_name, player_object in self.players.items():
+            colors.append(player_object.color)
             visible_knights.append(player_object.visible_knights)
             victory_points.append(player_object.get_vp_public(self.longest_road, self.largest_army))
             # pack actual hand for recipient
@@ -1484,6 +1483,7 @@ class ServerState:
             "hover": self.hover,
             "current_player": self.current_player_name,
             "player_order": self.player_order,
+            "colors": colors,
             "victory_points": victory_points,
             "hands": hands,
             "dev_cards": dev_cards,
@@ -1513,7 +1513,7 @@ class ServerState:
         # client_request["cards"] = card to return, card to play, 
         # client_request["trade_offer"] = [offer], [request], "player_name"
         # client_request["selected_player"] = other player name
-
+        # client_request["color"] = color
 
         if client_request == None or len(client_request) == 0:
             return
@@ -1527,7 +1527,7 @@ class ServerState:
             if self.is_server_full(client_request["name"], address) == True:
                 return
             else:
-                self.add_player(client_request["name"], address)
+                self.add_player(client_request["name"], client_request["color"], address)
             return
 
         elif client_request["action"] == "request_board":
@@ -1861,20 +1861,13 @@ class Menu:
             self.buttons[b_name] = Button(pr.Rectangle(self.rec_x, self.rec_y+(i*self.size), self.rec_width, self.rec_height), b_name, "menu item")
 
 
-class Marker:
-    def __init__(self, rec:pr.Rectangle, name):
-        self.rec = rec
-        self.name = name
-        self.color = rf.game_color_dict[self.name]
-
 class ClientPlayer:
-    def __init__(self, name: str, display_order: int, marker: Marker):
-        # assigned locally
-        self.name = name # same player would be local, others would be server
+    def __init__(self, name: str, color: str, display_order: int, marker: pr.Rectangle):
+        self.name = name
+        self.color = rf.game_color_dict[color]
+        self.display_order = display_order
         self.marker = marker
 
-        # from server
-        self.display_order = display_order
         self.hand = {} # {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.num_to_discard = 0
         self.hand_size = 0
@@ -1883,7 +1876,8 @@ class ClientPlayer:
 
         self.visible_knights = 0
         self.victory_points = 0
-
+        
+        # for bank_trade
         self.ratios = []
 
 
@@ -1898,6 +1892,7 @@ class ClientState:
         self.num_msgs_recv = 0
         self.time_last_sent = 0 # time.time()
         self.name = name # for debug, start as "red" and shift to current_player_name every turn
+        self.color = None
         self.combined = combined # combined client and server vs separate client and server, use for debug
         self.previous_packet = {}
 
@@ -1927,7 +1922,6 @@ class ClientState:
         # 2nd frame counter to keep track of when animations should start/ end
         self.frame_2 = 0
 
-        # PLAYERS - undecided if a Player class is needed for client
         self.client_players = {} # use ClientPlayer class
         self.player_order = [] # use len(player_order) to get num_players
         self.current_player_name = None
@@ -2097,31 +2091,20 @@ class ClientState:
         q, r = server_response["robber_hex"]
         self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
 
-    def client_initialize_player(self, name, display_order):
+    def client_initialize_player(self, name, color, display_order):
         marker_size = self.screen_width / 25
-        marker = None
-        # self marker - bottom middle
-        if display_order == 0:
-            marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*4, self.screen_height-20-marker_size, marker_size, marker_size), name)
-        # player 
-        elif display_order == 1:
-            marker = Marker(pr.Rectangle(50-marker_size, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
-        # orange - top
-        elif display_order == 2:
-            marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*4, 20, marker_size, marker_size), name)
-        # blue - right
-        elif display_order == 3:
-            marker = Marker(pr.Rectangle(self.screen_width//1.60, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
-
-        self.client_players[name] = ClientPlayer(name, display_order, marker)
+        marker_y = (display_order*2+1)*marker_size
+        self.client_players[name] = ClientPlayer(name, color, display_order, pr.Rectangle(marker_size, marker_y, marker_size, marker_size))
 
     def client_initialize_dummy_players(self):
         # define player markers based on player_order that comes in from server
         for order, name in enumerate(self.player_order):
-            self.client_initialize_player(name, order)
+            color=name
+            self.client_initialize_player(name, color, order)
 
     def client_request_to_dict(self, mode=None, action=None, cards=None, resource=None, player=None, trade_offer=None) -> dict:
         client_request = {"name": self.name}
+        client_request["color"] = self.color
         client_request["debug"] = self.debug
         client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
 
@@ -2267,7 +2250,7 @@ class ClientState:
 
     def build_client_request(self, user_input):
         # before player initiated
-        if not self.name in self.client_players:
+        if not self.name in self.client_players and self.color != None:
             return self.client_request_to_dict(action="add_player")
 
         if not self.does_board_exist():
@@ -2693,18 +2676,23 @@ class ClientState:
         if len(server_response["player_order"]) > 0:
             self.player_order = server_response["player_order"]
             self.current_player_name = server_response["current_player"]
+            colors = server_response["colors"]
 
             # initialize all players at once for combined
             if self.combined == True and len(self.client_players) == 0:
                 self.client_initialize_dummy_players()
 
             # or add players as they connect to server
+            # eventually will need to reorder players after real order has been determined
             elif len(self.player_order) > len(self.client_players):
-                self_order = self.player_order.index(self.name)
-                for i in range(len(self.player_order)):
-                    new_order = self_order + i
-                    new_order %= len(self.player_order)
-                    self.client_initialize_player(name=self.player_order[new_order], display_order=i)
+                for i, player in enumerate(self.player_order):
+                    self.client_initialize_player(name=player, color=color, display_order=i)
+            # elif len(self.player_order) > len(self.client_players):
+            #     self_order = self.player_order.index(self.name)
+            #     for i in range(len(self.player_order)):
+            #         new_order = self_order + i
+            #         new_order %= len(self.player_order)
+            #         self.client_initialize_player(name=self.player_order[i], display_order=i)
 
             # assign ports to self under .ratios
             if "three" in server_response["ports"]:
@@ -3044,29 +3032,20 @@ def run_server(IP_address, port=default_port):
 # sys.argv = list of args passed thru command line
 cmd_line_input = sys.argv[1:]
 
-# test_players = ["red", "white", "orange", "blue"]
-if len(cmd_line_input) == 1:
-    if cmd_line_input[0] == "blue":
-        run_client("blue")
-    elif cmd_line_input[0] == "orange":
-        run_client("orange")
-    elif cmd_line_input[0] == "white":
-        run_client("white")
-    elif cmd_line_input[0] == "red":
-        run_client("red")
-    elif cmd_line_input[0] == "server":
-        run_server(local_IP)
 
 # provide IP as 2nd argument
-elif len(cmd_line_input) > 1:
-    if cmd_line_input[0] == "blue":
-        run_client("blue", cmd_line_input[1])
-    elif cmd_line_input[0] == "orange":
-        run_client("orange", cmd_line_input[1])
-    elif cmd_line_input[0] == "white":
-        run_client("white", cmd_line_input[1])
-    elif cmd_line_input[0] == "red":
-        run_client("red", cmd_line_input[1])
-    elif cmd_line_input[0] == "server":
-        run_server(cmd_line_input[1])
+# client: python3 main.py <username> <IP_address>
+# server: python3 main.py server <IP_address>
+if len(cmd_line_input) > 0:
+    if cmd_line_input[0] == "server":
+        if cmd_line_input[1] == "local":
+            run_server(local_IP)
+        elif len(cmd_line_input) == 2:
+            run_server(cmd_line_input[1])
+    else:
+        if len(cmd_line_input) == 1:
+            run_client(name=cmd_line_input[0], server_IP=local_IP)
+        elif len(cmd_line_input) == 2:
+            run_client(name=cmd_line_input[0], server_IP=cmd_line_input[1])
+
 
