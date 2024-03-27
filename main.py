@@ -759,7 +759,6 @@ class ServerState:
         self.road_building_counter = 0
         
         self.longest_road = ""
-        self.longest_road_edges = [] # for debug
         self.largest_army = ""
 
         # TURNS
@@ -1694,7 +1693,7 @@ class ServerState:
                 self.send_to_player(self.current_player_name, "log", "You cannot play a dev card you got this turn.")
                 return
             self.play_dev_card(client_request["cards"])
-        
+
         elif client_request["action"] == "print_debug":
             self.calc_longest_road()
             
@@ -1958,11 +1957,8 @@ class ClientState:
 
 
         self.longest_road = "" # name of player
-        self.longest_road_edges = [] # for debug
         self.largest_army = "" # name of player
-        # for trade
-        # self.cards_to_offer = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        # self.cards_to_request = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+
         self.bank_trade = {"offer": [], "request": []}
         self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
 
@@ -2038,7 +2034,6 @@ class ClientState:
         self.camera.zoom = self.default_zoom
     
     def print_debug(self):
-        # print(f"longest_road_edges = {self.longest_road_edges}")
         pass
 
     def resize_client(self):
@@ -2105,10 +2100,10 @@ class ClientState:
     def client_initialize_player(self, name, display_order):
         marker_size = self.screen_width / 25
         marker = None
-        # red - bottom
+        # self marker - bottom middle
         if display_order == 0:
             marker = Marker(pr.Rectangle(self.screen_width//2-marker_size*4, self.screen_height-20-marker_size, marker_size, marker_size), name)
-        # white - left
+        # player 
         elif display_order == 1:
             marker = Marker(pr.Rectangle(50-marker_size, self.screen_height//2-marker_size*3, marker_size, marker_size), name)
         # orange - top
@@ -2601,26 +2596,19 @@ class ClientState:
         self.card_index = 0
 
     def format_log(self):
-        if len(self.log_msgs) > 7:
-            tent_log = self.log_msgs[-7:]
-        else:
-            tent_log = self.log_msgs
-        
-        log_w_breaks = []
         max_len = 40
-        for msg in tent_log:
+        log_breaks = []
+        # check if log msg is too long for log_box
+        for msg in self.log_msgs[-7:]:
             if len(msg)>max_len:
-                # find last " " between 0 and 40 of msg. ::-1 reverses the string
-                linebreak = max_len-msg[0:40:-1].find(" ", 0, max_len)
-                log_w_breaks.append(msg[:linebreak])
-                log_w_breaks.append(msg[linebreak:])
+                # find last " " between 0 and 40 of msg. ::-1 reverses the string. 
+                # before I knew about .rfind() lol
+                linebreak = max_len-msg[0:40][::-1].find(" ", 0, max_len)
+                log_breaks.append(msg[:linebreak])
+                log_breaks.append(msg[linebreak:])
             else:
-                log_w_breaks.append(msg)
-
-        if len(log_w_breaks)>7:
-            self.log_to_display = log_w_breaks[-7:]
-        else:
-            self.log_to_display = log_w_breaks
+                log_breaks.append(msg)
+        self.log_to_display = log_breaks[-7:]
 
 
     # unpack server response and update state
@@ -2651,7 +2639,6 @@ class ClientState:
         # trade : [] [[0, 0, 1, 1, 0], [1, 1, 0, 0, 0], "player_name_string"]
         server_response = json.loads(encoded_server_response)
 
-
         # chop log even if no new log recv from server - client can generate log msgs
         self.format_log()
 
@@ -2672,7 +2659,6 @@ class ClientState:
             return
         
         elif server_response["kind"] == "debug":
-            self.longest_road_edges = server_response["msg"]
             return        
 
         self.data_verification(server_response)
@@ -2869,7 +2855,7 @@ class ClientState:
             elif self.current_hex:
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
 
-            
+
     def render_client(self):
 
         pr.begin_drawing()
@@ -2903,9 +2889,6 @@ class ClientState:
 
 
 
-
-
-
         # display dev_card in info_box
         for b_object in self.dev_card_buttons.values():
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
@@ -2924,8 +2907,6 @@ class ClientState:
                     pr.draw_text_ex(pr.gui_get_font(), rf.hover_text[b_object.name], (self.info_box.x, self.info_box.y+self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
                 break
         
-
-
 
         # draw log_box and log
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
@@ -2964,7 +2945,7 @@ class ClientState:
 
         for player_name, player_object in self.client_players.items():
             # draw player markers
-            # player 0 on bottom, 1 left, 2 top, 3 right
+            # draw players in top left with attributes, descending by player order
 
             pr.draw_rectangle_rec(player_object.marker.rec, player_object.marker.color)
             pr.draw_rectangle_lines_ex(player_object.marker.rec, 1, pr.BLACK)
