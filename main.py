@@ -1610,23 +1610,17 @@ class ServerState:
                 self.send_broadcast("accept", "trade")
 
 
-        # trade_offer = {"offer": {"ore": -4}, "request": {"wheat": 1}, "trade_with": ""}
+        # trade_offer = {"offer": ["ore", -4], "request": ["wheat", 1]}
         elif self.mode == "bank_trade":
             if client_request["action"] == "submit" and client_request["trade_offer"] != None:
-                # extract resources from string
-                resource_offer = ""
-                resource_request = ""
-                for r in self.resource_cards:
-                    if r in client_request["trade_offer"]["offer"].keys():
-                        resource_offer += r
-                    if r in client_request["trade_offer"]["request"].keys():
-                        resource_request += r
-                # check if player has enough to trade
-                if self.players[client_request["name"]].hand[resource_offer] + client_request["trade_offer"]["offer"][resource_offer] >= 0:
-                    self.players[client_request["name"]].hand[resource_offer] += client_request["trade_offer"]["offer"][resource_offer]
-                    self.players[client_request["name"]].hand[resource_request] += client_request["trade_offer"]["request"][resource_request]
-
-                self.send_to_player(client_request["name"], "accept", "bank_trade")
+                offer, offer_num = client_request["trade_offer"]["offer"]
+                request, request_num = client_request["trade_offer"]["request"]
+                if self.players[client_request["name"]].hand[offer] + offer_num >= 0:
+                    self.players[client_request["name"]].hand[offer] += offer_num
+                    self.players[client_request["name"]].hand[request] += request_num
+                    
+                    self.send_to_player(client_request["name"], "accept", "bank_trade")
+                    self.send_broadcast("log", f"{client_request['name']} traded in {-offer_num} {offer} for {request_num} {request}.")
 
         
         elif self.mode == "steal":
@@ -1969,7 +1963,7 @@ class ClientState:
         # for trade
         # self.cards_to_offer = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # self.cards_to_request = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        self.bank_trade = {"offer": {}, "request": {}, "trade_with": ""}
+        self.bank_trade = {"offer": [], "request": []}
         self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
 
         # for discard_cards / year_of_plenty
@@ -2486,12 +2480,12 @@ class ClientState:
                     if self.player_trade["request"][self.resource_cards[self.card_index%5]] > 0:
                         self.player_trade["request"][self.resource_cards[self.card_index%5]] -= 1
 
-
+        # trade_offer = {"offer": ["ore", -4], "request": ["wheat", 1]}
         elif self.mode == "bank_trade":
+            print(self.bank_trade)
             # submit with enter, space, or submit button
             if self.check_submit(user_input):
                 if len(self.bank_trade["offer"]) > 0 and len(self.bank_trade["request"]) > 0:
-                    self.bank_trade["trade_with"] = "bank"
                     return self.client_request_to_dict(action="submit", trade_offer=self.bank_trade)
 
             for b_object in self.trade_buttons.values():
@@ -2499,22 +2493,19 @@ class ClientState:
                     if "offer" in b_object.name and self.client_players[self.name].hand[b_object.display] >= self.client_players[self.name].ratios[b_object.display]:
                         b_object.hover = True
                         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                                if b_object.display not in self.bank_trade["offer"].keys():
-                                    self.bank_trade["offer"] = {}
-                                    self.bank_trade["offer"][b_object.display] = -self.client_players[self.name].ratios[b_object.display]
-                                    
-                                elif b_object.display in self.bank_trade["offer"].keys():
-                                    self.bank_trade["offer"] = {}
-                                    return
+                            if b_object.display not in self.bank_trade["offer"]:
+                                self.bank_trade["offer"] = [b_object.display, -self.client_players[self.name].ratios[b_object.display]]
+                            elif b_object.display in self.bank_trade["offer"]:
+                                self.bank_trade["offer"] = []
+                                return
 
                     elif "request" in b_object.name:
                         b_object.hover = True
                         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                            if b_object.display not in self.bank_trade["request"].keys():
-                                self.bank_trade["request"] = {}
-                                self.bank_trade["request"][b_object.display] = 1
-                            elif b_object.display in self.bank_trade["request"].keys():
-                                self.bank_trade["request"] = {}
+                            if b_object.display not in self.bank_trade["request"]:
+                                self.bank_trade["request"] = [b_object.display, 1]
+                            elif b_object.display in self.bank_trade["request"]:
+                                self.bank_trade["request"] = []
                                 return
                 else:
                     b_object.hover = False
@@ -2605,10 +2596,15 @@ class ClientState:
         pass
     
     def reset_selections(self):
-        self.bank_trade = {"offer": {}, "request": {}, "trade_with": ""}
+        self.bank_trade = {"offer": [], "request": []}
         self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.card_index = 0
+
+    def format_log(self):
+        if len(self.log_msgs) > 7:
+            self.log_to_display = self.log_msgs[-7:]
+
 
     # unpack server response and update state
     def update_client(self, encoded_server_response):
@@ -2640,9 +2636,7 @@ class ClientState:
 
 
         # chop log even if no new log recv from server - client can generate log msgs
-        if len(self.log_msgs) > 7:
-            self.log_to_display = self.log_msgs[-7:]
-
+        self.format_log()
 
         # split kind of response by what kind of message is received, update_log(), update_board(), etc
         try:
@@ -2653,10 +2647,7 @@ class ClientState:
     
         if server_response["kind"] == "log":
             self.log_msgs.append(server_response["msg"])
-            if len(self.log_msgs) > 7:
-                self.log_to_display = self.log_msgs[-7:]
-            else:
-                self.log_to_display = self.log_msgs
+            self.format_log()
             return
         
         elif server_response["kind"] == "accept":
@@ -2923,7 +2914,7 @@ class ClientState:
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
         pr.draw_rectangle_lines_ex(self.log_box, 1, pr.BLACK)
 
-        # TODO wrap text - find len of text
+        # 40 chars can fit in log box for self.med_text
         for i, msg in enumerate(self.log_to_display):
             pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text, 4+self.log_box.y+(i*self.med_text)), self.med_text, 0, pr.BLACK)
             
