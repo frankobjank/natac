@@ -1147,6 +1147,8 @@ class ServerState:
         return False
 
     def play_dev_card(self, kind):
+        self.send_broadcast("log", f"{self.current_player_name} played a {kind.capitalize()} card")
+        
         if self.dev_card_played == True:
             self.send_to_player(self.current_player_name, "log", "You can only play one dev card per turn.")
             return
@@ -1277,6 +1279,7 @@ class ServerState:
             self.send_to_player(self.current_player_name, "log", "No dev cards remaining.")
             return
         card = self.dev_card_deck.pop()
+        self.send_broadcast("log", f"{self.current_player_name} bought a development card.")
         self.players[self.current_player_name].dev_cards[card] += 1
         self.pay_for("dev_card")
         
@@ -1313,18 +1316,13 @@ class ServerState:
             self.send_to_player(self.current_player_name, "log", "Invalid location for robber.")
             return
 
-        if self.has_rolled:
-            self.mode = None # only one robber move at a time
-        elif not self.has_rolled:
-            self.mode == "roll_dice"
-
         self.board.robber_hex = location_hex
         
-        adj_players = []
+        adj_players = set()
         for node in self.board.nodes:
             # if node is associated with player and contains the robber hex, add to list
             if self.board.robber_hex in node.hexes and node.player != None and node.player != self.current_player_name:
-                adj_players.append(node.player)
+                adj_players.add(node.player)
         
         self.to_steal_from = []
         # if no adj players, do nothing
@@ -1332,28 +1330,34 @@ class ServerState:
             return
         
         # check if adj players have any cards
-        for player_name in adj_players:
+        for player_name in list(adj_players):
             if sum(self.players[player_name].hand.values()) > 0:
                 self.to_steal_from.append(player_name)
         
         # if only one player in targets, steal random card
         if len(self.to_steal_from) == 1:
             self.steal_card(self.to_steal_from.pop(), self.current_player_name)
+            if self.has_rolled:
+                self.mode = None # only one robber move at a time
+            elif not self.has_rolled:
+                self.mode == "roll_dice"
+
+
         # if more than one player, change mode to steal and get player to select
         elif len(self.to_steal_from) > 1:
             self.mode = "steal"
 
 
     def steal_card(self, from_player: str, to_player: str):
-        selection_index = random.randint(0, sum(self.players[from_player].hand.values())-1)
+        random_card_index = random.randint(0, sum(self.players[from_player].hand.values())-1)
         chosen_card = None
         for card_type, num_cards in self.players[from_player].hand.items():
             # skip if none of that type present
             if num_cards == 0:
                 continue
-            selection_index -= num_cards
+            random_card_index -= num_cards
             # stop when selection_index reaches 0 or below
-            if 0 >= selection_index:
+            if 0 >= random_card_index:
                 chosen_card = card_type
                 break
         
@@ -2190,6 +2194,9 @@ class ClientState:
             
 
     def select_color(self, user_input):
+        # check if still within bounds if color has been selected
+        if self.selection_index > len(self.colors_avl)-1:
+            self.selection_index = len(self.colors_avl)-1
         if (user_input == pr.KeyboardKey.KEY_UP or user_input == pr.KeyboardKey.KEY_LEFT) and self.selection_index > 0:
             self.selection_index -= 1
         elif (user_input == pr.KeyboardKey.KEY_DOWN or user_input == pr.KeyboardKey.KEY_RIGHT) and len(self.colors_avl)-1 > self.selection_index:
@@ -2924,11 +2931,15 @@ class ClientState:
                     if self.name == name:
                         self.client_players[name].hand[self.resource_cards[position]] = number
                         self.client_players[name].hand_size = sum(server_response["hands"][order])
-                    else:
+                    elif self.name != name:
                         self.client_players[name].hand_size = number
                 
-                # construct dev cards for self player
-                if self.name == name:
+                
+                # construct dev cards size for other players
+                if self.name != name:
+                    self.client_players[name].dev_cards_size = sum(server_response["dev_cards"][order])
+                # construct dev cards size + buttons for self player
+                elif self.name == name:
                     # only update if incoming dev_cards is different from current dev_cards
                     if self.client_players[name].dev_cards_size != sum(server_response["dev_cards"][order]):
                         self.client_players[name].dev_cards_size = sum(server_response["dev_cards"][order])

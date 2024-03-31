@@ -214,8 +214,9 @@ def draw_hands(c_state, player_name, player_object):
     x_offset = c_state.screen_width//20
     # size = c_state.screen_height//50
     size = c_state.med_text-2
+    # quick fix - could find a better spot for knights
     if player_object.visible_knights > 0:
-        pr.draw_text_ex(pr.gui_get_font(), f"Knights: {player_object.visible_knights}", (player_object.rec.x+8*size, player_object.rec.y+size), size-3, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), f"Knights: {player_object.visible_knights}", (player_object.rec.x+8*size, player_object.rec.y+size), size, 0, pr.BLACK)
     if c_state.name == player_name:
         location = pr.Vector2(c_state.screen_width/3, c_state.screen_height-c_state.screen_height/10)
         # draw hand for self
@@ -226,13 +227,10 @@ def draw_hands(c_state, player_name, player_object):
                 card_type_display += " "
             pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (location.x+x_offset, location.y-size+(i*size)), size, 0, pr.BLACK)
 
-    # hand size for all other players
-    # elif c_state.name != player_name:
+    # hand size for all players
     pr.draw_text_ex(pr.gui_get_font(), f"Hand: {player_object.hand_size}", (player_object.rec.x+x_offset, player_object.rec.y), size, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), f"Dev: {player_object.dev_cards_size}", (player_object.rec.x+x_offset, player_object.rec.y+size), size, 0, pr.BLACK)
     pr.draw_text_ex(pr.gui_get_font(), f"Score: {player_object.victory_points}", (player_object.rec.x+x_offset, player_object.rec.y+size*2), size, 0, pr.BLACK)
-
-    if player_object.dev_cards_size > 0:
-        pr.draw_text_ex(pr.gui_get_font(), f"Dev: {player_object.dev_cards_size}", (player_object.rec.x+x_offset, player_object.rec.y+size), size, 0, pr.BLACK)
 
 def get_outer_rec(rec, offset):
     return pr.Rectangle(rec.x-offset, rec.y-offset, rec.width+2*offset, rec.height+2*offset)
