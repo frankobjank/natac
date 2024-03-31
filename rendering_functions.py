@@ -215,7 +215,7 @@ def draw_hands(c_state, player_name, player_object):
     # size = c_state.screen_height//50
     size = c_state.med_text-2
     if player_object.visible_knights > 0:
-        pr.draw_text_ex(pr.gui_get_font(), f"Knights played: {player_object.visible_knights}", (player_object.rec.x, player_object.rec.y-2*size), size, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), f"Knights: {player_object.visible_knights}", (player_object.rec.x+8*size, player_object.rec.y+size), size-3, 0, pr.BLACK)
     if c_state.name == player_name:
         location = pr.Vector2(c_state.screen_width/3, c_state.screen_height-c_state.screen_height/10)
         # draw hand for self
@@ -420,8 +420,8 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, bank_
 
     for button_object in buttons.values():
         # font was too big, resizing
-        font_resize = display, font_size = button_object.calc_display_font_size(button_object.display)
-        font_resize =- 2
+        display, font_size = button_object.calc_display_font_size(button_object.display)
+        font_resize = font_size
         pr.draw_rectangle_rec(button_object.rec, button_object.color)
         pr.draw_rectangle_lines_ex(button_object.rec, 1, pr.BLACK)
         if "request" in button_object.name:

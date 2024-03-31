@@ -764,6 +764,7 @@ class ServerState:
         self.dice_rolls = 0
         self.mode = "select_color" # start with adding players instead of None?
 
+        self.setup = True
         self.game_over = False
 
         # cheat
@@ -886,11 +887,11 @@ class ServerState:
             self.current_player_name = self.player_order[0]
         self.mode = "build_settlement"
 
-    def is_setup_complete(self):
-        if len([edge for edge in self.board.edges if edge.player != None]) == 2*len(self.player_order):
-            return True
-        else:
-            return False
+    # def is_setup_complete(self):
+    #     if len([edge for edge in self.board.edges if edge.player != None]) == 2*len(self.player_order):
+    #         return True
+    #     else:
+    #         return False
         
     def setup_town_road(self, location, action):
         # taken from end of update_server() and modified
@@ -927,7 +928,10 @@ class ServerState:
                     # can prob shorten hex_to_resource and be more precise - create lookup dict if needed
                     hex_to_resource = {self.board.land_hexes[i]: terrain_to_resource[self.board.terrains[i]] for i in range(len(self.board.land_hexes))}
                     for hex in location_node.hexes:
-                        self.players[self.current_player_name].hand[hex_to_resource[hex]] += 1
+                        try:
+                            self.players[self.current_player_name].hand[hex_to_resource[hex]] += 1
+                        except KeyError:
+                            continue
 
                 self.players[location_node.player].num_settlements += 1
                 if location_node.port:
@@ -962,6 +966,8 @@ class ServerState:
                     # 2 roads and the first player
                     if self.players[self.current_player_name].num_roads == 2 and self.current_player_name == self.player_order[0]:
                         self.mode = "roll_dice"
+                        self.setup = False
+                        self.send_broadcast("accept", "setup_complete")
 
 
 
@@ -1587,7 +1593,8 @@ class ServerState:
             "ports": self.players[recipient].ports,
             "longest_road": self.longest_road, 
             "largest_army": self.largest_army,
-            "trade": trade
+            "trade": trade,
+            "setup": self.setup
             }
 
         combined = packet|self.package_board()
@@ -1686,7 +1693,8 @@ class ServerState:
         # CODE BELOW ONLY APPLIES TO CURRENT PLAYER
 
         # for setup
-        if not self.is_setup_complete():
+        if self.setup:
+        # if not self.is_setup_complete():
             self.setup_town_road(client_request["location"], client_request["action"])
             return
 
@@ -1762,28 +1770,40 @@ class ServerState:
         elif self.mode in self.dev_card_modes:
             self.dev_card_mode(client_request["location"], client_request["action"], client_request["cards"], client_request["resource"])
 
-        # toggle mode if the same kind, else change server mode to match client mode
-        elif self.mode != "roll_dice":
-            # check build_costs to determine if mode is valid
-            # can turn this into loop and cut off "build_" when present, doesn't apply to dev_cards anyway
-            if client_request["mode"] == "build_road":
-                if not self.cost_check("road"):
-                    self.mode = None
-                    return
-            elif client_request["mode"] == "build_settlement":
-                if not self.cost_check("settlement"):
-                    self.mode = None
-                    return
-            elif client_request["mode"] == "build_city":
-                if not self.cost_check("city"):
-                    self.mode = None
-                    return
+        # # toggle mode if the same kind, else change server mode to match client mode
+        # elif self.mode != "roll_dice":
+        #     # check build_costs to determine if mode is valid
+        #     # can turn this into loop and cut off "build_" when present, doesn't apply to dev_cards anyway
+        #     if client_request["mode"] == "build_road":
+        #         if not self.cost_check("road"):
+        #             self.mode = None
+        #             return
+        #     elif client_request["mode"] == "build_settlement":
+        #         if not self.cost_check("settlement"):
+        #             self.mode = None
+        #             return
+        #     elif client_request["mode"] == "build_city":
+        #         if not self.cost_check("city"):
+        #             self.mode = None
+        #             return
 
         if client_request["mode"] != None:
             if self.mode == client_request["mode"]:
                 self.send_to_player(self.current_player_name, "accept", {"new_mode": None})
                 self.mode = None
             elif self.mode not in self.dev_card_modes:
+                if client_request["mode"] == "build_road":
+                    if not self.cost_check("road"):
+                        self.mode = None
+                        return
+                elif client_request["mode"] == "build_settlement":
+                    if not self.cost_check("settlement"):
+                        self.mode = None
+                        return
+                elif client_request["mode"] == "build_city":
+                    if not self.cost_check("city"):
+                        self.mode = None
+                        return
                 self.send_to_player(self.current_player_name, "accept", {"new_mode": self.mode})
                 self.mode = client_request["mode"]
         
@@ -2054,6 +2074,7 @@ class ClientState:
         self.dice = [] 
         self.turn_num = -1 # this might be the cause of the bug requiring button pressed before able to roll dice
         self.mode = None # can be move_robber, build_town, build_road, trade, roll_dice, discard, bank_trade, road_building, year_of_plenty, monopoly, color_selection
+        self.setup = True
 
         # selecting via mouse
         self.world_position = None
@@ -2169,7 +2190,7 @@ class ClientState:
         if 10 > time.time() - self.time_last_recv:
             return True
         else:
-            print(f"Client {self.name} not connected to server")
+            # print(f"Client {self.name} not connected to server")
             return False
             
 
@@ -2243,12 +2264,6 @@ class ClientState:
         # define player recs based on player_order that comes in from server
         for order, name in enumerate(self.player_order):
             self.client_initialize_player(name, order)
-
-    def is_setup_complete(self):
-        if self.board["road_edges"] == 2*len(self.player_order):
-            return True
-        else:
-            return False
 
     def submit_board_selection(self):
         # checking board selections for building town, road, moving robber
@@ -2470,7 +2485,7 @@ class ClientState:
                     self.current_hex_3 = hex
                     break
 
-        if not self.is_setup_complete():
+        if self.setup:
             if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                 return self.submit_board_selection()
 
@@ -2805,6 +2820,8 @@ class ClientState:
             return
         
         elif server_response["kind"] == "accept":
+            if server_response["msg"] == "setup_complete":
+                self.setup = False
             self.reset_selections()
             return
         
@@ -2815,6 +2832,7 @@ class ClientState:
         self.construct_client_board(server_response)
 
         # DICE/TURNS
+        self.setup = server_response["setup"]
         self.dice = server_response["dice"]
         self.turn_num = server_response["turn_num"]
 
@@ -2925,7 +2943,7 @@ class ClientState:
                             button_division = 17
                             button_w = self.screen_width//button_division
                             if number > 0:
-                                self.dev_card_buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.client_players[name].rec.x-(dev_card_offset+1.2)*button_w, self.client_players[name].rec.y, button_w, self.client_players[name].rec.height), self.dev_card_order[position], action=True)
+                                self.dev_card_buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.screen_width/2.8-(dev_card_offset+1.2)*button_w, self.screen_height*.9, button_w, self.client_players[name].rec.height), self.dev_card_order[position], action=True)
 
                                 dev_card_offset += 1
                             elif number == 0:
