@@ -354,7 +354,7 @@ class Node:
         print("no conflicts, building city")
         return True
 
-def obj_to_int(obj: Edge|Node|hh.Hex):
+def obj_to_int(obj):
     name=""
     if type(obj) == hh.Hex:
         name += str(obj.q+3)+str(obj.r+3)
