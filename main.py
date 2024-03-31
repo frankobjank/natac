@@ -761,6 +761,7 @@ class ServerState:
         self.die1 = 0
         self.die2 = 0
         self.turn_num = 0
+        self.has_rolled = False # use this instead of turn_num to determine if mode should be dice_roll
         self.dice_rolls = 0
         self.mode = "select_color" # start with adding players instead of None?
 
@@ -886,12 +887,6 @@ class ServerState:
         if self.turn_num == 0 and len(self.player_order) > 0:
             self.current_player_name = self.player_order[0]
         self.mode = "build_settlement"
-
-    # def is_setup_complete(self):
-    #     if len([edge for edge in self.board.edges if edge.player != None]) == 2*len(self.player_order):
-    #         return True
-    #     else:
-    #         return False
         
     def setup_town_road(self, location, action):
         # taken from end of update_server() and modified
@@ -1173,8 +1168,7 @@ class ServerState:
         elif kind == "year_of_plenty":
             self.mode = "year_of_plenty" # mode that prompts current_player to pick two resources
         elif kind == "monopoly":
-            # get all cards of one type 
-            self.mode = "monopoly"
+            self.mode = "monopoly" # get all cards of one type 
 
     def dev_card_mode(self, location, action, cards, resource):
         # location = client_request["location"]
@@ -1206,6 +1200,7 @@ class ServerState:
             if action == "build_road":
                 if location_edge.build_check_road(self):
                     location_edge.player = self.current_player_name
+                    self.players[self.current_player_name].num_roads += 1
                     self.road_building_counter += 1
                     self.send_to_player(self.current_player_name, "log", f"Road placed, you have {2-self.road_building_counter} left.")
                     self.calc_longest_road()
@@ -1247,6 +1242,9 @@ class ServerState:
             self.mode = None
             # lets client know action was accepted - client resets vars
             self.send_to_player(self.current_player_name, "accept", "monopoly")
+
+        if self.mode == None and not self.has_rolled:
+            self.mode = "roll_dice"
 
         return
 
@@ -1315,7 +1313,11 @@ class ServerState:
             self.send_to_player(self.current_player_name, "log", "Invalid location for robber.")
             return
 
-        self.mode = None # only one robber move at a time
+        if self.has_rolled:
+            self.mode = None # only one robber move at a time
+        elif not self.has_rolled:
+            self.mode == "roll_dice"
+
         self.board.robber_hex = location_hex
         
         adj_players = []
@@ -1359,9 +1361,14 @@ class ServerState:
         self.players[to_player].hand[chosen_card] += 1
         self.send_broadcast("log", f"{to_player} stole a card from {from_player}")
         self.send_to_player(to_player, "log", f"Received {chosen_card} from {from_player}")
+        
         # reset mode and steal list
-        self.mode = None
+        if self.has_rolled:
+            self.mode = None
+        elif not self.has_rolled:
+            self.mode == "roll_dice"
         self.to_steal_from = []
+        
         
 
     def complete_trade(self, player1, player2):
@@ -1410,13 +1417,16 @@ class ServerState:
                                 self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
 
 
-    def perform_roll(self):
+    def perform_roll(self, cheat=None):
         # cheat
         if self.ITSOVER9000:
             self.die1, self.die2 = 3, 3
+        elif cheat == "ROLL7":
+            self.die1, self.die2 = 3, 4
         else:
             self.die1, self.die2 = random.randint(1, 6), random.randint(1, 6)
         self.dice_rolls += 1
+        self.has_rolled = True
         self.mode = None
         self.send_broadcast("log", f"{self.current_player_name} rolled {self.die1 + self.die2}.")
         if self.die1 + self.die2 != 7:
@@ -1434,9 +1444,6 @@ class ServerState:
             if self.mode != "discard":
                 self.mode = "move_robber"
                 self.send_broadcast("log", f"{self.current_player_name} must move the robber.")
-                # move robber randomly for debug
-                # if self.debug == True:
-                    # self.move_robber()
 
     def reset_turn_vars(self):
         self.dev_card_played = False
@@ -1452,6 +1459,7 @@ class ServerState:
         self.reset_turn_vars() # reset server vars
         self.send_broadcast("accept", "end_turn") # reset client vars
         self.turn_num += 1
+        self.has_rolled = False
         self.mode = "roll_dice"
         # TODO this loop could be related to Bug 3
         for player_name, player_object in self.players.items():
@@ -1709,8 +1717,10 @@ class ServerState:
         # force roll_dice before doing anything except play_dev_card
 
         if self.mode == "roll_dice":
-            if client_request["action"] == "roll_dice" and self.dice_rolls == self.turn_num:
+            if client_request["action"] == "roll_dice": # and self.dice_rolls == self.turn_num:
                 self.perform_roll()
+            if client_request["action"] == "ROLL7": # and self.dice_rolls == self.turn_num:
+                self.perform_roll(cheat="ROLL7")
             # only action allowed during roll_dice mode is playing a dev card
             elif client_request["action"] == "play_dev_card":
                 if client_request["cards"] == "victory_point":
@@ -1772,22 +1782,6 @@ class ServerState:
         elif self.mode in self.dev_card_modes:
             self.dev_card_mode(client_request["location"], client_request["action"], client_request["cards"], client_request["resource"])
 
-        # # toggle mode if the same kind, else change server mode to match client mode
-        # elif self.mode != "roll_dice":
-        #     # check build_costs to determine if mode is valid
-        #     # can turn this into loop and cut off "build_" when present, doesn't apply to dev_cards anyway
-        #     if client_request["mode"] == "build_road":
-        #         if not self.cost_check("road"):
-        #             self.mode = None
-        #             return
-        #     elif client_request["mode"] == "build_settlement":
-        #         if not self.cost_check("settlement"):
-        #             self.mode = None
-        #             return
-        #     elif client_request["mode"] == "build_city":
-        #         if not self.cost_check("city"):
-        #             self.mode = None
-        #             return
 
         if client_request["mode"] != None:
             if self.mode == client_request["mode"]:
@@ -1835,9 +1829,8 @@ class ServerState:
             
         
         # check if dice need to be rolled after playing dev card
-        if self.mode == None:
-            if self.dice_rolls == self.turn_num:
-                self.mode = "roll_dice"
+        if self.mode == None and not self.has_rolled:
+            self.mode = "roll_dice"
             return
         
 
@@ -2184,7 +2177,7 @@ class ClientState:
         if len(self.board) > 0:
             return True
         else:
-            print("board does not exist")
+            # print("board does not exist")
             return False
 
     # checks if client has recv msg within the last 10 seconds
@@ -2446,8 +2439,6 @@ class ClientState:
                 if all(player_object.color != pr.GRAY for player_object in self.client_players.values()):
                     return self.client_request_to_dict(action="start_game")
 
-
-
         if not self.does_board_exist():
             return self.client_request_to_dict(action="request_board")
 
@@ -2516,6 +2507,9 @@ class ClientState:
             # selecting action using keyboard
             if user_input == pr.KeyboardKey.KEY_D:
                 return self.client_request_to_dict(action="roll_dice")
+            # CHEAT - ROLL7 using keyboard
+            if self.debug and user_input == pr.KeyboardKey.KEY_SEVEN:
+                return self.client_request_to_dict(action="ROLL7")
             # selecting with mouse
             if pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["roll_dice"].rec):
                 self.buttons["roll_dice"].hover = True
@@ -2567,9 +2561,9 @@ class ClientState:
                     return
 
         # cheats
-        # if user_input == pr.KeyboardKey.KEY_NINE:
-        #     print("ITSOVER9000")
-        #     return self.client_request_to_dict(action="ITSOVER9000")
+        if user_input == pr.KeyboardKey.KEY_NINE:
+            print("ITSOVER9000")
+            return self.client_request_to_dict(action="ITSOVER9000")
         
         
 
@@ -3169,7 +3163,7 @@ class ClientState:
             # split up by modes
             # draw "waiting" for non-self players if wating on them to return cards
             if self.mode == "discard" and player_name != self.name and player_object.num_to_discard > 0:
-                pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.rec.x, player_object.rec.y - 20), 12, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.rec.x, player_object.rec.y - self.med_text), 12, 0, pr.BLACK)
 
 
             # for current player, highlight possible targets and selected player
@@ -3267,8 +3261,8 @@ if len(cmd_line_input) > 0:
                 run_server(cmd_line_input[1]) # remote random board
     else:
         if len(cmd_line_input) == 1:
-            run_client(name=cmd_line_input[0], server_IP=local_IP)
+            run_client(name=cmd_line_input[0][:12], server_IP=local_IP)
         elif len(cmd_line_input) == 2:
-            run_client(name=cmd_line_input[0], server_IP=cmd_line_input[1])
+            run_client(name=cmd_line_input[0][:12], server_IP=cmd_line_input[1])
 
 

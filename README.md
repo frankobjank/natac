@@ -1,5 +1,7 @@
 # natac
 
+The Python version used for development is Python 3.11.5. For best results, run with Python 3.11.5.
+
 How to run the game from the terminal:
 
 Create a virtual environment
@@ -21,7 +23,15 @@ To start a server, include the IP address you want to use:
 ```
 python3 main.py server <IP_address>
 ```
-To start a client, use one of these four colors (red, blue, orange, or white) and include the IP address of the server:
+To start a client, type a username and include the IP address of the server:
 ```
-python3 main.py <player_color> <IP_address>
+python3 main.py <username> <IP_address>
+```
+To run the server locally:
+```
+python3 main.py server local
+```
+And to run the client locally:
+```
+python3 main.py <username>
 ```
