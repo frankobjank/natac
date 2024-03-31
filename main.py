@@ -918,24 +918,25 @@ class ServerState:
                     if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
                         location_node = node
 
-            if action == "build_settlement" and location_node.build_check_settlement(self, setup=True):
-                self.mode = "build_road" # set to build road
-                location_node.town = "settlement"
-                location_node.player = self.current_player_name
+            if action == "build_settlement" and location_node != None:
+                if location_node.build_check_settlement(self, setup=True):
+                    self.mode = "build_road" # set to build road
+                    location_node.town = "settlement"
+                    location_node.player = self.current_player_name
 
-                # check if this is second settlement (for resources)
-                if self.players[self.current_player_name].num_settlements == 1:
-                    # can prob shorten hex_to_resource and be more precise - create lookup dict if needed
-                    hex_to_resource = {self.board.land_hexes[i]: terrain_to_resource[self.board.terrains[i]] for i in range(len(self.board.land_hexes))}
-                    for hex in location_node.hexes:
-                        try:
-                            self.players[self.current_player_name].hand[hex_to_resource[hex]] += 1
-                        except KeyError:
-                            continue
+                    # check if this is second settlement (for resources)
+                    if self.players[self.current_player_name].num_settlements == 1:
+                        # can prob shorten hex_to_resource and be more precise - create lookup dict if needed
+                        hex_to_resource = {self.board.land_hexes[i]: terrain_to_resource[self.board.terrains[i]] for i in range(len(self.board.land_hexes))}
+                        for hex in location_node.hexes:
+                            try:
+                                self.players[self.current_player_name].hand[hex_to_resource[hex]] += 1
+                            except KeyError:
+                                continue
 
-                self.players[location_node.player].num_settlements += 1
-                if location_node.port:
-                    self.players[location_node.player].ports.append(location_node.port)
+                    self.players[location_node.player].num_settlements += 1
+                    if location_node.port:
+                        self.players[location_node.player].ports.append(location_node.port)
 
 
         elif location_hexes["hex_b"] != None and self.mode == "build_road":
@@ -944,30 +945,31 @@ class ServerState:
                     location_edge = edge
 
             if action == "build_road":
-                if location_edge.build_check_road(self):
-                    self.mode = "build_settlement"
-                    location_edge.player = self.current_player_name
-                    self.players[self.current_player_name].num_roads += 1
+                if location_edge != None:
+                    if location_edge.build_check_road(self):
+                        self.mode = "build_settlement"
+                        location_edge.player = self.current_player_name
+                        self.players[self.current_player_name].num_roads += 1
 
-                    # 1 road and not the last player
-                    if self.players[self.current_player_name].num_roads == 1 and self.current_player_name != self.player_order[-1]:
-                        current_index = self.player_order.index(self.current_player_name)
-                        self.current_player_name = self.player_order[current_index+1]
+                        # 1 road and not the last player
+                        if self.players[self.current_player_name].num_roads == 1 and self.current_player_name != self.player_order[-1]:
+                            current_index = self.player_order.index(self.current_player_name)
+                            self.current_player_name = self.player_order[current_index+1]
 
-                    # 1 road and the last player
-                    if self.players[self.current_player_name].num_roads == 1 and self.current_player_name == self.player_order[-1]:
-                        return
+                        # 1 road and the last player
+                        if self.players[self.current_player_name].num_roads == 1 and self.current_player_name == self.player_order[-1]:
+                            return
 
-                    # 2 roads and not the first player
-                    if self.players[self.current_player_name].num_roads == 2 and self.current_player_name != self.player_order[0]:
-                        current_index = self.player_order.index(self.current_player_name)
-                        self.current_player_name = self.player_order[current_index-1]
+                        # 2 roads and not the first player
+                        if self.players[self.current_player_name].num_roads == 2 and self.current_player_name != self.player_order[0]:
+                            current_index = self.player_order.index(self.current_player_name)
+                            self.current_player_name = self.player_order[current_index-1]
 
-                    # 2 roads and the first player
-                    if self.players[self.current_player_name].num_roads == 2 and self.current_player_name == self.player_order[0]:
-                        self.mode = "roll_dice"
-                        self.setup = False
-                        self.send_broadcast("accept", "setup_complete")
+                        # 2 roads and the first player
+                        if self.players[self.current_player_name].num_roads == 2 and self.current_player_name == self.player_order[0]:
+                            self.mode = "roll_dice"
+                            self.setup = False
+                            self.send_broadcast("accept", "setup_complete")
 
 
 
