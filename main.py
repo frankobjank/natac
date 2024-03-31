@@ -279,7 +279,7 @@ class Node:
                     
         return adj_nodes
 
-    def build_check_settlement(self, s_state):
+    def build_check_settlement(self, s_state, setup=False):
         # print("build_check_settlement")
 
         if s_state.current_player_name == None:
@@ -323,13 +323,13 @@ class Node:
                 print("too close to city")
                 return False
 
-            
-        adj_edges = self.get_adj_edges(s_state.board.edges)
-        # is node adjacent to at least 1 same-colored road
-        if all(edge.player != s_state.current_player_name for edge in adj_edges):
-            s_state.send_to_player(s_state.current_player_name, "log", f"You have no adjacent roads")
-            print("no adjacent roads")
-            return False
+        if not setup:
+            adj_edges = self.get_adj_edges(s_state.board.edges)
+            # is node adjacent to at least 1 same-colored road
+            if all(edge.player != s_state.current_player_name for edge in adj_edges):
+                s_state.send_to_player(s_state.current_player_name, "log", f"You have no adjacent roads")
+                print("no adjacent roads")
+                return False
                         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a settlement")
         print("no conflicts, building settlement")
@@ -412,13 +412,13 @@ class Board:
     def get_random_ports(self):
         ports_list = []
         port_counts = {"three": 4, "ore": 1, "wood": 1, "wheat": 1, "brick": 1, "sheep": 1}
-        tiles_for_random = [k for k in port_counts.keys()]
+        ports_for_random = [k for k in port_counts.keys()]
         while len(ports_list) < 9:
             for i in range(9):
-                rand_tile = tiles_for_random[random.randrange(6)]
-                if port_counts[rand_tile] > 0:
-                    ports_list.append(rand_tile)
-                    port_counts[rand_tile] -= 1
+                rand_port = ports_for_random[random.randrange(6)]
+                if port_counts[rand_port] > 0:
+                    ports_list.append(rand_port)
+                    port_counts[rand_port] -= 1
         # padding with None to make same as the default set
         ports_list.insert(1, None)
         ports_list.insert(3, None)
@@ -455,7 +455,6 @@ class Board:
             "forest", "mountain", "field", "pasture",
             "hill", "field", "pasture"
         ]
-        # this is default order, can make to be randomized too
         tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
         ports_ordered = [
             "three", None, "wheat", None, 
@@ -476,9 +475,7 @@ class Board:
         
         elif not fixed:
             # for debug, use random then switch back to old seed
-            random.seed()
             self.terrains, self.tokens, self.ports_ordered, ports_to_nodes = self.randomize_tiles()
-            random.seed(4)
 
         self.land_hexes = [
             hh.set_hex(0, -2, 2),
@@ -686,15 +683,16 @@ class Player:
         # gameplay
         self.name = name
         self.order = order
-        self.color = None
-        # self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+        self.color = "gray"
+        self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # 7 card starting hand for debug
-        self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 0}
+        # self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 0}
         self.num_to_discard = 0
         self.dev_cards = {"knight": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
         self.visible_knights = 0 # can use to count largest army
         self.num_cities = 0
         self.num_settlements = 0 # for counting victory points
+        self.num_roads = 0 # use for setup
         self.ports = []
 
         # networking
@@ -764,7 +762,7 @@ class ServerState:
         self.die2 = 0
         self.turn_num = 0
         self.dice_rolls = 0
-        self.mode = None
+        self.mode = "select_color" # start with adding players instead of None?
 
         self.game_over = False
 
@@ -773,8 +771,6 @@ class ServerState:
 
 
         self.debug = debug
-        if self.debug == True:
-            random.seed(4)
 
     def shuffle_dev_cards(self):
         # adds cards to self.dev_card_deck
@@ -794,7 +790,9 @@ class ServerState:
         if self.combined:
             self.initialize_dummy_players("red", "white", "orange", "blue")
         self.board = Board()
-        self.board.initialize_board(fixed=True)
+        if self.debug==True:
+            random.seed(4)
+        self.board.initialize_board(fixed=self.debug)
         self.shuffle_dev_cards()
 
     
@@ -856,7 +854,8 @@ class ServerState:
             order = len(self.player_order)
             self.players[name] = Player(name, order, address)
             self.player_order.append(name)
-            self.board.set_demo_settlements(self, name)
+            if self.debug == True:
+                self.board.set_demo_settlements(self, name)
             self.send_broadcast("log", f"Adding Player {name}.")
         
         self.send_to_player(name, "log", f"Welcome to natac.")
@@ -872,6 +871,99 @@ class ServerState:
             player_names.remove(rand_player)
         
         self.player_order.sort(key=lambda player_name: self.players[player_name].order)
+        new_player_dict = {}
+        for player in self.player_order:
+            new_player_dict[player] = self.players[player]
+        
+        self.players = new_player_dict
+        
+
+
+    def start_game(self):
+        # right now board is initialized when server is started
+        self.randomize_player_order()
+        if self.turn_num == 0 and len(self.player_order) > 0:
+            self.current_player_name = self.player_order[0]
+        self.mode = "build_settlement"
+
+    def is_setup_complete(self):
+        if len([edge for edge in self.board.edges if edge.player != None]) == 2*len(self.player_order):
+            return True
+        else:
+            return False
+        
+    def setup_town_road(self, location, action):
+        # taken from end of update_server() and modified
+        if all(hex == None for hex in location.values()):
+            return
+        
+        # convert location hex coords to hexes
+        location_hexes = {}
+        for hex_num, hex_coords in location.items():
+            if hex_coords != None:
+                location_hexes[hex_num] = hh.set_hex_from_coords(hex_coords)
+            else:
+                location_hexes[hex_num] = None
+
+
+        # assign location node, edges, hex based on hexes sent from client
+        location_node = None
+        location_edge = None
+        
+        hex_a, hex_b, hex_c = location_hexes.values()
+        if location_hexes["hex_c"] != None:
+            if self.mode == "build_settlement":
+                for node in self.board.nodes:
+                    if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
+                        location_node = node
+
+            if action == "build_settlement" and location_node.build_check_settlement(self, setup=True):
+                self.mode = "build_road" # set to build road
+                location_node.town = "settlement"
+                location_node.player = self.current_player_name
+
+                # check if this is second settlement (for resources)
+                if self.players[self.current_player_name].num_settlements == 1:
+                    # can prob shorten hex_to_resource and be more precise - create lookup dict if needed
+                    hex_to_resource = {self.board.land_hexes[i]: terrain_to_resource[self.board.terrains[i]] for i in range(len(self.board.land_hexes))}
+                    for hex in location_node.hexes:
+                        self.players[self.current_player_name].hand[hex_to_resource[hex]] += 1
+
+                self.players[location_node.player].num_settlements += 1
+                if location_node.port:
+                    self.players[location_node.player].ports.append(location_node.port)
+
+
+        elif location_hexes["hex_b"] != None and self.mode == "build_road":
+            for edge in self.board.edges:
+                if edge.hexes == sort_hexes([hex_a, hex_b]):
+                    location_edge = edge
+
+            if action == "build_road":
+                if location_edge.build_check_road(self):
+                    self.mode = "build_settlement"
+                    location_edge.player = self.current_player_name
+                    self.players[self.current_player_name].num_roads += 1
+
+                    # 1 road and not the last player
+                    if self.players[self.current_player_name].num_roads == 1 and self.current_player_name != self.player_order[-1]:
+                        current_index = self.player_order.index(self.current_player_name)
+                        self.current_player_name = self.player_order[current_index+1]
+
+                    # 1 road and the last player
+                    if self.players[self.current_player_name].num_roads == 1 and self.current_player_name == self.player_order[-1]:
+                        return
+
+                    # 2 roads and not the first player
+                    if self.players[self.current_player_name].num_roads == 2 and self.current_player_name != self.player_order[0]:
+                        current_index = self.player_order.index(self.current_player_name)
+                        self.current_player_name = self.player_order[current_index-1]
+
+                    # 2 roads and the first player
+                    if self.players[self.current_player_name].num_roads == 2 and self.current_player_name == self.player_order[0]:
+                        self.mode = "roll_dice"
+
+
 
     def get_next_node(self, visited_nodes, current_edge, edges_to_nodes):
         # nodes_to_edges = {324142: [3241, 3242], 313241: [3241], 323342: [3242, 3233], 233233: [3233], 142324: [1423], 131423: [1423]}
@@ -1170,6 +1262,7 @@ class ServerState:
     def build_road(self, location_edge):
         self.mode = None # immediately switch off build mode
         location_edge.player = self.current_player_name
+        self.players[location_edge.player].num_roads += 1
         self.pay_for("road")
 
     def buy_dev_card(self):
@@ -1414,7 +1507,7 @@ class ServerState:
         # only send trade or discard to non-current player
         elif recipient != self.current_player_name:
             # only send "trade" to non-current player if there is a current trade offer
-            if len(self.player_trade["trade_with"]) > 0 or self.mode == "discard":
+            if len(self.player_trade["trade_with"]) > 0 or self.mode == "discard" or self.mode == "select_color":
                 mode = self.mode
 
         
@@ -1519,10 +1612,6 @@ class ServerState:
         if client_request == None or len(client_request) == 0:
             return
         
-        # set current player to first in player order
-        if self.turn_num == 0 and len(self.player_order) > 0:
-            self.current_player_name = self.player_order[0]
-
         # action
         if client_request["action"] == "add_player":
             if self.is_server_full(client_request["name"], address) == True:
@@ -1533,6 +1622,25 @@ class ServerState:
 
         elif client_request["action"] == "request_board":
             self.socket.sendto(to_json(self.package_state(client_request["name"], include_board=True)).encode(), address)
+            return
+        
+        elif client_request["action"] == "submit" and self.mode == "select_color" and client_request["color"] != None:
+            if client_request["color"] in self.colors_avl:
+                self.players[client_request["name"]].color = client_request["color"]
+                self.colors_avl.remove(client_request["color"])
+                self.send_to_player(client_request["name"], "accept", "color_selection")
+            elif not client_request["color"] in self.colors_avl:
+                self.send_to_player(client_request["name"], "log", f"{client_request['color']} is not available, choose another.")
+            return
+        
+        elif client_request["action"] == "start_game":
+            if not all(player_object.color != "gray" for player_object in self.players.values()):
+                self.send_to_player(client_request["name"], "log", "Not all players have chosen colors.")
+                return
+            if 2 > len(self.players):
+                self.send_to_player(client_request["name"], "log", "Must have at least 2 players to start a game.")
+                return
+            self.start_game()
             return
 
         # receive input from non-current player for discard_cards and trade
@@ -1576,6 +1684,11 @@ class ServerState:
             return
         
         # CODE BELOW ONLY APPLIES TO CURRENT PLAYER
+
+        # for setup
+        if not self.is_setup_complete():
+            self.setup_town_road(client_request["location"], client_request["action"])
+            return
 
 
         # set mode to "roll_dice" may be redundant since there is another check for dice roll after playing dev card/completing action
@@ -1734,7 +1847,7 @@ class ServerState:
                         location_node = node
 
             if client_request["action"] == "build_settlement":
-                if location_node.build_check_settlement(self) and self.cost_check("settlement"):
+                if location_node.build_check_settlement(self, setup=False) and self.cost_check("settlement"):
                     self.build_settlement(location_node)
                     self.calc_longest_road()
             elif client_request["action"] == "build_city":
@@ -1802,43 +1915,47 @@ class Button:
             self.display = self.resource
         else:
             self.display = self.name.capitalize()
-        if not "_" in self.display:
-            font_scaler = 1
-            if 5>=len(self.display):
-                font_scaler += len(self.display) - 10
-            else:
-                font_scaler += len(self.display) + 1
-            self.font_size = self.rec.height/(3.5 + 1/8*font_scaler)
-
-        elif "_" in self.display:
-            capitalized = ""
-            longest_word = ""
-            for word in self.display.split("_"):
-                if len(word) > len(longest_word):
-                    longest_word = word
-                capitalized += word.capitalize()+"\n"
-            # cut off last \n
-            self.display = capitalized[:-1]
-            font_scaler = 1
-            if 5>=len(longest_word):
-                font_scaler += len(self.display) - 10
-            else:
-                font_scaler += len(self.display)
-            self.font_size = self.rec.height/(3.5 + 1/8*font_scaler)
-
 
 
     def __repr__(self):
         return f"Button({self.name})"
+        
+    
+    def calc_display_font_size(self, display):
+        if not "_" in display:
+            font_scaler = 1
+            if 5>=len(display):
+                font_scaler += len(display) - 10
+            else:
+                font_scaler += len(display) + 1
+            return display, self.rec.height/(3.5 + 1/8*font_scaler)
 
-    def draw_display(self, font_override=None):
-        if font_override:
-            for i, line in enumerate(self.display.split("\n")):
-                pr.draw_text_ex(pr.gui_get_font(), " "+line, (self.rec.x, self.rec.y+(i+.5)*self.font_override), self.font_override, 0, pr.BLACK)
+        elif "_" in display:
+            capitalized = ""
+            longest_word = ""
+            for word in display.split("_"):
+                if len(word) > len(longest_word):
+                    longest_word = word
+                capitalized += word.capitalize()+"\n"
+            # cut off last \n
+            display = capitalized[:-1]
+            font_scaler = 1
+            if 5>=len(longest_word):
+                font_scaler += len(display) - 10
+            else:
+                font_scaler += len(display)
+            return display, self.rec.height/(3.5 + 1/8*font_scaler)
+
+    def draw_display(self, str_override=""):
+        if len(str_override)>0:
+            display, font_size = self.calc_display_font_size(str_override)
+            for i, line in enumerate(display.split("\n")):
+                pr.draw_text_ex(pr.gui_get_font(), " "+line, (self.rec.x, self.rec.y+(i+.5)*font_size), font_size, 0, pr.BLACK)
             return
 
-        for i, line in enumerate(self.display.split("\n")):
-            pr.draw_text_ex(pr.gui_get_font(), " "+line, (self.rec.x, self.rec.y+(i+.5)*self.font_size), self.font_size, 0, pr.BLACK)
+        display, font_size = self.calc_display_font_size(self.display)
+        for i, line in enumerate(display.split("\n")):
+            pr.draw_text_ex(pr.gui_get_font(), " "+line, (self.rec.x, self.rec.y+(i+.5)*font_size), font_size, 0, pr.BLACK)
 
     
 class Menu:
@@ -1863,11 +1980,11 @@ class Menu:
 
 
 class ClientPlayer:
-    def __init__(self, name: str, display_order: int, marker: pr.Rectangle):
+    def __init__(self, name: str, order: int, rec: pr.Rectangle):
         self.name = name
-        self.color = None # rf.game_color_dict[color]
-        self.display_order = display_order
-        self.marker = marker
+        self.color = pr.GRAY # rf.game_color_dict[color]
+        self.order = order
+        self.rec = rec
 
         self.hand = {} # {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.num_to_discard = 0
@@ -1880,6 +1997,9 @@ class ClientPlayer:
         
         # for bank_trade
         self.ratios = []
+    
+    def __repr__(self) -> str:
+        return f"Player: {self.name}, color: {self.color}, order: {self.order}"
 
 
 class ClientState:
@@ -1967,7 +2087,7 @@ class ClientState:
         self.to_steal_from = [] # player names
         # self.player_index = 0 # used for selecting
 
-        self.debug = True
+        self.debug = False
 
 
         # offset from right side of screen for buttons,  info_box, and logbox
@@ -2037,17 +2157,20 @@ class ClientState:
 
 
     # INITIALIZING CLIENT FUNCTIONS   
-    def does_board_exist(self):
+    def does_board_exist(self) -> bool:
         if len(self.board) > 0:
             return True
         else:
             print("board does not exist")
+            return False
 
-    def is_connected(self):
+    # checks if client has recv msg within the last 10 seconds
+    def is_connected(self) -> bool:
         if 10 > time.time() - self.time_last_recv:
             return True
         else:
             print(f"Client {self.name} not connected to server")
+            return False
             
 
     def select_color(self, user_input):
@@ -2059,10 +2182,6 @@ class ClientState:
         if self.check_submit(user_input):
             return self.client_request_to_dict(action="submit", color=self.colors_avl[self.selection_index])
         
-
-        
-
-
 
     def data_verification(self, packet):
         lens_for_verification = {"ocean_hexes": 18, "ports_ordered": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19} #, "robber_hex": 2, "dice": 2}
@@ -2115,35 +2234,39 @@ class ClientState:
         q, r = server_response["robber_hex"]
         self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
 
-    def client_initialize_player(self, name, color, display_order):
-        marker_size = self.screen_width / 25
-        marker_y = (display_order*2+1)*marker_size
-        self.client_players[name] = ClientPlayer(name, color, display_order, pr.Rectangle(marker_size, marker_y, marker_size, marker_size))
+    def client_initialize_player(self, name, order):
+        rec_size = self.screen_width / 25
+        rec_y = (order*2+.5)*rec_size
+        self.client_players[name] = ClientPlayer(name, order=order, rec=pr.Rectangle(rec_size/4, rec_y, rec_size, rec_size))
 
     def client_initialize_dummy_players(self):
-        # define player markers based on player_order that comes in from server
+        # define player recs based on player_order that comes in from server
         for order, name in enumerate(self.player_order):
-            color=name
-            self.client_initialize_player(name, color, order)
+            self.client_initialize_player(name, order)
 
-    def client_request_to_dict(self, mode=None, action=None, cards=None, resource=None, player=None, trade_offer=None, color=None) -> dict:
-        client_request = {"name": self.name}
-        client_request["debug"] = self.debug
-        client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
+    def is_setup_complete(self):
+        if self.board["road_edges"] == 2*len(self.player_order):
+            return True
+        else:
+            return False
 
-        client_request["mode"] = mode
-        client_request["action"] = action
-        client_request["cards"] = cards
-        client_request["resource"] = resource
-        client_request["selected_player"] = player
-        client_request["trade_offer"] = trade_offer
-        client_request["color"] = color
+    def submit_board_selection(self):
+        # checking board selections for building town, road, moving robber
+        if self.current_hex_3 and self.mode == "build_settlement":
+            return self.client_request_to_dict(action="build_settlement")
         
+        elif self.current_hex_3 and self.mode == "build_city":
+            return self.client_request_to_dict(action="build_city")
+        
+        elif self.current_hex_2 and (self.mode == "build_road" or self.mode == "road_building"):
+            return self.client_request_to_dict(action="build_road")
 
-        return client_request
+        elif self.current_hex and self.mode == "move_robber":
+            return self.client_request_to_dict(action="move_robber")
 
     def client_steal(self, user_input):
         # TODO keys sometimes move selection in 'wrong' direction because display_order different from player_order - I think this is fixed
+        # changing display order so might need to fix again
         if user_input == pr.KeyboardKey.KEY_UP or user_input == pr.KeyboardKey.KEY_LEFT:
             self.selection_index -= 1
             if 0 > self.selection_index:
@@ -2166,7 +2289,21 @@ class ClientState:
         elif user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
             return True
         return False
+
+    def client_request_to_dict(self, mode=None, action=None, cards=None, resource=None, player=None, trade_offer=None, color=None) -> dict:
+        client_request = {"name": self.name}
+        client_request["debug"] = self.debug
+        client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
+
+        client_request["mode"] = mode
+        client_request["action"] = action
+        client_request["cards"] = cards
+        client_request["resource"] = resource
+        client_request["selected_player"] = player
+        client_request["trade_offer"] = trade_offer
+        client_request["color"] = color
         
+        return client_request
 
     # GAME LOOP FUNCTIONS
     def get_user_input(self):
@@ -2273,12 +2410,26 @@ class ClientState:
             pass
 
     def build_client_request(self, user_input):
+
+        # tells server and self to print debug
+        if user_input == pr.KeyboardKey.KEY_ZERO:
+            # self.print_debug()
+            print(self.client_players)
+            # return self.client_request_to_dict(action="print_debug")
+
         if not self.is_connected():
             return self.client_request_to_dict(action="add_player")
         
-        # player making first contact with server
-        if self.client_players[self.name].color == None:
-            return self.select_color(user_input)
+        if self.mode == "select_color":
+            if self.name in self.client_players.keys():
+                if self.client_players[self.name].color == pr.GRAY:
+                    return self.select_color(user_input)
+                
+            if self.check_submit(user_input):
+                if all(player_object.color != pr.GRAY for player_object in self.client_players.values()):
+                    return self.client_request_to_dict(action="start_game")
+
+
 
         if not self.does_board_exist():
             return self.client_request_to_dict(action="request_board")
@@ -2294,9 +2445,9 @@ class ClientState:
         if self.name != self.current_player_name:
             self.buttons["end_turn"].hover = False
 
-        if user_input == pr.KeyboardKey.KEY_R:
-            print("RAINBOWROAD")
-            return self.client_request_to_dict(action="randomize_board")
+        # if user_input == pr.KeyboardKey.KEY_R:
+        #     print("RAINBOWROAD")
+        #     return self.client_request_to_dict(action="randomize_board")
 
 
 
@@ -2318,6 +2469,10 @@ class ClientState:
                 if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hex), 60):
                     self.current_hex_3 = hex
                     break
+
+        if not self.is_setup_complete():
+            if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                return self.submit_board_selection()
 
 
         # check for dev card hover apart from other buttons - also before roll_dice check
@@ -2394,14 +2549,10 @@ class ClientState:
                     self.log_msgs.append("Insufficient resources for completing trade.")
                     return
 
-        # tells server and self to print debug
-        if user_input == pr.KeyboardKey.KEY_ZERO:
-            self.print_debug()
-            return self.client_request_to_dict(action="print_debug")
         # cheats
-        elif user_input == pr.KeyboardKey.KEY_NINE:
-            print("ITSOVER9000")
-            return self.client_request_to_dict(action="ITSOVER9000")
+        # if user_input == pr.KeyboardKey.KEY_NINE:
+        #     print("ITSOVER9000")
+        #     return self.client_request_to_dict(action="ITSOVER9000")
         
         
 
@@ -2553,21 +2704,10 @@ class ClientState:
         if user_input == pr.KeyboardKey.KEY_C:
             return self.client_request_to_dict(action="end_turn")
 
-
-        # selecting actions with mouse click
+        # selecting board actions with mouse click
         elif user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-            # checking board selections for building town, road, moving robber
-            if self.current_hex_3 and self.mode == "build_settlement":
-                return self.client_request_to_dict(action="build_settlement")
-            
-            elif self.current_hex_3 and self.mode == "build_city":
-                return self.client_request_to_dict(action="build_city")
-            
-            elif self.current_hex_2 and (self.mode == "build_road" or self.mode == "road_building"):
-                return self.client_request_to_dict(action="build_road")
+            return self.submit_board_selection()
 
-            elif self.current_hex and self.mode == "move_robber":
-                return self.client_request_to_dict(action="move_robber")
 
         if self.combined == True:
             self.name = self.current_player_name
@@ -2598,7 +2738,7 @@ class ClientState:
         # add card
         # resize and reorder the hand
         pass
-    
+
     def reset_selections(self):
         self.bank_trade = {"offer": [], "request": []}
         self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
@@ -2703,7 +2843,6 @@ class ClientState:
         if len(server_response["player_order"]) > 0:
             self.player_order = server_response["player_order"]
             self.current_player_name = server_response["current_player"]
-            colors = server_response["colors"]
 
             # initialize all players at once for combined
             if self.combined == True and len(self.client_players) == 0:
@@ -2713,13 +2852,35 @@ class ClientState:
             # eventually will need to reorder players after real order has been determined
             elif len(self.player_order) > len(self.client_players):
                 for i, player in enumerate(self.player_order):
-                    self.client_initialize_player(name=player, color=color, display_order=i)
-            # elif len(self.player_order) > len(self.client_players):
-            #     self_order = self.player_order.index(self.name)
-            #     for i in range(len(self.player_order)):
-            #         new_order = self_order + i
-            #         new_order %= len(self.player_order)
-            #         self.client_initialize_player(name=self.player_order[i], display_order=i)
+                    if not player in self.client_players.keys():
+                        self.client_initialize_player(name=player, order=i)
+
+            new_player_dict = {}
+            if not all(player == self.player_order[i] for i, player in enumerate(self.client_players.keys())):
+                for i, player in enumerate(self.player_order):
+                    new_player_dict[player] = self.client_players[player]
+                    new_player_dict[player].order = i
+                    # new rec
+                    rec_size = self.screen_width / 25
+                    rec_y = (i*2+.5)*rec_size
+                    new_player_dict[player].rec = pr.Rectangle(rec_size/4, rec_y, rec_size, rec_size)
+
+            
+            if len(new_player_dict) > 0:
+                self.client_players = new_player_dict
+
+
+            
+            # server_colors = ["red", "gray", etc] - translate here to pr Colors
+            # settlements currently colored by node.player NAME - change to players[node.player].color
+            for i, player_object in enumerate(self.client_players.values()):
+                player_object.color = rf.game_color_dict[server_response["colors"][i]]
+            
+            # adjust colors_avl list
+            if self.client_players[self.name].color == pr.GRAY:
+                self.colors_avl = server_response["colors_avl"]
+            else:
+                self.colors_avl = []
 
             # assign ports to self under .ratios
             if "three" in server_response["ports"]:
@@ -2732,7 +2893,9 @@ class ClientState:
 
             # UNPACK WITH PLAYER ORDER SINCE NAMES WERE REMOVED TO SAVE BYTES IN SERVER_RESPONSE
             # unpack hands, dev_cards, victory points
+            # player order will be different than dict order, should reconstitute dict?? or just go by player order?
             for order, name in enumerate(self.player_order):
+
                 if len(server_response["num_to_discard"]) > 0:
                     self.client_players[name].num_to_discard = server_response["num_to_discard"][order]
 
@@ -2762,7 +2925,7 @@ class ClientState:
                             button_division = 17
                             button_w = self.screen_width//button_division
                             if number > 0:
-                                self.dev_card_buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.client_players[name].marker.rec.x-(dev_card_offset+1.2)*button_w, self.client_players[name].marker.rec.y, button_w, self.client_players[name].marker.rec.height), self.dev_card_order[position], action=True)
+                                self.dev_card_buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.client_players[name].rec.x-(dev_card_offset+1.2)*button_w, self.client_players[name].rec.y, button_w, self.client_players[name].rec.height), self.dev_card_order[position], action=True)
 
                                 dev_card_offset += 1
                             elif number == 0:
@@ -2821,13 +2984,13 @@ class ClientState:
         
         # draw roads, settlements, cities
         for edge in self.board["road_edges"]:
-            rf.draw_road(edge.get_edge_points(), rf.game_color_dict[edge.player])
+            rf.draw_road(edge.get_edge_points(), self.client_players[edge.player].color)
 
         for node in self.board["town_nodes"]:
             if node.town == "settlement":
-                rf.draw_settlement(node.get_node_point(), rf.game_color_dict[node.player])
+                rf.draw_settlement(node.get_node_point(), self.client_players[node.player].color)
             elif node.town == "city":
-                rf.draw_city(node.get_node_point(), rf.game_color_dict[node.player])
+                rf.draw_city(node.get_node_point(), self.client_players[node.player].color)
 
         # draw robber; gray-out to see number if mouse hover
         alpha = 255
@@ -2876,7 +3039,7 @@ class ClientState:
         pr.begin_drawing()
         pr.clear_background(pr.BLUE)
 
-        if self.does_board_exist():
+        if self.does_board_exist() and self.mode != "select_color":
             pr.begin_mode_2d(self.camera)
             self.render_board()
             pr.end_mode_2d()
@@ -2936,67 +3099,78 @@ class ClientState:
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
 
-            if b_object.name != "end_turn" and b_object.name != "roll_dice":
+            if b_object.name != "roll_dice" and b_object.name != "submit":
                 b_object.draw_display()
             
             # hover - self.hover needed because state must determine if action will be allowed
             if b_object.hover:
                 rf.draw_button_outline(b_object)
+        
+        # "submit" - acts as start game button
+        if self.mode == "select_color":
+            self.buttons["submit"].draw_display(str_override="start_game")
+        elif self.mode == "trade" and self.name != self.current_player_name:
+            self.buttons["roll_dice"].draw_display(str_override="accept_trade")
+        else:
+            self.buttons["submit"].draw_display()
 
-        # draw text on buttons
-        # action buttons
+        # "roll_dice" -- or decline trade
+        
         if self.dice == [0, 0]:
             self.buttons["roll_dice"].draw_display()
+
+        elif self.mode == "trade" and self.name != self.current_player_name:
+            self.buttons["roll_dice"].draw_display(str_override="decline_trade")
 
         elif len(self.dice) > 0:
             rf.draw_dice(self.dice, self.buttons["roll_dice"].rec)
             # draw line between dice
             pr.draw_line_ex((int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y)), (int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y+self.buttons["roll_dice"].rec.height)), 2, pr.BLACK)
-
-        self.buttons["end_turn"].draw_display()
         
 
 
 
         for player_name, player_object in self.client_players.items():
-            # draw player markers
+            # draw player recs + names, hands
             # draw players in top left with attributes, descending by player order
-
-            pr.draw_rectangle_rec(player_object.marker.rec, player_object.marker.color)
-            pr.draw_rectangle_lines_ex(player_object.marker.rec, 1, pr.BLACK)
-
-            rf.draw_hands(self, player_name, player_object)
+            pr.draw_rectangle_rec(player_object.rec, player_object.color)
+            pr.draw_rectangle_lines_ex(player_object.rec, 1, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f"{player_name}", (player_object.rec.x, player_object.rec.y-self.screen_height//50), self.med_text, 0, pr.BLACK)
+            
+            # draw hands after initial setup
+            if self.mode != "select_color":
+                rf.draw_hands(self, player_name, player_object)
     
 
             # hightlight current player
             if player_name == self.current_player_name:
-                pr.draw_rectangle_lines_ex(player_object.marker.rec, 4, pr.BLACK)
+                pr.draw_rectangle_lines_ex(player_object.rec, 4, pr.BLACK)
 
             # split up by modes
             # draw "waiting" for non-self players if wating on them to return cards
             if self.mode == "discard" and player_name != self.name and player_object.num_to_discard > 0:
-                pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.marker.rec.x, player_object.marker.rec.y - 20), 12, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.rec.x, player_object.rec.y - 20), 12, 0, pr.BLACK)
 
 
             # for current player, highlight possible targets and selected player
             elif self.mode == "steal" and len(self.to_steal_from) > 0 and self.name == self.current_player_name:
                 for i, player_name in enumerate(self.to_steal_from):
-                    # pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].marker.rec, 7), 4, pr.GRAY)
+                    # pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].rec, 7), 4, pr.GRAY)
                     if i == self.selection_index:
-                        pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].marker.rec, 7), 4, pr.GREEN)
+                        pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].rec, 7), 4, pr.GREEN)
 
 
         score_x = self.screen_width//110
         score_font = (self.small_text + self.med_text)/2
-        pr.draw_text_ex(pr.gui_get_font(), "Scores:", (score_x, score_font), score_font, 0, pr.BLACK)
-        for i, player_name in enumerate(self.player_order):
-            msg = f"{player_name}: {self.client_players[player_name].victory_points}"
-            if self.name == player_name and self.client_players[player_name].dev_cards["victory_point"] > 0:
-                msg += f" (+{self.client_players[player_name].dev_cards['victory_point']} hidden)"
-            pr.draw_text_ex(pr.gui_get_font(), msg, (score_x, score_font + score_font*((i+1)*1.5)), score_font, 0, pr.BLACK)
+        # pr.draw_text_ex(pr.gui_get_font(), "Scores:", (score_x, score_font), score_font, 0, pr.BLACK)
+        # for i, player_name in enumerate(self.player_order):
+        #     msg = f"{player_name}: {self.client_players[player_name].victory_points}"
+        #     if self.name == player_name and self.client_players[player_name].dev_cards["victory_point"] > 0:
+        #         msg += f" (+{self.client_players[player_name].dev_cards['victory_point']} hidden)"
+        #     pr.draw_text_ex(pr.gui_get_font(), msg, (score_x, score_font + score_font*((i+1)*1.5)), score_font, 0, pr.BLACK)
 
-        pr.draw_text_ex(pr.gui_get_font(), f"Longest Road: {self.longest_road}", (score_x, score_font + score_font*(len(self.player_order)+1)*1.5), score_font, 0, pr.BLACK)
-        pr.draw_text_ex(pr.gui_get_font(), f"Largest Army: {self.largest_army}", (score_x, score_font + score_font*(len(self.player_order)+2)*1.5), score_font, 0, pr.BLACK)
+        # pr.draw_text_ex(pr.gui_get_font(), f"Longest Road: {self.longest_road}", (score_x, score_font + score_font*(len(self.player_order)+1)*1.5), score_font, 0, pr.BLACK)
+        # pr.draw_text_ex(pr.gui_get_font(), f"Largest Army: {self.largest_army}", (score_x, score_font + score_font*(len(self.player_order)+2)*1.5), score_font, 0, pr.BLACK)
 
         
         pr.end_drawing()
@@ -3037,18 +3211,14 @@ def run_client(name, server_IP=local_IP):
     c_state.socket.close()
 
 
-def run_server(IP_address, port=default_port):
+def run_server(IP_address, debug=False, port=default_port):
     # initialize socket
-    s_state = ServerState(IP_address=IP_address, port=port, combined=False, debug=True)
-
-    s_state.initialize_game() # initialize board, players
+    s_state = ServerState(IP_address=IP_address, port=port, combined=False, debug=debug)
+    s_state.initialize_game()
     while True:
         # receives msg, updates s_state, then sends message
         try:
             s_state.server_to_client()
-        # except Exception as e:
-            # print(e)
-            # break
         except KeyboardInterrupt:
             break
     s_state.send_broadcast("log", "Server is offline.")
@@ -3066,9 +3236,15 @@ cmd_line_input = sys.argv[1:]
 if len(cmd_line_input) > 0:
     if cmd_line_input[0] == "server":
         if cmd_line_input[1] == "local":
-            run_server(local_IP)
-        elif len(cmd_line_input) == 2:
-            run_server(cmd_line_input[1])
+            if len(cmd_line_input) > 2:
+                run_server(local_IP, cmd_line_input[2]) # local default board
+            else:
+                run_server(local_IP) # local random board
+        else:
+            if len(cmd_line_input) > 2:
+                run_server(cmd_line_input[1], cmd_line_input[2]) # remote default board
+            else:
+                run_server(cmd_line_input[1]) # remote random board
     else:
         if len(cmd_line_input) == 1:
             run_client(name=cmd_line_input[0], server_IP=local_IP)

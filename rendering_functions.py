@@ -6,7 +6,7 @@ import hex_helper as hh
 # test_color = Color(int("5d", base=16), int("4d", base=16), int("00", base=16), 255)
 game_color_dict = {
     # players
-    "nil": pr.GRAY,
+    "gray": pr.GRAY,
     "red": pr.get_color(0xe1282fff),
     "blue": pr.get_color(0x2974b8ff),
     "orange": pr.get_color(0xd46a24ff),
@@ -215,25 +215,24 @@ def draw_hands(c_state, player_name, player_object):
     # size = c_state.screen_height//50
     size = c_state.med_text-2
     if player_object.visible_knights > 0:
-        pr.draw_text_ex(pr.gui_get_font(), f"Knights played: {player_object.visible_knights}", (player_object.marker.rec.x, player_object.marker.rec.y-2*size), size, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), f"Knights played: {player_object.visible_knights}", (player_object.rec.x, player_object.rec.y-2*size), size, 0, pr.BLACK)
     if c_state.name == player_name:
-        # hand size for self
-        total_cards = sum(player_object.hand.values())
-        pr.draw_text_ex(pr.gui_get_font(), f"num\ncards\n{total_cards}", (player_object.marker.rec.x+x_offset*3, player_object.marker.rec.y), size, 0, pr.BLACK)
+        location = pr.Vector2(c_state.screen_width/3, c_state.screen_height-c_state.screen_height/10)
         # draw hand for self
         for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
             # put card_type into new var to bring all resource names to 5 chars
             card_type_display = card_type
             while 5 > len(card_type_display):
                 card_type_display += " "
-            pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y-size+(i*size)), size, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (location.x+x_offset, location.y-size+(i*size)), size, 0, pr.BLACK)
 
     # hand size for all other players
-    elif c_state.name != player_name:
-        pr.draw_text_ex(pr.gui_get_font(), f"Hand: {player_object.hand_size}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y), size, 0, pr.BLACK)
+    # elif c_state.name != player_name:
+    pr.draw_text_ex(pr.gui_get_font(), f"Hand: {player_object.hand_size}", (player_object.rec.x+x_offset, player_object.rec.y), size, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), f"Score: {player_object.victory_points}", (player_object.rec.x+x_offset, player_object.rec.y+size*2), size, 0, pr.BLACK)
 
-        if player_object.dev_cards_size > 0:
-            pr.draw_text_ex(pr.gui_get_font(), f"Dev: {player_object.dev_cards_size}", (player_object.marker.rec.x+x_offset, player_object.marker.rec.y+x_offset/4), size, 0, pr.BLACK)
+    if player_object.dev_cards_size > 0:
+        pr.draw_text_ex(pr.gui_get_font(), f"Dev: {player_object.dev_cards_size}", (player_object.rec.x+x_offset, player_object.rec.y+size), size, 0, pr.BLACK)
 
 def get_outer_rec(rec, offset):
     return pr.Rectangle(rec.x-offset, rec.y-offset, rec.width+2*offset, rec.height+2*offset)
@@ -251,7 +250,22 @@ def draw_mode_text(c_state, title, text):
 
 def draw_info_in_box(c_state):
     # all players
-    if c_state.mode == "discard":
+    
+    if c_state.mode == "select_color":
+        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
+        if c_state.client_players[c_state.name].color == pr.GRAY:
+            pr.draw_text_ex(pr.gui_get_font(), " Available colors:", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height//3-c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
+        for i, color in enumerate(c_state.colors_avl):
+            text_color = pr.BLACK
+            if i == c_state.selection_index:
+                text_color = pr.WHITE
+            pr.draw_text_ex(pr.gui_get_font(), f" {color}", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height//3+c_state.med_text*(i+1)), c_state.med_text*.9, 0, text_color)
+
+        return
+
+
+    # gameplay
+    elif c_state.mode == "discard":
         pr.draw_text_ex(pr.gui_get_font(), " "+to_title(c_state.mode), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
 
         if c_state.client_players[c_state.name].num_to_discard > 0:
@@ -314,14 +328,7 @@ def draw_info_in_box(c_state):
 
     # ONLY CURRENT PLAYER
     if c_state.mode in mode_text.keys():
-        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])    
-
-    # if c_state.mode == None:
-    #     draw_mode_text(c_state, "", " You may pick an action or end\n your turn.")
-
-        # for line in building_costs:
-        #     pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/4), c_state.med_text, 0, pr.BLACK)
-
+        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
 
     if c_state.mode == "trade":
         draw_trade_interface(c_state)
@@ -413,7 +420,8 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, bank_
 
     for button_object in buttons.values():
         # font was too big, resizing
-        font_resize = button_object.font_size-2
+        font_resize = display, font_size = button_object.calc_display_font_size(button_object.display)
+        font_resize =- 2
         pr.draw_rectangle_rec(button_object.rec, button_object.color)
         pr.draw_rectangle_lines_ex(button_object.rec, 1, pr.BLACK)
         if "request" in button_object.name:
@@ -454,7 +462,12 @@ def to_title(mode):
     return cap
 
 mode_text = {
-    # modes
+    # modes - can fit 30 chars (med_text) with info_box x = self.screen_width/3.5 (~314.3)
+    # with font_size c_state.med_text*.9 (~16.9) -- 314.3/16.9 +1 for " " = ~19.6 font width
+    # which means multiplier from height -> width (19.59/16.9) = ~1.16
+    # TODO calc line breaks on the fly (using above conversions) instead of hardcoding
+    "select_color": " Click submit to choose. Click\n Start Game when all players\n are ready.",
+    "setup": " Players will take turns\n placing their initial\n settlements and roads.",
     "build_road": " Select a location to build\n a road.",
     "build_settlement": " Select a location to build\n a settlement.",
     "build_city": " Select a settlement to\n upgrade to a city.",
