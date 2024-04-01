@@ -588,92 +588,54 @@ class Board:
         self.int_to_node = {obj_to_int(node): node for node in self.nodes}
 
 
-    def set_demo_settlements(self, s_state, player="all"):
+    def assign_demo_settlements(self, player_object, spec_nodes, spec_edges):
+        hex_to_resource = {self.land_hexes[i]: terrain_to_resource[self.terrains[i]] for i in range(len(self.land_hexes))}
+
+        for node in self.nodes:
+            for red_node in spec_nodes:
+                if node.hexes[0] == red_node.hexes[0] and node.hexes[1] == red_node.hexes[1] and node.hexes[2] == red_node.hexes[2]:
+                    player_object.num_settlements += 1
+                    node.player = player_object.name
+                    node.town = "settlement"
+        for edge in self.edges:
+            for red_edge in spec_edges:
+                if edge.hexes[0] == red_edge.hexes[0] and edge.hexes[1] == red_edge.hexes[1]:
+                    edge.player = player_object.name
+        for hex in spec_nodes[1].hexes:
+            player_object.hand[hex_to_resource[hex]] += 1
+
+
+    def set_demo_settlements(self, player_object, order):
         # self.land_hexes = []
         # self.terrains = []
         # self.tokens = []
 
-        hex_to_resource = {self.land_hexes[i]: terrain_to_resource[self.terrains[i]] for i in range(len(self.land_hexes))}
         # for demo, initiate default roads and settlements
-        # Red
+        # Red - p1
         red_nodes = [Node(hh.Hex(0, -2, 2), hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Node(hh.Hex(-2, 0, 2), hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
         red_edges = [Edge(hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Edge(hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
 
+        # White - p2
+        white_nodes = [Node(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1), hh.Hex(q=0, r=-1, s=1)), Node(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=1, r=1, s=-2), hh.Hex(q=2, r=0, s=-2))]
+        white_edges = [Edge(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=2, r=0, s=-2)), Edge(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1))]
 
-        # Blue
+        # Orange - p3
+        orange_nodes = [Node(hh.Hex(q=-1, r=1, s=0), hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1)), Node(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0), hh.Hex(q=2, r=-1, s=-1))]
+        orange_edges=[Edge(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0)), Edge(hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1))]
+
+        # Blue - p4
         blue_nodes = [Node(hh.Hex(-2, 1, 1), hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Node(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2), hh.Hex(0, 2, -2))]
         blue_edges = [Edge(hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Edge(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2))]
 
 
-        # White
-        white_nodes = [Node(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1), hh.Hex(q=0, r=-1, s=1)), Node(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=1, r=1, s=-2), hh.Hex(q=2, r=0, s=-2))]
-        white_edges = [Edge(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=2, r=0, s=-2)), Edge(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1))]
-
-
-        # Orange
-        orange_nodes_hexes = [sort_hexes([hh.Hex(q=-1, r=1, s=0), hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1)]), sort_hexes([hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0), hh.Hex(q=2, r=-1, s=-1)])]
-        orange_edges=[Edge(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0)), Edge(hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1))]
-
-
-
-        if player == "orange":
-            for node in self.nodes:
-                for orange_node_hexes in orange_nodes_hexes:
-                    if node.hexes == orange_node_hexes:
-                        s_state.players["orange"].num_settlements += 1
-                        node.player = "orange"
-                        node.town = "settlement"
-            for edge in self.edges:
-                for orange_edge in orange_edges:
-                    if edge.hexes[0] == orange_edge.hexes[0] and edge.hexes[1] == orange_edge.hexes[1]:
-                        edge.player = "orange"
-            for hex in orange_nodes_hexes[1]:
-                s_state.players["orange"].hand[hex_to_resource[hex]] += 1
-            
-        if player == "blue":
-            for node in self.nodes:
-                for blue_node in blue_nodes:
-                    if node.hexes[0] == blue_node.hexes[0] and node.hexes[1] == blue_node.hexes[1] and node.hexes[2] == blue_node.hexes[2]:
-                        s_state.players["blue"].num_settlements += 1
-                        node.player = "blue"
-                        node.town = "settlement"
-            for edge in self.edges:
-                for blue_edge in blue_edges:
-                    if edge.hexes[0] == blue_edge.hexes[0] and edge.hexes[1] == blue_edge.hexes[1]:
-                        edge.player = "blue"
-            for hex in blue_nodes[1].hexes:
-                s_state.players["blue"].hand[hex_to_resource[hex]] += 1
-
-        if player == "red":
-            for node in self.nodes:
-                for red_node in red_nodes:
-                    if node.hexes[0] == red_node.hexes[0] and node.hexes[1] == red_node.hexes[1] and node.hexes[2] == red_node.hexes[2]:
-                        s_state.players["red"].num_settlements += 1
-                        node.player = "red"
-                        node.town = "settlement"
-            for edge in self.edges:
-                for red_edge in red_edges:
-                    if edge.hexes[0] == red_edge.hexes[0] and edge.hexes[1] == red_edge.hexes[1]:
-                        edge.player = "red"
-            for hex in red_nodes[1].hexes:
-                s_state.players["red"].hand[hex_to_resource[hex]] += 1
-            
-        if player == "white":
-            for node in self.nodes:
-                for white_node in white_nodes:
-                    if node.hexes[0] == white_node.hexes[0] and node.hexes[1] == white_node.hexes[1] and node.hexes[2] == white_node.hexes[2]:
-                        s_state.players["white"].num_settlements += 1
-                        node.player = "white"
-                        node.town = "settlement"
-            for edge in self.edges:
-                for white_edge in white_edges:
-                    if edge.hexes[0] == white_edge.hexes[0] and edge.hexes[1] == white_edge.hexes[1]:
-                        edge.player = "white"
-            for hex in white_nodes[1].hexes:
-                s_state.players["white"].hand[hex_to_resource[hex]] += 1
-
-
-
+        if order == 0:
+            self.assign_demo_settlements(player_object, red_nodes, red_edges)
+        elif order == 1:
+            self.assign_demo_settlements(player_object, white_nodes, white_edges)
+        elif order == 2:
+            self.assign_demo_settlements(player_object, orange_nodes, orange_edges)
+        elif order == 3:
+            self.assign_demo_settlements(player_object, blue_nodes, blue_edges)
             
 
 
@@ -789,10 +751,8 @@ class ServerState:
             random.seed(4)
     
     def initialize_game(self):
-        if self.combined:
-            self.initialize_dummy_players("red", "white", "orange", "blue")
         self.board = Board()
-        if self.debug==True:
+        if self.debug == True:
             random.seed(4)
         self.board.initialize_board(fixed=self.debug)
         self.shuffle_dev_cards()
@@ -864,7 +824,7 @@ class ServerState:
         self.socket.sendto(to_json(self.package_state(name, include_board=True)).encode(), address)
 
 
-            
+
     def randomize_player_order(self):
         player_names = [name for name in self.players.keys()]
         for i in range(len(player_names)):
@@ -1136,7 +1096,7 @@ class ServerState:
             self.largest_army = self.current_player_name
 
     def can_build_road(self) -> bool:
-        # check if any roads can be built
+        # used in road_building to check if building a road is possible
         # TODO general rules question - can you exit early if you only want one road?
         owned_roads = [edge for edge in self.board.edges if edge.player == self.current_player_name]
         for road in owned_roads:
@@ -1325,27 +1285,29 @@ class ServerState:
                 adj_players.add(node.player)
         
         self.to_steal_from = []
-        # if no adj players, do nothing
-        if len(adj_players) == 0:
-            return
         
         # check if adj players have any cards
         for player_name in list(adj_players):
             if sum(self.players[player_name].hand.values()) > 0:
                 self.to_steal_from.append(player_name)
         
-        # if only one player in targets, steal random card
-        if len(self.to_steal_from) == 1:
-            self.steal_card(self.to_steal_from.pop(), self.current_player_name)
-            if self.has_rolled:
-                self.mode = None # only one robber move at a time
-            elif not self.has_rolled:
-                self.mode == "roll_dice"
-
-
         # if more than one player, change mode to steal and get player to select
-        elif len(self.to_steal_from) > 1:
+        if len(self.to_steal_from) > 1:
             self.mode = "steal"
+            return
+        
+        # if only one player in targets, steal random card
+        elif len(self.to_steal_from) == 1:
+            self.steal_card(self.to_steal_from.pop(), self.current_player_name)
+        
+        if self.has_rolled == True:
+            self.mode = None # only one robber move at a time
+        elif self.has_rolled == False:
+            self.mode == "roll_dice"
+
+
+
+
 
 
     def steal_card(self, from_player: str, to_player: str):
@@ -1687,17 +1649,13 @@ class ServerState:
         #     This currently breaks the game (lol)
         #     self.send_broadcast("log", "Re-rolling board")
         #     self.board.initialize_board()
-        
+
         # cheats
         elif client_request["action"] == "ITSOVER9000":
             self.ITSOVER9000 = True
             for p_object in self.players.values():
                 p_object.hand = {"ore": 9, "wheat": 9, "sheep": 9, "wood": 9, "brick": 9}
 
-    
-
-        # toggle debug for server
-        self.debug = client_request["debug"]
 
         # if receiving input from non-current player, return
         # only time input from other players would be needed is for trades and returning cards when 7 is rolled
@@ -1708,19 +1666,22 @@ class ServerState:
 
         # for setup
         if self.setup:
-        # if not self.is_setup_complete():
+            if self.debug:
+                for i, player in enumerate(self.player_order):
+                    self.board.set_demo_settlements(player_object=self.players[player], order=i)
+                self.setup = False
+                return
             self.setup_town_road(client_request["location"], client_request["action"])
             return
 
 
         # set mode to "roll_dice" may be redundant since there is another check for dice roll after playing dev card/completing action
-        if self.mode == None:
-            if self.dice_rolls == self.turn_num:
-                self.mode = "roll_dice"
+        if (self.mode not in self.dev_card_modes) and self.mode != "move_robber" and self.has_rolled == False:
+            self.mode = "roll_dice"
 
         # force roll_dice before doing anything except play_dev_card
 
-        if self.mode == "roll_dice":
+        if self.mode == "roll_dice" and self.has_rolled == False:
             if client_request["action"] == "roll_dice": # and self.dice_rolls == self.turn_num:
                 self.perform_roll()
             if client_request["action"] == "ROLL7": # and self.dice_rolls == self.turn_num:
@@ -1775,6 +1736,7 @@ class ServerState:
             # move robber
             if client_request["location"]["hex_a"] != None:
                 self.move_robber(hh.set_hex_from_coords(client_request["location"]["hex_a"]))
+                print(f"after robber move -- mode: {self.mode}; has rolled:{self.has_rolled}")
             return
 
             
@@ -1811,10 +1773,10 @@ class ServerState:
         # PROCESS client_request["action"] ONLY FROM CURRENT PLAYER
         
 
-        if client_request["action"] == "end_turn":
+        if client_request["action"] == "end_turn" and self.has_rolled == True:
             # only allow if # rolls > turn_num
-            if self.turn_num >= self.dice_rolls:
-                return
+            # if self.turn_num >= self.dice_rolls:
+                # return
             self.end_turn()
             return
         
@@ -1828,12 +1790,12 @@ class ServerState:
                 return
             self.play_dev_card(client_request["cards"])
 
-        elif client_request["action"] == "print_debug":
-            self.calc_longest_road()
+        # elif client_request["action"] == "print_debug":
+            # self.calc_longest_road()
             
         
         # check if dice need to be rolled after playing dev card
-        if self.mode == None and not self.has_rolled:
+        if self.dev_card_played == True and self.has_rolled == False:
             self.mode = "roll_dice"
             return
         
@@ -2309,7 +2271,6 @@ class ClientState:
 
     def client_request_to_dict(self, mode=None, action=None, cards=None, resource=None, player=None, trade_offer=None, color=None) -> dict:
         client_request = {"name": self.name}
-        client_request["debug"] = self.debug
         client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
 
         client_request["mode"] = mode
@@ -2430,8 +2391,7 @@ class ClientState:
 
         # tells server and self to print debug
         if user_input == pr.KeyboardKey.KEY_ZERO:
-            # self.print_debug()
-            print(self.client_players)
+            self.print_debug()
             # return self.client_request_to_dict(action="print_debug")
 
         if not self.is_connected():
@@ -2767,10 +2727,9 @@ class ClientState:
         max_len = 40
         log_breaks = []
         # check if log msg is too long for log_box
+        # find last " " between 0 and 40 of msg. ::-1 reverses the string. before I knew about .rfind()
         for msg in self.log_msgs[-7:]:
             if len(msg)>max_len:
-                # find last " " between 0 and 40 of msg. ::-1 reverses the string. 
-                # before I knew about .rfind() lol
                 linebreak = max_len-msg[0:40][::-1].find(" ", 0, max_len)
                 log_breaks.append(msg[:linebreak])
                 log_breaks.append(msg[linebreak:])
@@ -2827,9 +2786,6 @@ class ClientState:
                 self.setup = False
             self.reset_selections()
             return
-        
-        elif server_response["kind"] == "debug":
-            return        
 
         self.data_verification(server_response)
         self.construct_client_board(server_response)
