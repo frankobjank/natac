@@ -784,10 +784,9 @@ class ServerState:
             for r in player_object.hand.keys():
                 player_object.hand[r] = 1
 
-    def is_server_full(self, name, address, max_players=4):
-        if (name not in self.player_order and len(self.player_order) >= max_players) or self.setup == False:
+    def is_server_full(self, name, max_players=4):
+        if len(self.player_order) >= max_players or (name not in self.player_order and self.setup == False):
             # not sure if this is actually received
-            self.socket.sendto("Server cannot accept any more players.".encode(), address)
             print("Server cannot accept any more players")
             return True
         else:
@@ -1593,7 +1592,7 @@ class ServerState:
         
         # action
         if client_request["action"] == "add_player":
-            if self.is_server_full(client_request["name"], address) == True:
+            if self.is_server_full(client_request["name"]) == True:
                 return
             else:
                 self.add_player(client_request["name"], address)
@@ -3025,13 +3024,8 @@ class ClientState:
             for i, msg in enumerate(reversed(debug_msgs)):
                 pr.draw_text_ex(pr.gui_get_font(), msg, pr.Vector2(5, self.screen_height-(i+1)*self.med_text*1.5), self.med_text, 0, pr.BLACK)
 
-        # draw info_box
-        pr.draw_rectangle_rec(self.info_box, pr.LIGHTGRAY)
-        pr.draw_rectangle_lines_ex(self.info_box, 1, pr.BLACK)
-        # displays discard/trade info if not current player, otherwise blank
-        rf.draw_info_in_box(self)
 
-
+        hover_object = None
 
         # display dev_card in info_box
         for b_object in self.dev_card_buttons.values():
@@ -3047,10 +3041,11 @@ class ClientState:
         for b_object in self.dev_card_buttons.values():
             if b_object.hover == True:
                 rf.draw_button_outline(b_object)
-                if not self.mode in rf.mode_text.keys():
-                    pr.draw_text_ex(pr.gui_get_font(), rf.hover_text[b_object.name], (self.info_box.x, self.info_box.y+self.med_text*1.1), self.med_text*.9, 0, pr.BLACK)
+                hover_object=b_object.name
                 break
         
+        # one call to draw info_box so no conflicts displaying 2 things at once
+        rf.draw_infobox(self, hover_object)
 
         # draw log_box and log
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
@@ -3076,7 +3071,7 @@ class ClientState:
         if self.mode == "select_color":
             self.buttons["submit"].draw_display(str_override="start_game")
         elif self.mode == "trade" and self.name != self.current_player_name:
-            self.buttons["roll_dice"].draw_display(str_override="accept_trade")
+            self.buttons["submit"].draw_display(str_override="accept_trade")
         else:
             self.buttons["submit"].draw_display()
 

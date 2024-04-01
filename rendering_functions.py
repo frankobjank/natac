@@ -253,9 +253,13 @@ def draw_mode_text(c_state, title, text):
         pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
 
 
-def draw_info_in_box(c_state):
+def draw_infobox(c_state, hover_object=None):
+    # draw info_box
+    pr.draw_rectangle_rec(c_state.info_box, pr.LIGHTGRAY)
+    pr.draw_rectangle_lines_ex(c_state.info_box, 1, pr.BLACK)
+
     # all players
-    
+    # setup
     if c_state.mode == "select_color":
         draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
         if c_state.client_players[c_state.name].color == pr.GRAY:
@@ -267,7 +271,6 @@ def draw_info_in_box(c_state):
             pr.draw_text_ex(pr.gui_get_font(), f" {color}", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height//3+c_state.med_text*(i+1)), c_state.med_text*.9, 0, text_color)
 
         return
-
 
     # gameplay
     elif c_state.mode == "discard":
@@ -325,8 +328,8 @@ def draw_info_in_box(c_state):
                     receive += f" {num} {card}\n"
             pr.draw_text_ex(pr.gui_get_font(), receive, (c_state.info_box.x, 4+c_state.info_box.y+c_state.info_box.height//1.5), c_state.med_text, 0, pr.BLACK)
 
-            
-
+        elif hover_object:
+            pr.draw_text_ex(pr.gui_get_font(), hover_text[hover_object], (c_state.info_box.x, c_state.info_box.y+c_state.med_text*1.1), c_state.med_text*.9, 0, pr.BLACK)
         else:
             draw_mode_text(c_state, f"{c_state.current_player_name}'s_turn", "")
         return
@@ -335,7 +338,7 @@ def draw_info_in_box(c_state):
     if c_state.mode in mode_text.keys():
         draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
 
-    if c_state.mode == "trade":
+    elif c_state.mode == "trade":
         draw_trade_interface(c_state)
     
     elif c_state.mode == "bank_trade":
@@ -373,6 +376,10 @@ def draw_info_in_box(c_state):
             if i == c_state.selection_index:
                 color = pr.WHITE
             pr.draw_text_ex(pr.gui_get_font(), resource, (location.x, location.y+size*(i*1.1+1.1)), size, 0, color)
+    
+    elif hover_object:
+        pr.draw_text_ex(pr.gui_get_font(), hover_text[hover_object], (c_state.info_box.x, c_state.info_box.y+c_state.med_text*1.1), c_state.med_text*.9, 0, pr.BLACK)
+
 
 
 
