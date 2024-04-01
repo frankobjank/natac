@@ -216,7 +216,7 @@ def draw_hands(c_state, player_name, player_object):
     size = c_state.med_text-2
     # quick fix - could find a better spot for knights
     if player_object.visible_knights > 0:
-        pr.draw_text_ex(pr.gui_get_font(), f"Knights: {player_object.visible_knights}", (player_object.rec.x+8*size, player_object.rec.y+size), size, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), f"  Knights: {player_object.visible_knights}", (player_object.rec.x+8*size, player_object.rec.y+size), size, 0, pr.BLACK)
     if c_state.name == player_name:
         location = pr.Vector2(c_state.screen_width/3, c_state.screen_height-c_state.screen_height/10)
         # draw hand for self

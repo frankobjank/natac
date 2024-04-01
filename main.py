@@ -1290,7 +1290,6 @@ class ServerState:
         for player_name in list(adj_players):
             if sum(self.players[player_name].hand.values()) > 0:
                 self.to_steal_from.append(player_name)
-        
         # if more than one player, change mode to steal and get player to select
         if len(self.to_steal_from) > 1:
             self.mode = "steal"
@@ -1303,11 +1302,7 @@ class ServerState:
         if self.has_rolled == True:
             self.mode = None # only one robber move at a time
         elif self.has_rolled == False:
-            self.mode == "roll_dice"
-
-
-
-
+            self.mode = "roll_dice"
 
 
     def steal_card(self, from_player: str, to_player: str):
@@ -1664,7 +1659,7 @@ class ServerState:
         
         # CODE BELOW ONLY APPLIES TO CURRENT PLAYER
 
-        # for setup
+        # for setup (non-debug)
         if self.setup:
             if self.debug:
                 for i, player in enumerate(self.player_order):
@@ -1707,9 +1702,8 @@ class ServerState:
                 self.send_broadcast("log", "Trade offer cancelled.")
                 self.send_broadcast("accept", "trade")
 
-
-        # trade_offer = {"offer": ["ore", -4], "request": ["wheat", 1]}
         elif self.mode == "bank_trade":
+            # trade_offer = {"offer": ["ore", -4], "request": ["wheat", 1]}
             if client_request["action"] == "submit" and client_request["trade_offer"] != None:
                 offer, offer_num = client_request["trade_offer"]["offer"]
                 request, request_num = client_request["trade_offer"]["request"]
@@ -1720,13 +1714,10 @@ class ServerState:
                     self.send_to_player(client_request["name"], "accept", "bank_trade")
                     self.send_broadcast("log", f"{client_request['name']} traded in {-offer_num} {offer} for {request_num} {request}.")
 
-        
         elif self.mode == "steal":
             if client_request["action"] == "submit" and client_request["selected_player"] != None:
                 self.steal_card(client_request["selected_player"], self.current_player_name)
             return
-
-
 
         # don't allow other actions while move_robber or discard_cards is active
         elif self.mode == "move_robber":
@@ -1736,14 +1727,13 @@ class ServerState:
             # move robber
             if client_request["location"]["hex_a"] != None:
                 self.move_robber(hh.set_hex_from_coords(client_request["location"]["hex_a"]))
-                print(f"after robber move -- mode: {self.mode}; has rolled:{self.has_rolled}")
             return
 
-            
         elif self.mode == "discard":
             if client_request["action"] != None:
                 self.send_to_player(client_request["name"], "log", "All players must finish discarding first.")
             return                
+
         # force resolution of dev card before processing more mode changes, actions
         elif self.mode in self.dev_card_modes:
             self.dev_card_mode(client_request["location"], client_request["action"], client_request["cards"], client_request["resource"])
@@ -1803,7 +1793,7 @@ class ServerState:
         
         
         # board change - use client_request["location"]
-            # only calculate location hexes if location is > 0
+        # check if location is empty
         if all(hex == None for hex in client_request["location"].values()):
             return
         
@@ -2057,20 +2047,16 @@ class ClientState:
         self.longest_road = "" # name of player
         self.largest_army = "" # name of player
 
+        self.to_steal_from = [] # player names
         self.bank_trade = {"offer": [], "request": []}
         self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
 
         # for discard_cards / year_of_plenty
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-
         # selecting with arrow keys
         self.selection_index = 0 # combined player_index and card_index to create generic index
 
-        self.to_steal_from = [] # player names
-        # self.player_index = 0 # used for selecting
-
         self.debug = False
-
 
         # offset from right side of screen for buttons,  info_box, and logbox
         offset = self.screen_height/27.5 # 27.7 with height = 750
