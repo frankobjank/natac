@@ -210,16 +210,14 @@ def draw_added_cards(mode, selected_cards, location:pr.Vector2, card_type:str, n
 
 
 # includes dev_cards for other players, not dev card buttons for self
-def draw_hands(c_state, player_name, player_object):
+def draw_player_info(c_state, player_object):
     x_offset = c_state.screen_width//20
     # size = c_state.screen_height//50
     size = c_state.med_text-2
-    # quick fix - could find a better spot for knights
-    if player_object.visible_knights > 0:
-        pr.draw_text_ex(pr.gui_get_font(), f"  Knights: {player_object.visible_knights}", (player_object.rec.x+8*size, player_object.rec.y+size), size, 0, pr.BLACK)
-    if c_state.name == player_name:
-        location = pr.Vector2(c_state.screen_width/3, c_state.screen_height-c_state.screen_height/10)
+
+    if c_state.name == player_object.name:
         # draw hand for self
+        location = pr.Vector2(c_state.screen_width/3, c_state.screen_height-c_state.screen_height/10)
         for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
             # put card_type into new var to bring all resource names to 5 chars
             card_type_display = card_type
@@ -227,10 +225,19 @@ def draw_hands(c_state, player_name, player_object):
                 card_type_display += " "
             pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (location.x+x_offset, location.y-size+(i*size)), size, 0, pr.BLACK)
 
-    # hand size for all players
-    pr.draw_text_ex(pr.gui_get_font(), f"Hand: {player_object.hand_size}", (player_object.rec.x+x_offset, player_object.rec.y), size, 0, pr.BLACK)
-    pr.draw_text_ex(pr.gui_get_font(), f"Dev: {player_object.dev_cards_size}", (player_object.rec.x+x_offset, player_object.rec.y+size), size, 0, pr.BLACK)
-    pr.draw_text_ex(pr.gui_get_font(), f"Score: {player_object.victory_points}", (player_object.rec.x+x_offset, player_object.rec.y+size*2), size, 0, pr.BLACK)
+    score_display = f"Score: {player_object.victory_points}"
+    dev_display = f"Dev: {player_object.dev_cards_size}"
+
+    # draw hidden VPs for self
+    if player_object.dev_cards["victory_point"] > 0:
+        score_display += f" +({player_object.dev_cards['victory_point']})"
+    if player_object.visible_knights > 0:
+        dev_display += f"\nKnights: {player_object.visible_knights}"
+
+    pr.draw_text_ex(pr.gui_get_font(), score_display, (player_object.rec.x+x_offset, player_object.rec.y), size, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), f"Hand: {player_object.hand_size}", (player_object.rec.x+x_offset, player_object.rec.y+size), size, 0, pr.BLACK)
+    # dev cards plus knights, if they exist
+    pr.draw_text_ex(pr.gui_get_font(), dev_display, (player_object.rec.x+x_offset, player_object.rec.y+size*2), size, 0, pr.BLACK)
 
 def get_outer_rec(rec, offset):
     return pr.Rectangle(rec.x-offset, rec.y-offset, rec.width+2*offset, rec.height+2*offset)

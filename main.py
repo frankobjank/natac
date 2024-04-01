@@ -785,9 +785,10 @@ class ServerState:
                 player_object.hand[r] = 1
 
     def is_server_full(self, name, address, max_players=4):
-        if name not in self.player_order and len(self.player_order) >= max_players:
+        if (name not in self.player_order and len(self.player_order) >= max_players) or self.setup == False:
+            # not sure if this is actually received
             self.socket.sendto("Server cannot accept any more players.".encode(), address)
-            print("server cannot accept any more players")
+            print("Server cannot accept any more players")
             return True
         else:
             return False
@@ -1788,9 +1789,7 @@ class ServerState:
         if self.dev_card_played == True and self.has_rolled == False:
             self.mode = "roll_dice"
             return
-        
-
-        
+    
         
         # board change - use client_request["location"]
         # check if location is empty
@@ -3106,7 +3105,7 @@ class ClientState:
             
             # draw hands after initial setup
             if self.mode != "select_color":
-                rf.draw_hands(self, player_name, player_object)
+                rf.draw_player_info(self, player_object)
     
 
             # hightlight current player
@@ -3116,7 +3115,7 @@ class ClientState:
             # split up by modes
             # draw "waiting" for non-self players if wating on them to return cards
             if self.mode == "discard" and player_name != self.name and player_object.num_to_discard > 0:
-                pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.rec.x, player_object.rec.y - self.med_text), 12, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), "waiting...", (player_object.rec.x, player_object.rec.y - self.med_text*1.2), 12, 0, pr.BLACK)
 
 
             # for current player, highlight possible targets and selected player
@@ -3127,18 +3126,19 @@ class ClientState:
                         pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].rec, 7), 4, pr.GREEN)
 
 
-        score_x = self.screen_width//110
-        score_font = (self.small_text + self.med_text)/2
-        # pr.draw_text_ex(pr.gui_get_font(), "Scores:", (score_x, score_font), score_font, 0, pr.BLACK)
-        # for i, player_name in enumerate(self.player_order):
-        #     msg = f"{player_name}: {self.client_players[player_name].victory_points}"
-        #     if self.name == player_name and self.client_players[player_name].dev_cards["victory_point"] > 0:
-        #         msg += f" (+{self.client_players[player_name].dev_cards['victory_point']} hidden)"
-        #     pr.draw_text_ex(pr.gui_get_font(), msg, (score_x, score_font + score_font*((i+1)*1.5)), score_font, 0, pr.BLACK)
+        score_font = self.med_text - 2 # (self.small_text + self.med_text)/2
+        if len(self.player_order) > 0 and self.setup == False:
+            if len(self.longest_road) > 0:
+                name = self.longest_road
+            elif len(self.longest_road) == 0:
+                name = "Unassigned"
+            pr.draw_text_ex(pr.gui_get_font(), f"Longest Road:\n {name}", (self.client_players[self.name].rec.x, score_font + 4*score_font*(len(self.player_order)+1)+score_font), score_font, 0, pr.BLACK)
 
-        # pr.draw_text_ex(pr.gui_get_font(), f"Longest Road: {self.longest_road}", (score_x, score_font + score_font*(len(self.player_order)+1)*1.5), score_font, 0, pr.BLACK)
-        # pr.draw_text_ex(pr.gui_get_font(), f"Largest Army: {self.largest_army}", (score_x, score_font + score_font*(len(self.player_order)+2)*1.5), score_font, 0, pr.BLACK)
-
+            if len(self.largest_army) > 0:
+                name = self.largest_army
+            elif len(self.largest_army) == 0:
+                name = "Unassigned"
+            pr.draw_text_ex(pr.gui_get_font(), f"Largest Army:\n {name}", (self.client_players[self.name].rec.x, score_font + 4*score_font*(len(self.player_order)+1)+3*score_font), score_font, 0, pr.BLACK)
         
         pr.end_drawing()
 
