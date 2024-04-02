@@ -335,16 +335,19 @@ def draw_infobox(c_state, hover_object=None):
         return
 
     # ONLY CURRENT PLAYER
-    if c_state.mode in mode_text.keys():
-        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
+    # if c_state.mode in mode_text.keys():
+    #     draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
 
-    elif c_state.mode == "trade":
+    if c_state.mode == "trade":
+        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
         draw_trade_interface(c_state)
     
     elif c_state.mode == "bank_trade":
+        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
         draw_banktrade_interface(c_state.trade_buttons, c_state.info_box, c_state.med_text, c_state.selected_cards, c_state.bank_trade, c_state.client_players[c_state.name].ratios)
 
     elif c_state.mode == "year_of_plenty":
+        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
         x_offset = c_state.screen_width//20
         size = c_state.med_text-2
         location = pr.Vector2(c_state.info_box.x+c_state.info_box.width/8, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*6)
@@ -364,6 +367,7 @@ def draw_infobox(c_state, hover_object=None):
 
 
     elif c_state.mode == "monopoly":
+        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
         pr.draw_text_ex(pr.gui_get_font(), " Selected resource:", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2+c_state.med_text*2.2), c_state.med_text, 0, pr.BLACK)
         pr.draw_text_ex(pr.gui_get_font(), f" {c_state.resource_cards[c_state.selection_index]}", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2+c_state.med_text*3.3), c_state.med_text, 0, pr.BLACK)
 
@@ -377,7 +381,7 @@ def draw_infobox(c_state, hover_object=None):
                 color = pr.WHITE
             pr.draw_text_ex(pr.gui_get_font(), resource, (location.x, location.y+size*(i*1.1+1.1)), size, 0, color)
     
-    elif hover_object:
+    elif hover_object and c_state.mode == None:
         pr.draw_text_ex(pr.gui_get_font(), hover_text[hover_object], (c_state.info_box.x, c_state.info_box.y+c_state.med_text*1.1), c_state.med_text*.9, 0, pr.BLACK)
 
 
