@@ -471,9 +471,9 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, bank_
 
 
 
-def to_title(mode):
+def to_title(s:str) -> str:
     cap = ""
-    for word in mode.split("_"):
+    for word in s.split("_"):
         cap += word.capitalize() + " "
     return cap
 

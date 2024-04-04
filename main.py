@@ -638,8 +638,6 @@ class Board:
             self.assign_demo_settlements(player_object, blue_nodes, blue_edges)
             
 
-
-
 class Player:
     def __init__(self, name, order, address="local"):
         # gameplay
@@ -1107,30 +1105,32 @@ class ServerState:
         return False
 
     def play_dev_card(self, kind):
-        self.send_broadcast("log", f"{self.current_player_name} played a {kind.capitalize()} card")
-        
+        self.send_broadcast("log", f"{self.current_player_name} played a {rf.to_title(kind)} card")
         if self.dev_card_played == True:
             self.send_to_player(self.current_player_name, "log", "You can only play one dev card per turn.")
             return
         self.dev_card_played = True
+
         if kind == "knight":
-            self.players[self.current_player_name].dev_cards[kind] -= 1
             self.players[self.current_player_name].visible_knights += 1
             self.calc_largest_army()
             self.mode = "move_robber"
+
         elif kind == "road_building":
-            self.players[self.current_player_name].dev_cards[kind] -= 1
-            if self.can_build_road() == True:
-                self.mode = "road_building"
-                self.send_to_player(self.current_player_name, "log", "Entering Road Building Mode.")
+            if self.can_build_road() == False:
+                self.send_to_player(self.current_player_name, "log", "No valid road placements.")
+                self.mode = None
                 return
-            self.send_to_player(self.current_player_name, "log", "No valid road placements.")
-            self.mode = None
+            self.mode = "road_building"
+            self.send_to_player(self.current_player_name, "log", "Entering Road Building Mode.")
 
         elif kind == "year_of_plenty":
             self.mode = "year_of_plenty" # mode that prompts current_player to pick two resources
+
         elif kind == "monopoly":
             self.mode = "monopoly" # get all cards of one type 
+
+        self.players[self.current_player_name].dev_cards[kind] -= 1
 
     def dev_card_mode(self, location, action, cards, resource):
         # location = client_request["location"]
