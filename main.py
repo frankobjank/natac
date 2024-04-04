@@ -1105,10 +1105,10 @@ class ServerState:
         return False
 
     def play_dev_card(self, kind):
-        self.send_broadcast("log", f"{self.current_player_name} played a {rf.to_title(kind)} card")
         if self.dev_card_played == True:
             self.send_to_player(self.current_player_name, "log", "You can only play one dev card per turn.")
             return
+        self.send_broadcast("log", f"{self.current_player_name} played a {rf.to_title(kind)} card")
         self.dev_card_played = True
 
         if kind == "knight":
@@ -1737,12 +1737,14 @@ class ServerState:
         # force resolution of dev card before processing more mode changes, actions
         elif self.mode in self.dev_card_modes:
             self.dev_card_mode(client_request["location"], client_request["action"], client_request["cards"], client_request["resource"])
+            return
 
 
         if client_request["mode"] != None:
             if self.mode == client_request["mode"]:
                 self.send_to_player(self.current_player_name, "accept", {"new_mode": None})
                 self.mode = None
+            # this should be redundant - a dev_card mode should not make it this far -- ---- missing a return at the end of the dev_card_mode statement
             elif self.mode not in self.dev_card_modes:
                 if client_request["mode"] == "build_road":
                     if not self.cost_check("road"):
@@ -1784,10 +1786,10 @@ class ServerState:
             # self.calc_longest_road()
             
         
-        # check if dice need to be rolled after playing dev card
-        if self.dev_card_played == True and self.has_rolled == False:
-            self.mode = "roll_dice"
-            return
+        # # check if dice need to be rolled after playing dev card
+        # if self.dev_card_played == True and self.has_rolled == False:
+        #     self.mode = "roll_dice"
+        #     return
     
         
         # board change - use client_request["location"]

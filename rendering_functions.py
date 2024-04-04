@@ -475,7 +475,7 @@ def to_title(s:str) -> str:
     cap = ""
     for word in s.split("_"):
         cap += word.capitalize() + " "
-    return cap
+    return cap[:-1]
 
 mode_text = {
     # modes - can fit 30 chars (med_text) with info_box x = self.screen_width/3.5 (~314.3)
