@@ -339,11 +339,9 @@ def draw_infobox(c_state, hover_object=None):
     #     draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
 
     if c_state.mode == "trade":
-        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
         draw_trade_interface(c_state)
     
     elif c_state.mode == "bank_trade":
-        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
         draw_banktrade_interface(c_state.trade_buttons, c_state.info_box, c_state.med_text, c_state.selected_cards, c_state.bank_trade, c_state.client_players[c_state.name].ratios)
 
     elif c_state.mode == "year_of_plenty":
