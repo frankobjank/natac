@@ -3110,6 +3110,8 @@ class ClientState:
             self.buttons["submit"].draw_display(str_override="start_game")
         elif self.mode == "trade" and self.name != self.current_player_name:
             self.buttons["submit"].draw_display(str_override="accept_trade")
+        elif self.mode == "trade" and self.name == self.current_player_name:
+            self.buttons["submit"].draw_display(str_override="offer_trade")
         else:
             self.buttons["submit"].draw_display()
 
@@ -3240,7 +3242,8 @@ if len(cmd_line_input) > 0:
     if cmd_line_input[0] == "server":
         if cmd_line_input[1] == "local":
             if len(cmd_line_input) > 2:
-                run_server(local_IP, cmd_line_input[2]) # local default board
+                if cmd_line_input[2] == "-d" or cmd_line_input[2] == "debug":
+                    run_server(local_IP, debug=True) # local default board
             else:
                 run_server(local_IP) # local random board
         else:
