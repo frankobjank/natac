@@ -138,11 +138,22 @@ class Edge:
         return list(adj_edges_1.symmetric_difference(adj_edges_2))
 
 
-    def build_check_road(self, s_state, verbose=True):
+    def build_check_road(self, s_state, setup=False, verbose=True):
         if verbose:
             print("build_check_road")
+
         if s_state.current_player_name == None:
             return False
+        
+        if setup:
+            if s_state.players[s_state.current_player_name].setup_settlement != None:
+                if not set(self.hexes).issubset(set(s_state.players[s_state.current_player_name].setup_settlement.hexes)):
+                    s_state.send_to_player(s_state.current_player_name, "log", "You must choose a location adjacent to the settlement you just placed.")
+                    return False
+                elif set(self.hexes).issubset(set(s_state.players[s_state.current_player_name].setup_settlement.hexes)):
+                    s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
+                    return True
+                
         # check if edge is owned
         if self.player != None:
             if self.player == s_state.players[s_state.current_player_name]:
@@ -190,7 +201,7 @@ class Edge:
 
         if len(origin_edges) == 0: # non-contiguous
             if verbose:
-                s_state.send_to_player(s_state.current_player_name, "log", "You must build adjacent to one of your roads.")
+                s_state.send_to_player(s_state.current_player_name, "log", "You must build adjacent to one of your roads or settlements.")
                 print("non-contiguous")
             return False
         # origin shows what direction road is going
@@ -654,6 +665,8 @@ class Player:
         self.num_settlements = 0 # for counting victory points
         self.num_roads = 0 # use for setup
         self.ports = []
+        # for setup
+        self.setup_settlement = None
 
         # networking
         self.address = address
@@ -866,20 +879,21 @@ class ServerState:
         location_edge = None
         
         hex_a, hex_b, hex_c = location_hexes.values()
-        if location_hexes["hex_c"] != None:
-            if self.mode == "build_settlement":
-                for node in self.board.nodes:
-                    if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
-                        location_node = node
+        if location_hexes["hex_c"] != None and self.mode == "build_settlement":
+            for node in self.board.nodes:
+                if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
+                    location_node = node
 
             if action == "build_settlement" and location_node != None:
                 if location_node.build_check_settlement(self, setup=True):
                     self.mode = "build_road" # set to build road
                     location_node.town = "settlement"
                     location_node.player = self.current_player_name
+                    self.players[self.current_player_name].setup_settlement = location_node
 
                     # check if this is second settlement (for resources)
                     if self.players[self.current_player_name].num_settlements == 1:
+
                         # can prob shorten hex_to_resource and be more precise - create lookup dict if needed
                         hex_to_resource = {self.board.land_hexes[i]: terrain_to_resource[self.board.terrains[i]] for i in range(len(self.board.land_hexes))}
                         for hex in location_node.hexes:
@@ -898,32 +912,31 @@ class ServerState:
                 if edge.hexes == sort_hexes([hex_a, hex_b]):
                     location_edge = edge
 
-            if action == "build_road":
-                if location_edge != None:
-                    if location_edge.build_check_road(self):
-                        self.mode = "build_settlement"
-                        location_edge.player = self.current_player_name
-                        self.players[self.current_player_name].num_roads += 1
+            if action == "build_road" and location_edge != None:
+                if location_edge.build_check_road(self, setup=True):
+                    self.mode = "build_settlement"
+                    location_edge.player = self.current_player_name
+                    self.players[self.current_player_name].num_roads += 1
 
-                        # 1 road and not the last player
-                        if self.players[self.current_player_name].num_roads == 1 and self.current_player_name != self.player_order[-1]:
-                            current_index = self.player_order.index(self.current_player_name)
-                            self.current_player_name = self.player_order[current_index+1]
+                    # 1 road and not the last player
+                    if self.players[self.current_player_name].num_roads == 1 and self.current_player_name != self.player_order[-1]:
+                        current_index = self.player_order.index(self.current_player_name)
+                        self.current_player_name = self.player_order[current_index+1]
 
-                        # 1 road and the last player
-                        if self.players[self.current_player_name].num_roads == 1 and self.current_player_name == self.player_order[-1]:
-                            return
+                    # # 1 road and the last player
+                    # if self.players[self.current_player_name].num_roads == 1 and self.current_player_name == self.player_order[-1]:
+                    #     return
 
-                        # 2 roads and not the first player
-                        if self.players[self.current_player_name].num_roads == 2 and self.current_player_name != self.player_order[0]:
-                            current_index = self.player_order.index(self.current_player_name)
-                            self.current_player_name = self.player_order[current_index-1]
+                    # 2 roads and not the first player
+                    elif self.players[self.current_player_name].num_roads == 2 and self.current_player_name != self.player_order[0]:
+                        current_index = self.player_order.index(self.current_player_name)
+                        self.current_player_name = self.player_order[current_index-1]
 
-                        # 2 roads and the first player
-                        if self.players[self.current_player_name].num_roads == 2 and self.current_player_name == self.player_order[0]:
-                            self.mode = "roll_dice"
-                            self.setup = False
-                            self.send_broadcast("reset", "setup_complete")
+                    # 2 roads and the first player
+                    elif self.players[self.current_player_name].num_roads == 2 and self.current_player_name == self.player_order[0]:
+                        self.mode = "roll_dice"
+                        self.setup = False
+                        self.send_broadcast("reset", "setup_complete")
 
 
 
@@ -1646,7 +1659,7 @@ class ServerState:
                 self.players_declined.add(client_request["name"])
                 if len(self.players_declined) == len(self.player_order)-1:
                     self.reset_turn_vars()
-                    self.send_broadcast("log", "All players declined; cancelling trade.")
+                    self.send_broadcast("log", "All players declined. Cancelling trade.")
                     self.send_broadcast("reset", "trade")
                     self.mode = None
 
@@ -1714,7 +1727,6 @@ class ServerState:
                     self.send_broadcast("log", "Trade offer cancelled.")
                     self.send_broadcast("reset", "trade")
                 
-
         elif self.mode == "bank_trade":
             # trade_offer = {"offer": ["ore", -4], "request": ["wheat", 1]}
             if client_request["action"] == "submit" and client_request["trade_offer"] != None:
