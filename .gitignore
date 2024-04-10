@@ -3,3 +3,5 @@
 .vscode
 natac.code-workspace
 __pycache__
+test.py
+basic_raylib_game_loop

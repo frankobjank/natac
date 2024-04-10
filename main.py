@@ -1977,6 +1977,12 @@ class Menu:
         for i, b_name in enumerate(self.button_names):
             self.buttons[b_name] = Button(pr.Rectangle(self.rec_x, self.rec_y+(i*self.size), self.rec_width, self.rec_height), b_name, "menu item")
 
+class TextBox:
+    def __init__(self, name: str, rec: pr.Rectangle, button: Button):
+        self.name = name
+        self.rec = rec
+        self.is_focus = False
+
 
 class ClientPlayer:
     def __init__(self, name: str, order: int, rec: pr.Rectangle):
@@ -2115,6 +2121,7 @@ class ClientState:
         infobox_y = self.screen_height-infobox_h-10*offset
         self.info_box = pr.Rectangle(infobox_x, infobox_y, infobox_w, infobox_h)
 
+        
         self.trade_buttons = {}
         for i, resource in enumerate(self.resource_cards):
             self.trade_buttons[f"offer_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+offset, infobox_w//6, infobox_h/8), f"offer_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
@@ -2128,9 +2135,13 @@ class ClientState:
         logbox_x = self.screen_width-logbox_w-offset
         logbox_y = self.screen_height-logbox_h-offset
         self.log_box = pr.Rectangle(logbox_x, logbox_y, logbox_w, logbox_h)
-
+        self.log_focus = False
+        
+        self.buttons["log"] = Button(pr.Rectangle(logbox_x, logbox_y, logbox_w, logbox_h), "log", action=True)
+        
         self.log_msgs = []
         self.log_to_display = []
+        self.chat_msg = ""
 
 
         # rendering dict
@@ -2301,20 +2312,31 @@ class ClientState:
         
         return client_request
 
+    def build_chat_msg(self):
+        key = 0
+        if pr.is_key_pressed(pr.KeyboardKey.KEY_BACKSPACE) or pr.is_key_pressed_repeat(pr.KeyboardKey.KEY_BACKSPACE):
+            self.chat_msg = self.chat_msg[:-1]
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ENTER):
+            self.chat_msg += "\n"
+        else:
+            key = pr.get_char_pressed()
+        # pr.get_char_pressed() gets next in queue, so need to check queue until empty
+        while key > 0:
+            if 126 >= key >= 32:
+                self.chat_msg += chr(key)
+            key = pr.get_char_pressed()
+
     # GAME LOOP FUNCTIONS
     def get_user_input(self):
         self.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), self.camera)
 
         if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
             return pr.MouseButton.MOUSE_BUTTON_LEFT
-        
         # space and enter for selecting with keyboard keys
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_ENTER):
             return pr.KeyboardKey.KEY_ENTER
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_SPACE):
             return pr.KeyboardKey.KEY_SPACE
-
-
         # directional keys
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_UP):
             return pr.KeyboardKey.KEY_UP
@@ -2324,14 +2346,15 @@ class ClientState:
             return pr.KeyboardKey.KEY_LEFT
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_RIGHT):
             return pr.KeyboardKey.KEY_RIGHT
-
+        
+        if self.log_focus:
+            # decided to capture entire key queue with this function, can separate this into client update function by adding logic if len(key queue) > 1
+            self.build_chat_msg()
+            return
+        
         # toggle debug
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_E):
             return pr.KeyboardKey.KEY_E
-        # toggle return cards for debug
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
-            return pr.KeyboardKey.KEY_R
-
 
         # toggle fullscreen
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_F):
@@ -2345,40 +2368,24 @@ class ClientState:
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_C):
             return pr.KeyboardKey.KEY_C
         
-        # Ore
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ONE):
-            return pr.KeyboardKey.KEY_ONE
-        # Wheat
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_TWO):
-            return pr.KeyboardKey.KEY_TWO
-        # Sheep
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_THREE):
-            return pr.KeyboardKey.KEY_THREE
-        # Wood
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_FOUR):
-            return pr.KeyboardKey.KEY_FOUR
-        # Brick
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_FIVE):
-            return pr.KeyboardKey.KEY_FIVE
-
         # p = pause/options menu
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_P):
-            return pr.KeyboardKey.KEY_P
+        # elif pr.is_key_pressed(pr.KeyboardKey.KEY_P):
+        #     return pr.KeyboardKey.KEY_P
         
-        # 0 for print debug
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ZERO):
-            return pr.KeyboardKey.KEY_ZERO
+        # # 0 for print debug
+        # elif pr.is_key_pressed(pr.KeyboardKey.KEY_ZERO):
+        #     return pr.KeyboardKey.KEY_ZERO
         
-        # cheats
-        # 7 for ROLL7
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_SEVEN):
-            return pr.KeyboardKey.KEY_SEVEN
-        # 9 for ITSOVER9000
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_NINE):
-            return pr.KeyboardKey.KEY_NINE
-        # randomize board
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
-            return pr.KeyboardKey.KEY_R
+        # # cheats
+        # # 7 for ROLL7
+        # elif pr.is_key_pressed(pr.KeyboardKey.KEY_SEVEN):
+        #     return pr.KeyboardKey.KEY_SEVEN
+        # # 9 for ITSOVER9000
+        # elif pr.is_key_pressed(pr.KeyboardKey.KEY_NINE):
+        #     return pr.KeyboardKey.KEY_NINE
+        # # randomize board
+        # elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
+        #     return pr.KeyboardKey.KEY_R
         
     def update_client_settings(self, user_input):
         if user_input == pr.KeyboardKey.KEY_F:
@@ -2433,10 +2440,6 @@ class ClientState:
         self.current_hex_3 = None
         
 
-        # TODO organize this better - band-aid for end_turn bug
-        if self.name != self.current_player_name:
-            self.buttons["end_turn"].hover = False
-
         # if user_input == pr.KeyboardKey.KEY_R:
         #     print("RAINBOWROAD")
         #     return self.client_request_to_dict(action="randomize_board")
@@ -2466,7 +2469,7 @@ class ClientState:
             if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                 return self.submit_board_selection()
 
-
+        # start of turn
         # check for dev card hover apart from other buttons - also before roll_dice check
         for b_object in self.dev_card_buttons.values():
             if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
@@ -2479,10 +2482,7 @@ class ClientState:
                 if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                     return self.client_request_to_dict(action="play_dev_card", cards=b_object.name)
 
-
-
-
-
+        # dice
         if self.mode == "roll_dice":
             # make all buttons.hover False for non-current player
             if self.name != self.current_player_name:
@@ -2504,7 +2504,7 @@ class ClientState:
             # end if no other input
             return
         
-        # selecting cards - available for ALL players, not just current
+        # discard - selecting cards - available for ALL players, not just current
         elif self.mode == "discard":
             if self.client_players[self.name].num_to_discard == 0:
                 return
@@ -2533,7 +2533,7 @@ class ClientState:
             # end function with no client_request if nothing is submitted
             return
 
-        # non-current player has option to accept incoming trade
+        # trade - non-current player has option to accept incoming trade
         elif self.mode == "trade":
             if self.name != self.current_player_name:
                 if self.check_submit(user_input):
@@ -2551,9 +2551,10 @@ class ClientState:
             return self.client_request_to_dict(action="ITSOVER9000")
         
         
-
-        # button loop - check for hover, then for mouse click
+        # buttons - check for hover, then for mouse click
         for b_object in self.buttons.values():
+            if b_object.name == "log":
+
             if self.mode == "move_robber":
                 break
             # if not current player, no hover or selecting buttons
@@ -2588,7 +2589,6 @@ class ClientState:
                 else:
                     b_object.hover = False
 
-        
 
         # anything below only applies to current player
         if self.name != self.current_player_name:
@@ -2749,7 +2749,7 @@ class ClientState:
         max_len = 40
         log_breaks = []
         # check if log msg is too long for log_box
-        # find last " " between 0 and 40 of msg. ::-1 reverses the string. before I knew about .rfind()
+        # find last " " between 0 and 40 of msg. ::-1 reverses the string
         for msg in self.log_msgs[-7:]:
             if len(msg)>max_len:
                 linebreak = max_len-msg[0:40][::-1].find(" ", 0, max_len)
