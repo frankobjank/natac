@@ -148,20 +148,20 @@ class Edge:
         if setup:
             if s_state.players[s_state.current_player_name].setup_settlement != None:
                 if not set(self.hexes).issubset(set(s_state.players[s_state.current_player_name].setup_settlement.hexes)):
-                    s_state.send_to_player(s_state.current_player_name, "log", "You must choose a location adjacent to the settlement you just placed.")
+                    s_state.send_to_player(s_state.current_player_name, "chat", "You must choose a location adjacent to the settlement you just placed.")
                     return False
                 elif set(self.hexes).issubset(set(s_state.players[s_state.current_player_name].setup_settlement.hexes)):
-                    s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
+                    s_state.send_broadcast("chat", f"{s_state.current_player_name} built a road.")
                     return True
                 
         # check if edge is owned
         if self.player != None:
             if self.player == s_state.players[s_state.current_player_name]:
                 if verbose:
-                    s_state.send_to_player(s_state.current_player_name, "log", "This location is already owned by you.")
+                    s_state.send_to_player(s_state.current_player_name, "chat", "This location is already owned by you.")
             else:
                 if verbose:
-                    s_state.send_to_player(s_state.current_player_name, "log", "This location is owned by another player.")
+                    s_state.send_to_player(s_state.current_player_name, "chat", "This location is owned by another player.")
                     print("This location is already owned")
             return False
 
@@ -169,7 +169,7 @@ class Edge:
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes:
             if verbose:
-                s_state.send_to_player(s_state.current_player_name, "log", "You can't build in the ocean.")
+                s_state.send_to_player(s_state.current_player_name, "chat", "You can't build in the ocean.")
                 print("can't build in ocean")
             return False
         
@@ -178,7 +178,7 @@ class Edge:
         for node in self_nodes:
             if node.player == s_state.current_player_name:
                 if verbose:
-                    s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
+                    s_state.send_broadcast("chat", f"{s_state.current_player_name} built a road.")
                     print("building next to settlement")
                 return True
         
@@ -186,8 +186,8 @@ class Edge:
         owned_roads = [edge for edge in s_state.board.edges if edge.player == s_state.current_player_name]
         if len(owned_roads) >= 15:
             if verbose:
-                s_state.send_to_player(s_state.current_player_name, "log", "You ran out of roads (max 15).")
-                s_state.send_to_player(s_state.current_player_name, "log", f"You have {len(owned_roads)} roads.")
+                s_state.send_to_player(s_state.current_player_name, "chat", "You ran out of roads (max 15).")
+                s_state.send_to_player(s_state.current_player_name, "chat", f"You have {len(owned_roads)} roads.")
                 print("no available roads")
             return False
         
@@ -201,7 +201,7 @@ class Edge:
 
         if len(origin_edges) == 0: # non-contiguous
             if verbose:
-                s_state.send_to_player(s_state.current_player_name, "log", "You must build adjacent to one of your roads or settlements.")
+                s_state.send_to_player(s_state.current_player_name, "chat", "You must build adjacent to one of your roads or settlements.")
                 print("non-contiguous")
             return False
         # origin shows what direction road is going
@@ -231,12 +231,12 @@ class Edge:
                 
             if blocked_count == len(origin_edges):
                 if verbose:
-                    s_state.send_to_player(s_state.current_player_name, "log", "You cannot build there. All routes are blocked.")
+                    s_state.send_to_player(s_state.current_player_name, "chat", "You cannot build there. All routes are blocked.")
                     print("all routes blocked")
                 return False
         
         if verbose:
-            s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
+            s_state.send_broadcast("chat", f"{s_state.current_player_name} built a road.")
             print("no conflicts")
         return True
         
@@ -299,26 +299,26 @@ class Node:
         # check if player owns node
         if self.player != None:
             if self.player == s_state.players[s_state.current_player_name]:
-                s_state.send_to_player(s_state.current_player_name, "log", "You already own this location")
+                s_state.send_to_player(s_state.current_player_name, "chat", "You already own this location")
             else:
-                s_state.send_to_player(s_state.current_player_name, "log", f"{self.player} already owns this location")
+                s_state.send_to_player(s_state.current_player_name, "chat", f"{self.player} already owns this location")
             print("location already owned")
             return False
         
         # check if town is None - is redundant because self.player already checks for this
         if self.town != None:
-            s_state.send_to_player(s_state.current_player_name, "log", f"This location must be empty")
+            s_state.send_to_player(s_state.current_player_name, "chat", f"This location must be empty")
             return False
 
         # check num_settlements
         if s_state.players[s_state.current_player_name].num_settlements >= 5:
-            s_state.send_to_player(s_state.current_player_name, "log", f"You have no available settlements (max 5).")            
+            s_state.send_to_player(s_state.current_player_name, "chat", f"You have no available settlements (max 5).")            
             print("no available settlements")
             return False
         
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes and self.hexes[2] in s_state.board.ocean_hexes:
-            s_state.send_to_player(s_state.current_player_name, "log", f"You cannot build in the ocean")
+            s_state.send_to_player(s_state.current_player_name, "chat", f"You cannot build in the ocean")
             print("can't build in ocean")
             return False
         
@@ -326,11 +326,11 @@ class Node:
         adj_nodes = self.get_adj_nodes_from_node(s_state.board.nodes)
         for node in adj_nodes:
             if node.town == "settlement":
-                s_state.send_to_player(s_state.current_player_name, "log", f"Too close to another settlement")
+                s_state.send_to_player(s_state.current_player_name, "chat", f"Too close to another settlement")
                 print("too close to settlement")
                 return False
             elif node.town == "city":
-                s_state.send_to_player(s_state.current_player_name, "log", f"Too close to a city")
+                s_state.send_to_player(s_state.current_player_name, "chat", f"Too close to a city")
                 print("too close to city")
                 return False
 
@@ -338,30 +338,30 @@ class Node:
             adj_edges = self.get_adj_edges(s_state.board.edges)
             # is node adjacent to at least 1 same-colored road
             if all(edge.player != s_state.current_player_name for edge in adj_edges):
-                s_state.send_to_player(s_state.current_player_name, "log", f"You have no adjacent roads")
+                s_state.send_to_player(s_state.current_player_name, "chat", f"You have no adjacent roads")
                 print("no adjacent roads")
                 return False
                         
-        s_state.send_broadcast("log", f"{s_state.current_player_name} built a settlement")
+        s_state.send_broadcast("chat", f"{s_state.current_player_name} built a settlement")
         print("no conflicts, building settlement")
         return True
     
     def build_check_city(self, s_state):
         if self.town != "settlement":
-            s_state.send_to_player(s_state.current_player_name, "log", f"This location must be a settlement")
+            s_state.send_to_player(s_state.current_player_name, "chat", f"This location must be a settlement")
             return False
         
         if self.player != s_state.current_player_name:
-            s_state.send_to_player(s_state.current_player_name, "log", f"{self.player} already owns this location")
+            s_state.send_to_player(s_state.current_player_name, "chat", f"{self.player} already owns this location")
             print("owned by someone else")
             return False
 
         if s_state.players[s_state.current_player_name].num_cities >= 4:
-            s_state.send_to_player(s_state.current_player_name, "log", f"You have no more available cities (max 4)")
+            s_state.send_to_player(s_state.current_player_name, "chat", f"You have no more available cities (max 4)")
             print("no available cities")
             return False
         
-        s_state.send_broadcast("log", f"{s_state.current_player_name} built a city")
+        s_state.send_broadcast("chat", f"{s_state.current_player_name} built a city")
         print("no conflicts, building city")
         return True
 
@@ -815,11 +815,12 @@ class ServerState:
 
 
     # adding players to server. order in terms of arrival, will rearrange later
+    # placeholder name (order?) will have to be used when giving ability to select username in-game
     def add_player(self, name, address):
         if name in self.players:
             if self.players[name].address != address:
                 self.players[name].address = address
-                self.send_broadcast("log", f"Player {name} is reconnecting.")
+                self.send_broadcast("chat", f"Player {name} is reconnecting.")
             else:
                 # print("player already added; redundant call")
                 return
@@ -830,9 +831,9 @@ class ServerState:
             self.player_order.append(name)
             if self.debug == True:
                 self.board.set_demo_settlements(self, name)
-            self.send_broadcast("log", f"Adding Player {name}.")
+            self.send_broadcast("chat", f"Adding Player {name}.")
         
-        self.send_to_player(name, "log", f"Welcome to natac.")
+        self.send_to_player(name, "chat", f"Welcome to natac.")
         self.socket.sendto(to_json(self.package_state(name, include_board=True)).encode(), address)
 
 
@@ -1120,9 +1121,9 @@ class ServerState:
 
     def play_dev_card(self, kind):
         if self.dev_card_played == True:
-            self.send_to_player(self.current_player_name, "log", "You can only play one dev card per turn.")
+            self.send_to_player(self.current_player_name, "chat", "You can only play one dev card per turn.")
             return
-        self.send_broadcast("log", f"{self.current_player_name} played a {rf.to_title(kind)} card")
+        self.send_broadcast("chat", f"{self.current_player_name} played a {rf.to_title(kind)} card")
         self.dev_card_played = True
 
         if kind == "knight":
@@ -1132,11 +1133,11 @@ class ServerState:
 
         elif kind == "road_building":
             if self.can_build_road() == False:
-                self.send_to_player(self.current_player_name, "log", "No valid road placements.")
+                self.send_to_player(self.current_player_name, "chat", "No valid road placements.")
                 self.mode = None
                 return
             self.mode = "road_building"
-            self.send_to_player(self.current_player_name, "log", "Entering Road Building Mode.")
+            self.send_to_player(self.current_player_name, "chat", "Entering Road Building Mode.")
 
         elif kind == "year_of_plenty":
             self.mode = "year_of_plenty" # mode that prompts current_player to pick two resources
@@ -1178,12 +1179,12 @@ class ServerState:
                     location_edge.player = self.current_player_name
                     self.players[self.current_player_name].num_roads += 1
                     self.road_building_counter += 1
-                    self.send_to_player(self.current_player_name, "log", f"Road placed, you have {2-self.road_building_counter} left.")
+                    self.send_to_player(self.current_player_name, "chat", f"Road placed, you have {2-self.road_building_counter} left.")
                     self.calc_longest_road()
                     
 
             if self.road_building_counter == 2:
-                self.send_to_player(self.current_player_name, "log", f"Exiting Road Building Mode.")
+                self.send_to_player(self.current_player_name, "chat", f"Exiting Road Building Mode.")
 
                 self.mode = None
                 self.road_building_counter = 0
@@ -1191,7 +1192,7 @@ class ServerState:
                 
         elif self.mode == "year_of_plenty" and action == "submit" and cards != None:
             if sum(cards.values()) != 2:
-                self.send_to_player(self.current_player_name, "log", "You must request two cards.")
+                self.send_to_player(self.current_player_name, "chat", "You must request two cards.")
                 return
             self.mode = None
             self.send_to_player(self.current_player_name, "reset", "year_of_plenty")
@@ -1202,9 +1203,9 @@ class ServerState:
                     cards_recv.append(card_type)
             
             if len(cards_recv) == 1:
-                self.send_to_player(self.current_player_name, "log", f"You receive 2 {cards_recv[0]}.")
+                self.send_to_player(self.current_player_name, "chat", f"You receive 2 {cards_recv[0]}.")
             elif len(cards_recv) == 2:
-                self.send_to_player(self.current_player_name, "log", f"You receive 1 {cards_recv[0]} and 1 {cards_recv[1]}.")
+                self.send_to_player(self.current_player_name, "chat", f"You receive 1 {cards_recv[0]} and 1 {cards_recv[1]}.")
             
 
         elif self.mode == "monopoly" and action == "submit" and resource != None:
@@ -1214,7 +1215,7 @@ class ServerState:
                     collected += p_object.hand[resource]
                     p_object.hand[resource] = 0
             self.players[self.current_player_name].hand[resource] += collected
-            self.send_broadcast("log", f"{self.current_player_name} stole {collected} {resource} from all players.")
+            self.send_broadcast("chat", f"{self.current_player_name} stole {collected} {resource} from all players.")
             self.mode = None
             # lets client know action was accepted - client resets vars
             self.send_to_player(self.current_player_name, "reset", "monopoly")
@@ -1250,10 +1251,10 @@ class ServerState:
     def buy_dev_card(self):
         # add random dev card to hand
         if len(self.dev_card_deck) == 0:
-            self.send_to_player(self.current_player_name, "log", "No dev cards remaining.")
+            self.send_to_player(self.current_player_name, "chat", "No dev cards remaining.")
             return
         card = self.dev_card_deck.pop()
-        self.send_broadcast("log", f"{self.current_player_name} bought a development card.")
+        self.send_broadcast("chat", f"{self.current_player_name} bought a development card.")
         self.players[self.current_player_name].dev_cards[card] += 1
         self.pay_for("dev_card")
         
@@ -1270,7 +1271,7 @@ class ServerState:
         hand = self.players[self.current_player_name].hand
         if all(hand[resource] >= cost[resource] for resource in cost.keys()):
             return True
-        self.send_to_player(self.current_player_name, "log", f"Insufficient resources for {item}")
+        self.send_to_player(self.current_player_name, "chat", f"Insufficient resources for {item}")
         return False
         # still_needed = []
         
@@ -1282,12 +1283,12 @@ class ServerState:
         # if len(still_needed) == 0:
         #     return True
 
-        # self.send_to_player(self.current_player_name, "log", f"Not enough {', '.join(still_needed)} for {item}")
+        # self.send_to_player(self.current_player_name, "chat", f"Not enough {', '.join(still_needed)} for {item}")
     
 
     def move_robber(self, location_hex):
         if location_hex == self.board.robber_hex or location_hex not in self.board.land_hexes:
-            self.send_to_player(self.current_player_name, "log", "Invalid location for robber.")
+            self.send_to_player(self.current_player_name, "chat", "Invalid location for robber.")
             return
 
         self.board.robber_hex = location_hex
@@ -1334,8 +1335,8 @@ class ServerState:
         
         self.players[from_player].hand[chosen_card] -= 1
         self.players[to_player].hand[chosen_card] += 1
-        self.send_broadcast("log", f"{to_player} stole a card from {from_player}")
-        self.send_to_player(to_player, "log", f"Received {chosen_card} from {from_player}")
+        self.send_broadcast("chat", f"{to_player} stole a card from {from_player}")
+        self.send_to_player(to_player, "chat", f"Received {chosen_card} from {from_player}")
         
         # reset mode and steal list
         if self.has_rolled:
@@ -1365,9 +1366,9 @@ class ServerState:
 
         self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
         self.send_broadcast("reset", "trade")
-        self.send_broadcast("log", f"{player2} accepted the trade.")
-        self.send_broadcast("log", f"{player1} received {p1_recv[:-2]}.")
-        self.send_broadcast("log", f"{player2} received {p2_recv[:-2]}.")
+        self.send_broadcast("chat", f"{player2} accepted the trade.")
+        self.send_broadcast("chat", f"{player1} received {p1_recv[:-2]}.")
+        self.send_broadcast("chat", f"{player2} received {p2_recv[:-2]}.")
         self.mode = None
 
     def distribute_resources(self):
@@ -1403,7 +1404,7 @@ class ServerState:
         self.dice_rolls += 1
         self.has_rolled = True
         self.mode = None
-        self.send_broadcast("log", f"{self.current_player_name} rolled {self.die1 + self.die2}.")
+        self.send_broadcast("chat", f"{self.current_player_name} rolled {self.die1 + self.die2}.")
         if self.die1 + self.die2 != 7:
             self.distribute_resources()
         elif self.die1 + self.die2 == 7:
@@ -1412,20 +1413,20 @@ class ServerState:
                 if sum(player_object.hand.values()) > 7:
                     player_object.num_to_discard = sum(player_object.hand.values())//2
                     self.mode = "discard"
-                    self.send_broadcast("log", f"Waiting for {player_name} to return cards.")
+                    self.send_broadcast("chat", f"Waiting for {player_name} to return cards.")
                 else:
                     player_object.num_to_discard = 0
 
             if self.mode != "discard":
                 self.mode = "move_robber"
-                self.send_broadcast("log", f"{self.current_player_name} must move the robber.")
+                self.send_broadcast("chat", f"{self.current_player_name} must move the robber.")
 
     def reset_turn_vars(self):
         self.dev_card_played = False
         self.players_declined = set()
         if self.mode == "trade":
             self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
-            self.send_broadcast("log", "Trade offer cancelled.")
+            self.send_broadcast("chat", "Trade offer cancelled.")
             self.send_broadcast("reset", "trade")
 
 
@@ -1444,19 +1445,19 @@ class ServerState:
                 # turning into list so it's not a copy of player's dev_cards var, also doesn't matter how many dev cards are available as only can be played per turn
                 # set available dev_cards for new turn
                 self.dev_cards_avl = [card for card, num in self.players[self.current_player_name].dev_cards.items() if num != 0]
-                self.send_broadcast("log", f"It is now {self.current_player_name}'s turn.")
+                self.send_broadcast("chat", f"It is now {self.current_player_name}'s turn.")
 
 
     def check_for_win(self):
         if self.players[self.current_player_name].get_vp_public(self.longest_road, self.largest_army) + self.players[self.current_player_name].dev_cards["victory_point"] >= 10:
             msg = f"{self.current_player_name} had {self.players[self.current_player_name].dev_cards['victory_point']} hidden victory point"
             if self.players[self.current_player_name].dev_cards["victory_point"] > 1:
-                self.send_broadcast("log", msg)
+                self.send_broadcast("chat", msg)
             elif self.players[self.current_player_name].dev_cards["victory_point"] > 2:
                 msg+="s"
-                self.send_broadcast("log", msg)
+                self.send_broadcast("chat", msg)
 
-            self.send_broadcast("log", f"{self.current_player_name} won!")
+            self.send_broadcast("chat", f"{self.current_player_name} won!")
             self.game_over = True
 
 
@@ -1514,7 +1515,7 @@ class ServerState:
         trade.append(trade_partial)
         trade.append(self.player_trade["trade_with"])
         
-        # loop thru players to build hands, VPs, logs
+        # loop thru players to build hands, VPs, chats
         colors = []
         hands = []
         dev_cards = []
@@ -1623,15 +1624,15 @@ class ServerState:
                 self.colors_avl.remove(client_request["color"])
                 self.send_to_player(client_request["name"], "reset", "color_selection")
             elif not client_request["color"] in self.colors_avl:
-                self.send_to_player(client_request["name"], "log", f"{client_request['color']} is not available, choose another.")
+                self.send_to_player(client_request["name"], "chat", f"{client_request['color']} is not available, choose another.")
             return
         
         elif client_request["action"] == "start_game":
             if not all(player_object.color != "gray" for player_object in self.players.values()):
-                self.send_to_player(client_request["name"], "log", "Not all players have chosen colors.")
+                self.send_to_player(client_request["name"], "chat", "Not all players have chosen colors.")
                 return
             if 2 > len(self.players):
-                self.send_to_player(client_request["name"], "log", "Must have at least 2 players to start a game.")
+                self.send_to_player(client_request["name"], "chat", "Must have at least 2 players to start a game.")
                 return
             self.start_game()
             return
@@ -1659,13 +1660,13 @@ class ServerState:
                 self.players_declined.add(client_request["name"])
                 if len(self.players_declined) == len(self.player_order)-1:
                     self.reset_turn_vars()
-                    self.send_broadcast("log", "All players declined. Cancelling trade.")
+                    self.send_broadcast("chat", "All players declined. Cancelling trade.")
                     self.send_broadcast("reset", "trade")
                     self.mode = None
 
         # elif client_request["action"] == "randomize_board" and 0 >= self.turn_num:
         #     This currently breaks the game (lol)
-        #     self.send_broadcast("log", "Re-rolling board")
+        #     self.send_broadcast("chat", "Re-rolling board")
         #     self.board.initialize_board()
 
         # cheats
@@ -1717,14 +1718,14 @@ class ServerState:
                 if client_request["trade_offer"] == self.player_trade:
                     return
                 self.player_trade = client_request["trade_offer"]
-                self.send_broadcast("log", f"Player {self.player_trade['trade_with']} is offering a trade.")
+                self.send_broadcast("chat", f"Player {self.player_trade['trade_with']} is offering a trade.")
                 return
             elif client_request["action"] == "cancel":
                 self.mode = None
                 self.send_to_player(client_request["name"], "reset", "trade")
                 if len(self.player_trade["trade_with"]) > 0:
                     self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
-                    self.send_broadcast("log", "Trade offer cancelled.")
+                    self.send_broadcast("chat", "Trade offer cancelled.")
                     self.send_broadcast("reset", "trade")
                 
         elif self.mode == "bank_trade":
@@ -1737,7 +1738,7 @@ class ServerState:
                     self.players[client_request["name"]].hand[request] += request_num
                     
                     self.send_to_player(client_request["name"], "reset", "bank_trade")
-                    self.send_broadcast("log", f"{client_request['name']} traded in {-offer_num} {offer} for {request_num} {request}.")
+                    self.send_broadcast("chat", f"{client_request['name']} traded in {-offer_num} {offer} for {request_num} {request}.")
             
             elif client_request["action"] == "cancel":
                 self.mode = None
@@ -1750,7 +1751,7 @@ class ServerState:
         # don't allow other actions while move_robber or discard_cards is active
         elif self.mode == "move_robber":
             if client_request["action"] != "move_robber" and client_request["action"] != None:
-                self.send_to_player(client_request["name"], "log", "You must move the robber first.")
+                self.send_to_player(client_request["name"], "chat", "You must move the robber first.")
                 return
             # move robber
             if client_request["location"]["hex_a"] != None:
@@ -1759,7 +1760,7 @@ class ServerState:
 
         elif self.mode == "discard":
             if client_request["action"] != None:
-                self.send_to_player(client_request["name"], "log", "All players must finish discarding first.")
+                self.send_to_player(client_request["name"], "chat", "All players must finish discarding first.")
             return                
 
         # force resolution of dev card before processing more mode changes, actions
@@ -1806,7 +1807,7 @@ class ServerState:
 
         elif client_request["action"] == "play_dev_card":
             if not client_request["cards"] in self.dev_cards_avl:
-                self.send_to_player(self.current_player_name, "log", "You cannot play a dev card you got this turn.")
+                self.send_to_player(self.current_player_name, "chat", "You cannot play a dev card you got this turn.")
                 return
             self.play_dev_card(client_request["cards"])
 
@@ -1901,7 +1902,7 @@ class ServerState:
 
 
 class Button:
-    def __init__(self, rec:pr.Rectangle, name:str, color:pr.Color=pr.RAYWHITE, resource:str|None=None, mode:bool=False, action:bool=False):
+    def __init__(self, rec:pr.Rectangle, name:str, color:pr.Color=pr.RAYWHITE, resource:str|None=None, mode:bool=False, action:bool=False, local_toggle:bool|None=None):
         self.rec = rec
         self.name = name
         self.color = color
@@ -1909,6 +1910,7 @@ class Button:
         self.mode = mode
         self.action = action
         self.hover = False
+        self.local_toggle = local_toggle # if None, not toggle-able
 
         if self.resource != None:
             self.display = self.resource
@@ -1977,11 +1979,6 @@ class Menu:
         for i, b_name in enumerate(self.button_names):
             self.buttons[b_name] = Button(pr.Rectangle(self.rec_x, self.rec_y+(i*self.size), self.rec_width, self.rec_height), b_name, "menu item")
 
-class TextBox:
-    def __init__(self, name: str, rec: pr.Rectangle, button: Button):
-        self.name = name
-        self.rec = rec
-        self.is_focus = False
 
 
 class ClientPlayer:
@@ -2092,7 +2089,7 @@ class ClientState:
 
         self.debug = False
 
-        # offset from right side of screen for buttons,  info_box, and logbox
+        # offset from right side of screen for buttons,  info_box, and chatbox
         offset = self.screen_height/27.5 # 27.7 with height = 750
 
         # buttons
@@ -2101,11 +2098,15 @@ class ClientState:
         button_w = self.screen_width//button_division
         button_h = self.screen_height//button_division
 
-        b_names_to_displays = {"build_road": "Road", "build_city": "City", "build_settlement": "Settle", "trade": "Trade", "bank_trade": "Bank\nTrade", "buy_dev_card": "Dev\nCard"}
-        for i, b_name in enumerate(b_names_to_displays.keys()):
+        # started auto-formatting display, can delete this dict
+        # b_names_to_displays = {"build_road": "Road", "build_city": "City", "build_settlement": "Settle", "trade": "Trade", "bank_trade": "Bank\nTrade", "buy_dev_card": "Dev\nCard"}
+        b_names = ["build_road", "build_city", "build_settlement", "trade", "bank_trade", "buy_dev_card", "show_build_costs"]
+        for i, b_name in enumerate(b_names):
             # separate because buy dev card is action, not mode
             if b_name == "buy_dev_card":
                 self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, action=True)
+            elif b_name == "show_build_costs":
+                self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, local_toggle=False)
             else:
                 self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, mode=True)
 
@@ -2129,19 +2130,21 @@ class ClientState:
         
         self.dev_card_buttons = {}
 
-        # log
-        logbox_w = self.screen_width/2.3
-        logbox_h = self.screen_height/6
-        logbox_x = self.screen_width-logbox_w-offset
-        logbox_y = self.screen_height-logbox_h-offset
-        self.log_box = pr.Rectangle(logbox_x, logbox_y, logbox_w, logbox_h)
-        self.log_focus = False
+        # chat
+        chatbox_w = self.screen_width/2.3
+        chatbox_h = self.screen_height/6
+        chatbox_x = self.screen_width-chatbox_w-offset
+        chatbox_y = self.screen_height-chatbox_h-offset
+        self.chat_box = pr.Rectangle(chatbox_x, chatbox_y, chatbox_w, chatbox_h)
         
-        self.buttons["log"] = Button(pr.Rectangle(logbox_x, logbox_y, logbox_w, logbox_h), "log", action=True)
         
-        self.log_msgs = []
-        self.log_to_display = []
+        self.chat_msgs = []
+        self.chat_to_display = []
         self.chat_msg = ""
+
+
+        # client_only_buttons for toggling chat or displaying menus or build costs
+        self.buttons["chat"] = Button(pr.Rectangle(chatbox_x, chatbox_y, chatbox_w, chatbox_h), "chat", local_toggle=False)
 
 
         # rendering dict
@@ -2312,7 +2315,8 @@ class ClientState:
         
         return client_request
 
-    def build_chat_msg(self):
+    # adds to chat_msg in place
+    def check_chat_input(self):
         key = 0
         if pr.is_key_pressed(pr.KeyboardKey.KEY_BACKSPACE) or pr.is_key_pressed_repeat(pr.KeyboardKey.KEY_BACKSPACE):
             self.chat_msg = self.chat_msg[:-1]
@@ -2347,9 +2351,9 @@ class ClientState:
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_RIGHT):
             return pr.KeyboardKey.KEY_RIGHT
         
-        if self.log_focus:
+        if self.chat_focus:
             # decided to capture entire key queue with this function, can separate this into client update function by adding logic if len(key queue) > 1
-            self.build_chat_msg()
+            self.check_chat_input()
             return
         
         # toggle debug
@@ -2468,6 +2472,7 @@ class ClientState:
         if self.setup:
             if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                 return self.submit_board_selection()
+            elif 
 
         # start of turn
         # check for dev card hover apart from other buttons - also before roll_dice check
@@ -2540,7 +2545,7 @@ class ClientState:
                     if all(self.client_players[self.name].hand[resource] >= self.player_trade["request"][resource] for resource in self.resource_cards):
                         return self.client_request_to_dict(action="submit")
                     # should probably move this to the server instead of client
-                    self.log_msgs.append("Insufficient resources for completing trade.")
+                    self.chat_msgs.append("Insufficient resources for completing trade.")
                     return
                 elif self.check_cancel(user_input):
                     return self.client_request_to_dict(action="cancel")
@@ -2553,8 +2558,8 @@ class ClientState:
         
         # buttons - check for hover, then for mouse click
         for b_object in self.buttons.values():
-            if b_object.name == "log":
-
+            if b_object.name == "chat":
+                self.chat_focus = not self.chat_focus # toggle
             if self.mode == "move_robber":
                 break
             # if not current player, no hover or selecting buttons
@@ -2602,7 +2607,7 @@ class ClientState:
             # bank trade needs empty dict but regular trade needs hand dicts
             if self.check_submit(user_input):
                 if sum(self.player_trade["offer"].values()) == 0:
-                    self.log_msgs.append("You must offer at least 1 resource.")
+                    self.chat_msgs.append("You must offer at least 1 resource.")
                     return
                 self.player_trade["trade_with"] = self.name
                 return self.client_request_to_dict(action="submit", trade_offer=self.player_trade)
@@ -2621,7 +2626,7 @@ class ClientState:
                 if user_input == pr.KeyboardKey.KEY_RIGHT and self.client_players[self.name].hand[self.resource_cards[self.selection_index]] > self.player_trade["offer"][self.resource_cards[self.selection_index]]:
                     self.player_trade["offer"][self.resource_cards[self.selection_index]] += 1
                 elif user_input == pr.KeyboardKey.KEY_RIGHT and self.client_players[self.name].hand[self.resource_cards[self.selection_index]] <= self.player_trade["offer"][self.resource_cards[self.selection_index]]:
-                    self.log_msgs.append(f"You don't have enough {self.resource_cards[self.selection_index]} to offer.")
+                    self.chat_msgs.append(f"You don't have enough {self.resource_cards[self.selection_index]} to offer.")
                 elif user_input == pr.KeyboardKey.KEY_LEFT:
                     if self.player_trade["offer"][self.resource_cards[self.selection_index]] > 0:
                         self.player_trade["offer"][self.resource_cards[self.selection_index]] -= 1
@@ -2745,25 +2750,25 @@ class ClientState:
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.selection_index = 0
 
-    def format_log(self):
+    def format_chat(self):
         max_len = 40
-        log_breaks = []
-        # check if log msg is too long for log_box
+        chat_breaks = []
+        # check if chat msg is too long for chat_box
         # find last " " between 0 and 40 of msg. ::-1 reverses the string
-        for msg in self.log_msgs[-7:]:
+        for msg in self.chat_msgs[-7:]:
             if len(msg)>max_len:
                 linebreak = max_len-msg[0:40][::-1].find(" ", 0, max_len)
-                log_breaks.append(msg[:linebreak])
-                log_breaks.append(msg[linebreak:])
+                chat_breaks.append(msg[:linebreak])
+                chat_breaks.append(msg[linebreak:])
             else:
-                log_breaks.append(msg)
-        self.log_to_display = log_breaks[-7:]
+                chat_breaks.append(msg)
+        self.chat_to_display = chat_breaks[-7:]
 
 
     # unpack server response and update state
     def update_client(self, encoded_server_response):
         # name : self.name
-        # kind : log, game state
+        # kind : chat, game state
         # ocean_hexes : [[0, -3], [1, -3],
         # ports_ordered :["three", None, "wheat", None, 
         # port_corners : [(5, 0), None,
@@ -2788,19 +2793,19 @@ class ClientState:
         # trade : [] [[0, 0, 1, 1, 0], [1, 1, 0, 0, 0], "player_name_string"]
         server_response = json.loads(encoded_server_response)
 
-        # chop log even if no new log recv from server - client can generate log msgs
-        self.format_log()
+        # chop chat even if no new chat recv from server - client can generate chat msgs
+        self.format_chat()
 
-        # split kind of response by what kind of message is received, update_log(), update_board(), etc
+        # split kind of response by what kind of message is received, "chat", "reset", etc
         try:
             server_response["kind"]
         except KeyError:
             print("packet kind missing")
             return
     
-        if server_response["kind"] == "log":
-            self.log_msgs.append(server_response["msg"])
-            self.format_log()
+        if server_response["kind"] == "chat":
+            self.chat_msgs.append(server_response["msg"])
+            self.format_chat()
             return
         
         elif server_response["kind"] == "reset":
@@ -3085,13 +3090,13 @@ class ClientState:
         # one call to draw info_box so no conflicts displaying 2 things at once
         rf.draw_infobox(self, hover_object)
 
-        # draw log_box and log
-        pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
-        pr.draw_rectangle_lines_ex(self.log_box, 1, pr.BLACK)
+        # draw chat_box and chat
+        pr.draw_rectangle_rec(self.chat_box, pr.LIGHTGRAY)
+        pr.draw_rectangle_lines_ex(self.chat_box, 1, pr.BLACK)
 
-        # 40 chars can fit in log box for self.med_text
-        for i, msg in enumerate(self.log_to_display):
-            pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text, 4+self.log_box.y+(i*self.med_text)), self.med_text, 0, pr.BLACK)
+        # 40 chars can fit in chat box for self.med_text
+        for i, msg in enumerate(self.chat_to_display):
+            pr.draw_text_ex(pr.gui_get_font(), msg, (self.chat_box.x+self.med_text, 4+self.chat_box.y+(i*self.med_text)), self.med_text, 0, pr.BLACK)
             
 
         for b_object in self.buttons.values():
@@ -3226,7 +3231,7 @@ def run_server(IP_address, debug=False, port=default_port):
             s_state.server_to_client()
         except KeyboardInterrupt:
             break
-    s_state.send_broadcast("log", "Server is offline.")
+    s_state.send_broadcast("chat", "Server is offline.")
     print("\nclosing server")
     s_state.socket.close()
 

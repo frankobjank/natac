@@ -209,6 +209,10 @@ def draw_added_cards(mode, selected_cards, location:pr.Vector2, card_type:str, n
             pr.draw_text_ex(pr.gui_get_font(), f" +{selected_cards[card_type]}", (location.x+x_offset+(size*6), location.y-size+(i*size)), size, 0, color)
 
 
+def draw_building_costs(c_state):
+    pass
+
+
 # includes dev_cards for other players, not dev card buttons for self
 def draw_player_info(c_state, player_object):
     x_offset = c_state.screen_width//20
@@ -462,9 +466,6 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, bank_
 
             if button_object.hover:
                 draw_button_outline(button_object)
-
-
-
 
 
 
