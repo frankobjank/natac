@@ -1902,7 +1902,7 @@ class ServerState:
 
 
 class Button:
-    def __init__(self, rec:pr.Rectangle, name:str, color:pr.Color=pr.RAYWHITE, resource:str|None=None, mode:bool=False, action:bool=False, local_toggle:bool|None=None):
+    def __init__(self, rec:pr.Rectangle, name:str, color:pr.Color=pr.RAYWHITE, resource:str|None=None, mode:bool=False, action:bool=False, toggle:bool|None=None):
         self.rec = rec
         self.name = name
         self.color = color
@@ -1910,7 +1910,7 @@ class Button:
         self.mode = mode
         self.action = action
         self.hover = False
-        self.local_toggle = local_toggle # if None, not toggle-able
+        self.toggle = toggle # if None, not toggle-able
 
         if self.resource != None:
             self.display = self.resource
@@ -2094,6 +2094,8 @@ class ClientState:
 
         # buttons
         self.buttons = {}
+        # local_buttons for chat and show_build_costs, as well as menu/pause toggles
+        self.local_buttons = {}
         button_division = 17
         button_w = self.screen_width//button_division
         button_h = self.screen_height//button_division
@@ -2106,7 +2108,7 @@ class ClientState:
             if b_name == "buy_dev_card":
                 self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, action=True)
             elif b_name == "show_build_costs":
-                self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, local_toggle=False)
+                self.local_buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, toggle=False)
             else:
                 self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, mode=True)
 
@@ -2144,7 +2146,7 @@ class ClientState:
 
 
         # client_only_buttons for toggling chat or displaying menus or build costs
-        self.buttons["chat"] = Button(pr.Rectangle(chatbox_x, chatbox_y, chatbox_w, chatbox_h), "chat", local_toggle=False)
+        self.local_buttons["chat"] = Button(pr.Rectangle(chatbox_x, chatbox_y, chatbox_w, chatbox_h), "chat", toggle=False)
 
 
         # rendering dict
@@ -2315,29 +2317,38 @@ class ClientState:
         
         return client_request
 
-    # adds to chat_msg in place
-    def check_chat_input(self):
+
+
+    # GAME LOOP FUNCTIONS
+    def get_user_input(self):
+        self.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), self.camera)
+        # get mouse input
+        if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
+            return pr.MouseButton.MOUSE_BUTTON_LEFT
+        # use mouse wheel to scroll chat box
+        if pr.check_collision_point_rec(pr.get_mouse_position(), self.chat_box):
+            if pr.get_mouse_wheel_move() > 0:
+                pass
+            if 0 > pr.get_mouse_wheel_move():
+                pass
+        
+
+
         key = 0
-        if pr.is_key_pressed(pr.KeyboardKey.KEY_BACKSPACE) or pr.is_key_pressed_repeat(pr.KeyboardKey.KEY_BACKSPACE):
-            self.chat_msg = self.chat_msg[:-1]
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ENTER):
+        key_queue = []
+        if pr.is_key_pressed(pr.KeyboardKey.KEY_ENTER):
             self.chat_msg += "\n"
         else:
             key = pr.get_char_pressed()
+            key_queue.append(key)
         # pr.get_char_pressed() gets next in queue, so need to check queue until empty
         while key > 0:
             if 126 >= key >= 32:
                 self.chat_msg += chr(key)
             key = pr.get_char_pressed()
-
-    # GAME LOOP FUNCTIONS
-    def get_user_input(self):
-        self.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), self.camera)
-
-        if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
-            return pr.MouseButton.MOUSE_BUTTON_LEFT
         # space and enter for selecting with keyboard keys
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ENTER):
+        
+        if pr.is_key_pressed(pr.KeyboardKey.KEY_ENTER):
             return pr.KeyboardKey.KEY_ENTER
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_SPACE):
             return pr.KeyboardKey.KEY_SPACE
@@ -2351,26 +2362,23 @@ class ClientState:
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_RIGHT):
             return pr.KeyboardKey.KEY_RIGHT
         
-        if self.chat_focus:
             # decided to capture entire key queue with this function, can separate this into client update function by adding logic if len(key queue) > 1
-            self.check_chat_input()
-            return
         
         # toggle debug
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_E):
-            return pr.KeyboardKey.KEY_E
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_F1):
+            return pr.KeyboardKey.KEY_F1
 
         # toggle fullscreen
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_F):
             return pr.KeyboardKey.KEY_F
         
         # roll dice
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_D):
-            return pr.KeyboardKey.KEY_D
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_TAB):
+            return pr.KeyboardKey.KEY_TAB
 
         # end turn
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_C):
-            return pr.KeyboardKey.KEY_C
+        # elif pr.is_key_pressed(pr.KeyboardKey.KEY_C):
+            # return pr.KeyboardKey.KEY_C
         
         # p = pause/options menu
         # elif pr.is_key_pressed(pr.KeyboardKey.KEY_P):
@@ -2391,30 +2399,26 @@ class ClientState:
         # elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
         #     return pr.KeyboardKey.KEY_R
         
-    def update_client_settings(self, user_input):
-        if user_input == pr.KeyboardKey.KEY_F:
-            # self.resize_client()
-            print("resize not available right now")
+    def update_local_client(self, user_input):
+        # check for local buttons hover & input since they should be accessible regardless of game state
+        for b_object in self.local_buttons.values():
+            if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
+                b_object.hover = True
+                if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                    b_object.toggle = not b_object.toggle
+            else:
+                b_object.hover = False
+        
+        # update chat here
+        if self.local_buttons["chat"].toggle == True:
+            if pr.is_key_pressed(pr.KeyboardKey.KEY_BACKSPACE) or pr.is_key_pressed_repeat(pr.KeyboardKey.KEY_BACKSPACE):
+                self.chat_msg = self.chat_msg[:-1]
 
-        elif user_input == pr.KeyboardKey.KEY_E:
+        elif user_input == pr.KeyboardKey.KEY_F1:
             self.debug = not self.debug # toggle
 
-        elif user_input == pr.KeyboardKey.KEY_P:
-            # self.options_menu.visible = True
-            pass
 
 
-        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-            # if self.options_menu.visible == True:
-            #     for b_object in self.buttons.values():
-            #         if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
-            #             # optins menu buttons (mute, fullscreen)
-            #             pass
-            #         else:
-            #             b_object.hover = False
-
-            # enter game/ change settings in client
-            pass
 
     def build_client_request(self, user_input):
 
@@ -2443,7 +2447,7 @@ class ClientState:
         self.current_hex_2 = None
         self.current_hex_3 = None
         
-
+        # have this option before starting game
         # if user_input == pr.KeyboardKey.KEY_R:
         #     print("RAINBOWROAD")
         #     return self.client_request_to_dict(action="randomize_board")
@@ -2472,7 +2476,6 @@ class ClientState:
         if self.setup:
             if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                 return self.submit_board_selection()
-            elif 
 
         # start of turn
         # check for dev card hover apart from other buttons - also before roll_dice check
@@ -2494,7 +2497,7 @@ class ClientState:
                 self.buttons["roll_dice"].hover = False
                 return
             # selecting action using keyboard
-            if user_input == pr.KeyboardKey.KEY_D:
+            if user_input == pr.KeyboardKey.KEY_TAB:
                 return self.client_request_to_dict(action="roll_dice")
             # CHEAT - ROLL7 using keyboard
             if self.debug and user_input == pr.KeyboardKey.KEY_SEVEN:
@@ -2558,8 +2561,6 @@ class ClientState:
         
         # buttons - check for hover, then for mouse click
         for b_object in self.buttons.values():
-            if b_object.name == "chat":
-                self.chat_focus = not self.chat_focus # toggle
             if self.mode == "move_robber":
                 break
             # if not current player, no hover or selecting buttons
@@ -2706,8 +2707,8 @@ class ClientState:
 
 
 
-        if user_input == pr.KeyboardKey.KEY_C:
-            return self.client_request_to_dict(action="end_turn")
+        # if user_input == pr.KeyboardKey.KEY_C:
+        #     return self.client_request_to_dict(action="end_turn")
 
         # selecting board actions with mouse click
         elif user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
@@ -3198,7 +3199,7 @@ def run_client(name, server_IP=local_IP):
 
     while not pr.window_should_close():
         user_input = c_state.get_user_input()
-        c_state.update_client_settings(user_input)
+        c_state.update_local_client(user_input)
 
         client_request = c_state.build_client_request(user_input)
 
