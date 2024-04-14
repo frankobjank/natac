@@ -29,6 +29,10 @@ game_color_dict = {
     "ocean": pr.get_color(0x4fa6ebff)
     }
 
+resource_to_terrain = {"ore": "mountain", "wheat": "field", "sheep": "pasture", "wood": "forest", "brick": "hill"}
+
+
+
 port_to_display = {
     "three": " ? \n3:1",
     "wheat": " 2:1 \nwheat",
@@ -209,8 +213,14 @@ def draw_added_cards(mode, selected_cards, location:pr.Vector2, card_type:str, n
             pr.draw_text_ex(pr.gui_get_font(), f" +{selected_cards[card_type]}", (location.x+x_offset+(size*6), location.y-size+(i*size)), size, 0, color)
 
 
-def draw_building_costs(c_state):
-    pass
+def draw_building_costs(button):
+    building_costs = {"build_road": ["wood", "brick"], "build_settlement": ["wheat", "sheep", "wood", "brick"], "build_city": ["ore", "ore", "ore", "wheat", "wheat"], "buy_dev_card": ["ore", "wheat", "sheep"]}
+
+    for i, resource in enumerate(building_costs[button.name]):
+        
+        resource_rec = pr.Rectangle(int(button.rec.x+5+i*button.rec.width//7), int(button.rec.y-button.rec.height//4), 12, 12)
+        pr.draw_rectangle_rec(resource_rec, game_color_dict[resource_to_terrain[resource]])
+        pr.draw_rectangle_lines_ex(resource_rec, 1, pr.BLACK)
 
 
 # includes dev_cards for other players, not dev card buttons for self
@@ -512,6 +522,7 @@ hover_text = {
     "largest_army": "Largest Army\nThis is given to the player with at least 3 knights. A tie goes to the original holder of Largest Army.",
 }
 building_costs = [" Building costs\n\n Road: 1 Wood, 1 Brick\n\n Settlement: 1 Wheat,\n 1 Sheep, 1 Wood, 1 Brick\n\n City: 3 Ore, 2 Wheat\n\n Dev Card: 1 Ore, 1 Wheat,\n 1 Sheep"]
+
 
 # DEBUG
 def draw_axes():

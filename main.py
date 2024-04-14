@@ -2102,13 +2102,11 @@ class ClientState:
 
         # started auto-formatting display, can delete this dict
         # b_names_to_displays = {"build_road": "Road", "build_city": "City", "build_settlement": "Settle", "trade": "Trade", "bank_trade": "Bank\nTrade", "buy_dev_card": "Dev\nCard"}
-        b_names = ["build_road", "build_city", "build_settlement", "trade", "bank_trade", "buy_dev_card", "show_build_costs"]
+        b_names = ["buy_dev_card", "build_city", "build_settlement", "build_road", "trade", "bank_trade"]
         for i, b_name in enumerate(b_names):
             # separate because buy dev card is action, not mode
             if b_name == "buy_dev_card":
                 self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, action=True)
-            elif b_name == "show_build_costs":
-                self.local_buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, toggle=False)
             else:
                 self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, mode=True)
 
@@ -2134,16 +2132,17 @@ class ClientState:
 
         # chat
         chatbox_w = self.screen_width/2.3
-        chatbox_h = self.screen_height/6
+        chatbox_h = self.screen_height/6+self.med_text
         chatbox_x = self.screen_width-chatbox_w-offset
         chatbox_y = self.screen_height-chatbox_h-offset
         self.chat_box = pr.Rectangle(chatbox_x, chatbox_y, chatbox_w, chatbox_h)
         
-        
         self.chat_msgs = []
         self.chat_to_display = []
         self.chat_msg = ""
-
+        # offset for scrolling - 0 is showing most recent msgs
+        self.chat_offset = 0
+        
 
         # client_only_buttons for toggling chat or displaying menus or build costs
         self.local_buttons["chat"] = Button(pr.Rectangle(chatbox_x, chatbox_y, chatbox_w, chatbox_h), "chat", toggle=False)
@@ -2320,38 +2319,26 @@ class ClientState:
 
 
     # GAME LOOP FUNCTIONS
-    def get_user_input(self):
+    def get_user_input(self):# -> float|int|enum|None
         self.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), self.camera)
         # get mouse input
         if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
             return pr.MouseButton.MOUSE_BUTTON_LEFT
         # use mouse wheel to scroll chat box
-        if pr.check_collision_point_rec(pr.get_mouse_position(), self.chat_box):
-            if pr.get_mouse_wheel_move() > 0:
-                pass
-            if 0 > pr.get_mouse_wheel_move():
-                pass
-        
+        elif pr.get_mouse_wheel_move() != 0:
+            # positive = scroll up; negative = scroll down - will be float
+            return pr.get_mouse_wheel_move()
 
-
-        key = 0
-        key_queue = []
-        if pr.is_key_pressed(pr.KeyboardKey.KEY_ENTER):
-            self.chat_msg += "\n"
-        else:
-            key = pr.get_char_pressed()
-            key_queue.append(key)
-        # pr.get_char_pressed() gets next in queue, so need to check queue until empty
-        while key > 0:
-            if 126 >= key >= 32:
-                self.chat_msg += chr(key)
-            key = pr.get_char_pressed()
-        # space and enter for selecting with keyboard keys
+        key = pr.get_char_pressed()
+        if 126 >= key >= 32:
+            return key
         
-        if pr.is_key_pressed(pr.KeyboardKey.KEY_ENTER):
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_ENTER):
             return pr.KeyboardKey.KEY_ENTER
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_SPACE):
             return pr.KeyboardKey.KEY_SPACE
+        elif pr.is_key_pressed(pr.KeyboardKey.KEY_BACKSPACE) or pr.is_key_pressed_repeat(pr.KeyboardKey.KEY_BACKSPACE):
+            return pr.KeyboardKey.KEY_BACKSPACE
         # directional keys
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_UP):
             return pr.KeyboardKey.KEY_UP
@@ -2362,32 +2349,14 @@ class ClientState:
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_RIGHT):
             return pr.KeyboardKey.KEY_RIGHT
         
-            # decided to capture entire key queue with this function, can separate this into client update function by adding logic if len(key queue) > 1
-        
         # toggle debug
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_F1):
             return pr.KeyboardKey.KEY_F1
 
-        # toggle fullscreen
-        elif pr.is_key_pressed(pr.KeyboardKey.KEY_F):
-            return pr.KeyboardKey.KEY_F
-        
         # roll dice
         elif pr.is_key_pressed(pr.KeyboardKey.KEY_TAB):
             return pr.KeyboardKey.KEY_TAB
 
-        # end turn
-        # elif pr.is_key_pressed(pr.KeyboardKey.KEY_C):
-            # return pr.KeyboardKey.KEY_C
-        
-        # p = pause/options menu
-        # elif pr.is_key_pressed(pr.KeyboardKey.KEY_P):
-        #     return pr.KeyboardKey.KEY_P
-        
-        # # 0 for print debug
-        # elif pr.is_key_pressed(pr.KeyboardKey.KEY_ZERO):
-        #     return pr.KeyboardKey.KEY_ZERO
-        
         # # cheats
         # # 7 for ROLL7
         # elif pr.is_key_pressed(pr.KeyboardKey.KEY_SEVEN):
@@ -2401,18 +2370,29 @@ class ClientState:
         
     def update_local_client(self, user_input):
         # check for local buttons hover & input since they should be accessible regardless of game state
-        for b_object in self.local_buttons.values():
-            if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
-                b_object.hover = True
-                if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                    b_object.toggle = not b_object.toggle
-            else:
-                b_object.hover = False
+        if pr.check_collision_point_rec(pr.get_mouse_position(), self.local_buttons["chat"].rec):
+            self.local_buttons["chat"].hover = True
+            if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                self.local_buttons["chat"].toggle = not self.local_buttons["chat"].toggle
+        else:
+            self.local_buttons["chat"].hover = False
+            if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                self.local_buttons["chat"].toggle = False
+
+        # scroll in chat - # positive = scroll up; negative = scroll down - will be float
+        if type(user_input == float):
+            if pr.check_collision_point_rec(pr.get_mouse_position(), self.chat_box):
+                pass
+
         
         # update chat here
         if self.local_buttons["chat"].toggle == True:
-            if pr.is_key_pressed(pr.KeyboardKey.KEY_BACKSPACE) or pr.is_key_pressed_repeat(pr.KeyboardKey.KEY_BACKSPACE):
+            if user_input == pr.KeyboardKey.KEY_BACKSPACE:
                 self.chat_msg = self.chat_msg[:-1]
+            # cap msg len to 255
+            elif 256 > len(self.chat_msg) and type(user_input) == int and 126 >= user_input >= 32:
+                self.chat_msg += chr(user_input)
+
 
         elif user_input == pr.KeyboardKey.KEY_F1:
             self.debug = not self.debug # toggle
@@ -3093,7 +3073,10 @@ class ClientState:
 
         # draw chat_box and chat
         pr.draw_rectangle_rec(self.chat_box, pr.LIGHTGRAY)
-        pr.draw_rectangle_lines_ex(self.chat_box, 1, pr.BLACK)
+        if self.local_buttons["chat"].toggle == True:
+            pr.draw_rectangle_lines_ex(self.chat_box, 3, pr.BLACK)
+        else:
+            pr.draw_rectangle_lines_ex(self.chat_box, 1, pr.BLACK)
 
         # 40 chars can fit in chat box for self.med_text
         for i, msg in enumerate(self.chat_to_display):
@@ -3106,6 +3089,8 @@ class ClientState:
 
             if b_object.name != "roll_dice" and b_object.name != "submit":
                 b_object.draw_display()
+                if b_object.name == "build_road" or b_object.name == "build_settlement" or b_object.name == "build_city" or b_object.name == "buy_dev_card":
+                    rf.draw_building_costs(b_object)
             
             # hover - self.hover needed because state must determine if action will be allowed
             if b_object.hover:
