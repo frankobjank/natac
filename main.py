@@ -1623,7 +1623,7 @@ class ServerState:
                 self.players[client_request["name"]].color = client_request["color"]
                 self.colors_avl.remove(client_request["color"])
                 self.send_to_player(client_request["name"], "reset", "color_selection")
-            elif not client_request["color"] in self.colors_avl:
+            elif self.players[client_request["name"]] == "gray" and not client_request["color"] in self.colors_avl:
                 self.send_to_player(client_request["name"], "chat", f"{client_request['color']} is not available, choose another.")
             return
         
@@ -1631,7 +1631,7 @@ class ServerState:
             if not all(player_object.color != "gray" for player_object in self.players.values()):
                 self.send_to_player(client_request["name"], "chat", "Not all players have chosen colors.")
                 return
-            if 2 > len(self.players):
+            if not self.debug and 2 > len(self.players):
                 self.send_to_player(client_request["name"], "chat", "Must have at least 2 players to start a game.")
                 return
             self.start_game()
@@ -2100,26 +2100,28 @@ class ClientState:
         button_w = self.screen_width//button_division
         button_h = self.screen_height//button_division
 
-        # started auto-formatting display, can delete this dict
-        # b_names_to_displays = {"build_road": "Road", "build_city": "City", "build_settlement": "Settle", "trade": "Trade", "bank_trade": "Bank\nTrade", "buy_dev_card": "Dev\nCard"}
+        # buttons in order of right -> left
         b_names = ["buy_dev_card", "build_city", "build_settlement", "build_road", "trade", "bank_trade"]
         for i, b_name in enumerate(b_names):
             # separate because buy dev card is action, not mode
             if b_name == "buy_dev_card":
-                self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, action=True)
+                mode = None
+                action = True
             else:
-                self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset, button_w+offset/2, 1.1*button_h), b_name, mode=True)
+                mode = True
+                action = None
+            self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset/4, button_w+offset/2, 1.1*button_h), b_name, mode=mode, action=action)
 
         # action_button_names = ["end_turn", "submit", "roll_dice"]
-        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-(7.5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "end_turn", action=True)
-        self.buttons["submit"] = Button(pr.Rectangle(self.screen_width-(5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "submit", color=rf.game_color_dict["submit"], action=True)
-        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.5*button_w), self.screen_height-(5.5*button_h), 2*button_w, 1.5*button_h), "roll_dice", action=True)
+        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-2.8*(2.45*button_w), self.screen_height-(6.5*button_h), 2*button_w, 1.5*button_h), "end_turn", action=True)
+        self.buttons["submit"] = Button(pr.Rectangle(self.screen_width-1.9*(2.45*button_w), self.screen_height-(6.5*button_h), 2*button_w, 1.5*button_h), "submit", color=rf.game_color_dict["submit"], action=True)
+        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.45*button_w), self.screen_height-(6.5*button_h), 2*button_w, 1.5*button_h), "roll_dice", action=True)
 
         # info_box
         infobox_w = self.screen_width/3.5
         infobox_h = self.screen_height/2
         infobox_x = self.screen_width-infobox_w-offset
-        infobox_y = self.screen_height-infobox_h-10*offset
+        infobox_y = self.screen_height-infobox_h-11*offset
         self.info_box = pr.Rectangle(infobox_x, infobox_y, infobox_w, infobox_h)
 
         
@@ -2132,7 +2134,7 @@ class ClientState:
 
         # chat
         chatbox_w = self.screen_width/2.3
-        chatbox_h = self.screen_height/6+self.med_text
+        chatbox_h = self.screen_height/4 # self.screen_height/6+self.med_text
         chatbox_x = self.screen_width-chatbox_w-offset
         chatbox_y = self.screen_height-chatbox_h-offset
         self.chat_box = pr.Rectangle(chatbox_x, chatbox_y, chatbox_w, chatbox_h)

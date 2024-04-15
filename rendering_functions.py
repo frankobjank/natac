@@ -217,10 +217,10 @@ def draw_building_costs(button):
     building_costs = {"build_road": ["wood", "brick"], "build_settlement": ["wheat", "sheep", "wood", "brick"], "build_city": ["ore", "ore", "ore", "wheat", "wheat"], "buy_dev_card": ["ore", "wheat", "sheep"]}
 
     for i, resource in enumerate(building_costs[button.name]):
-        
-        resource_rec = pr.Rectangle(int(button.rec.x+5+i*button.rec.width//7), int(button.rec.y-button.rec.height//4), 12, 12)
+        size = button.rec.width//5.5
+        resource_rec = pr.Rectangle(int(button.rec.x+2+1.1*(i*size)), int(button.rec.y+1.05*button.rec.height), size, size)
         pr.draw_rectangle_rec(resource_rec, game_color_dict[resource_to_terrain[resource]])
-        pr.draw_rectangle_lines_ex(resource_rec, 1, pr.BLACK)
+        pr.draw_rectangle_lines_ex(resource_rec, 2, pr.BLACK)
 
 
 # includes dev_cards for other players, not dev card buttons for self
