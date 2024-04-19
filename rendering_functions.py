@@ -497,10 +497,10 @@ mode_text = {
     "build_settlement": " Select a location to build\n a settlement.",
     "build_city": " Select a settlement to\n upgrade to a city.",
     "move_robber": " You must move the robber.\n Please select a land hex.",
-    "discard": " Select cards to discard.\n Use arrow keys to select cards.\n Press Space or Enter to submit.",
+    "discard": " Select cards to discard.\n Use arrow keys to select cards.\n Hit Submit or enter to submit.",
     "road_building": " Pick a location to place a\n free road",
-    "year_of_plenty": " Pick 2 resources to receive.\n Use arrow keys to select cards.\n Press Space or Enter to submit.",
-    "monopoly": " Pick a type of resource to\n steal from all players.\n Use arrow keys to select cards.\n Press Space or Enter to submit.",
+    "year_of_plenty": " Pick 2 resources to receive.\n Use arrow keys to select cards.\n Hit Submit or enter to submit.",
+    "monopoly": " Pick a type of resource to\n steal from all players.\n Use arrow keys to select cards.\n Hit Submit or enter to submit.",
     "roll_dice": " Click on the dice to roll.",
 }
 

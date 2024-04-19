@@ -745,7 +745,6 @@ class ServerState:
         # cheat
         self.ITSOVER9000 = False
 
-
         self.debug = debug
 
     def shuffle_dev_cards(self):
@@ -813,7 +812,6 @@ class ServerState:
             self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), self.players[name].address)
             
 
-
     # adding players to server. order in terms of arrival, will rearrange later
     # placeholder name (order?) will have to be used when giving ability to select username in-game
     def add_player(self, name, address):
@@ -836,8 +834,6 @@ class ServerState:
         self.send_to_player(name, "log", f"Welcome to natac.")
         self.socket.sendto(to_json(self.package_state(name, include_board=True)).encode(), address)
 
-
-
     def randomize_player_order(self):
         player_names = [name for name in self.players.keys()]
         for i in range(len(player_names)):
@@ -852,7 +848,6 @@ class ServerState:
         
         self.players = new_player_dict
         
-
 
     def start_game(self):
         # right now board is initialized when server is started
@@ -938,7 +933,6 @@ class ServerState:
                         self.mode = "roll_dice"
                         self.setup = False
                         self.send_broadcast("reset", "setup_complete")
-
 
 
     def get_next_node(self, visited_nodes, current_edge, edges_to_nodes):
@@ -1069,8 +1063,6 @@ class ServerState:
             self.longest_road = ""
             return
         
-        
-
         tie = set()
         current_leader = ""
         for name, path in all_paths.items():
@@ -1555,7 +1547,7 @@ class ServerState:
 
 
 
-        
+        # if not calculating custom value above, using server state value for all clients
         packet = {
             "name": recipient,
             "kind": "state",
@@ -1614,6 +1606,12 @@ class ServerState:
                 self.add_player(client_request["name"], address)
             return
 
+        # check for chat submission from all players before any other actions - should be able to chat at any stage in the game
+        elif client_request["action"] == "submit" and client_request["chat"] != None:
+            chat = f"{client_request['name']}: {client_request['chat']}"
+            self.send_broadcast("log", chat)
+            self.send_to_player(client_request["name"], "reset", "chat")
+
         elif client_request["action"] == "request_board":
             self.socket.sendto(to_json(self.package_state(client_request["name"], include_board=True)).encode(), address)
             return
@@ -1651,7 +1649,7 @@ class ServerState:
                     self.mode = "move_robber"
 
             return
-        
+                    
         elif self.mode == "trade" and len(self.player_trade["trade_with"]) > 0 and self.current_player_name != client_request["name"]:
             if client_request["action"] == "submit":
                 self.complete_trade(self.current_player_name, client_request["name"])
@@ -2148,7 +2146,7 @@ class ClientState:
 
         self.chat_msg = ""
         # CLIENT ONLY - for toggling chat or displaying menus or build costs
-        self.toggle_buttons["chat"] = Button(pr.Rectangle(self.log_box.x, self.log_box.y+(self.med_text*9.5), self.log_box.width, self.log_box.y), "chat", toggle=False)
+        self.toggle_buttons["chat"] = Button(pr.Rectangle(self.log_box.x, self.log_box.y+(self.med_text*9.5), self.log_box.width, logbox_h-self.med_text*9.5), "chat", toggle=False)
 
 
 
@@ -2296,7 +2294,7 @@ class ClientState:
     def check_submit(self, user_input):
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["submit"].rec):
             return True
-        elif user_input == pr.KeyboardKey.KEY_ENTER or user_input == pr.KeyboardKey.KEY_SPACE:
+        elif user_input == pr.KeyboardKey.KEY_ENTER:
             return True
         return False
 
@@ -2306,7 +2304,8 @@ class ClientState:
         return False
 
 
-    def client_request_to_dict(self, mode=None, action=None, cards=None, resource=None, player=None, trade_offer=None, color=None) -> dict:
+    def client_request_to_dict(self, mode=None, action=None, cards=None, resource=None, player=None, trade_offer=None, color=None, chat=None) -> dict:
+        # could get rid of some of these variables by having a "kind" variable describing the client request. kind = location|mode|action|cards|resource|selected_player|trade_offer|color|chat
         client_request = {"name": self.name}
         client_request["location"] = {"hex_a": self.current_hex, "hex_b": self.current_hex_2, "hex_c": self.current_hex_3}
 
@@ -2317,6 +2316,7 @@ class ClientState:
         client_request["selected_player"] = player
         client_request["trade_offer"] = trade_offer
         client_request["color"] = color
+        client_request["chat"] = chat
         
         return client_request
 
@@ -2376,10 +2376,12 @@ class ClientState:
         # check for local buttons hover & input since they should be accessible regardless of game state
         if pr.check_collision_point_rec(pr.get_mouse_position(), self.toggle_buttons["chat"].rec):
             self.toggle_buttons["chat"].hover = True
+            pr.set_mouse_cursor(pr.MouseCursor.MOUSE_CURSOR_IBEAM)
             if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                 self.toggle_buttons["chat"].toggle = not self.toggle_buttons["chat"].toggle
         else:
             self.toggle_buttons["chat"].hover = False
+            pr.set_mouse_cursor(pr.MouseCursor.MOUSE_CURSOR_ARROW)
             if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                 self.toggle_buttons["chat"].toggle = False
 
@@ -2393,14 +2395,13 @@ class ClientState:
         if self.toggle_buttons["chat"].toggle == True:
             if user_input == pr.KeyboardKey.KEY_BACKSPACE:
                 self.chat_msg = self.chat_msg[:-1]
-            # cap msg len to 255
-            elif 40 > len(self.chat_msg) and type(user_input) == int and 126 >= user_input >= 32:
+            # cap msg len to 2 lines = 80 - 12(max player name len) - 2(': ' after player name)
+            elif 66 > len(self.chat_msg) and type(user_input) == int and 126 >= user_input >= 32:
                 self.chat_msg += chr(user_input)
 
 
         elif user_input == pr.KeyboardKey.KEY_F1:
             self.debug = not self.debug # toggle
-
 
 
 
@@ -2413,6 +2414,11 @@ class ClientState:
         if not self.is_connected():
             return self.client_request_to_dict(action="add_player")
         
+        # check if chat is submitted -> send to server
+        if self.toggle_buttons["chat"].toggle == True and self.check_submit(user_input):
+            return self.client_request_to_dict(action="submit", chat=self.chat_msg)
+
+
         if self.mode == "select_color":
             if self.name in self.client_players.keys():
                 if self.client_players[self.name].color == pr.GRAY:
@@ -2625,7 +2631,7 @@ class ClientState:
 
         # trade_offer = {"offer": ["ore", -4], "request": ["wheat", 1]}
         elif self.mode == "bank_trade":
-            # submit with enter, space, or submit button
+            # submit with enter or submit button
             if self.check_submit(user_input):
                 if len(self.bank_trade["offer"]) > 0 and len(self.bank_trade["request"]) > 0:
                     return self.client_request_to_dict(action="submit", trade_offer=self.bank_trade)
@@ -2797,6 +2803,9 @@ class ClientState:
         elif server_response["kind"] == "reset":
             if server_response["msg"] == "setup_complete":
                 self.setup = False
+            elif server_response["msg"] == "chat":
+                self.chat_msg = ""
+                return
             self.reset_selections()
             return
 
@@ -3078,15 +3087,22 @@ class ClientState:
 
         # draw log_box and chat
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
-
-        if self.toggle_buttons["chat"].toggle == True:
-            pr.draw_rectangle_lines_ex(self.log_box, 3, pr.BLACK)
-        else:
-            pr.draw_rectangle_lines_ex(self.log_box, 1, pr.BLACK)
+        pr.draw_rectangle_lines_ex(self.log_box, 1, pr.BLACK)
 
         # 40 chars can fit in log box for self.med_text
         for i, msg in enumerate(self.log_to_display):
             pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text, 4+self.log_box.y+(i*self.med_text)), self.med_text, 0, pr.BLACK)
+
+        # draw chat bar
+        if self.toggle_buttons["chat"].toggle == True:
+            pr.draw_rectangle_lines_ex(self.toggle_buttons["chat"].rec, 4, pr.BLACK)
+        else:
+            pr.draw_rectangle_lines_ex(self.toggle_buttons["chat"].rec, 1, pr.BLACK)
+        
+        # draw chat msg
+        if len(self.chat_msg) > 0:
+            pr.draw_text_ex(pr.gui_get_font(), " "+self.chat_msg, (self.toggle_buttons["chat"].rec.x, self.toggle_buttons["chat"].rec.y+self.med_text/2.3), self.med_text, 0, pr.BLACK)
+        
             
 
         for b_object in self.buttons.values():
