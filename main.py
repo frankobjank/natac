@@ -1608,8 +1608,7 @@ class ServerState:
 
         # check for chat submission from all players before any other actions - should be able to chat at any stage in the game
         elif client_request["action"] == "submit" and client_request["chat"] != None:
-            chat = f"{client_request['name']}: {client_request['chat']}"
-            self.send_broadcast("log", chat)
+            self.send_broadcast("log", client_request["chat"])
             self.send_to_player(client_request["name"], "reset", "chat")
 
         elif client_request["action"] == "request_board":
@@ -2144,7 +2143,7 @@ class ClientState:
         self.log_offset = 0
         
 
-        self.chat_msg = ""
+        self.chat_msg = f"{self.name}: "
         # CLIENT ONLY - for toggling chat or displaying menus or build costs
         self.toggle_buttons["chat"] = Button(pr.Rectangle(self.log_box.x, self.log_box.y+(self.med_text*9.5), self.log_box.width, logbox_h-self.med_text*9.5), "chat", toggle=False)
 
@@ -2393,7 +2392,7 @@ class ClientState:
         
         # update chat here
         if self.toggle_buttons["chat"].toggle == True:
-            if user_input == pr.KeyboardKey.KEY_BACKSPACE:
+            if user_input == pr.KeyboardKey.KEY_BACKSPACE and len(self.chat_msg) > len(self.name)+2:
                 self.chat_msg = self.chat_msg[:-1]
             # cap msg len to 2 lines = 80 - 12(max player name len) - 2(': ' after player name)
             elif 66 > len(self.chat_msg) and type(user_input) == int and 126 >= user_input >= 32:
@@ -2750,10 +2749,31 @@ class ClientState:
         for msg in self.log_msgs[-num_lines:]:
             if len(msg)>max_len:
                 linebreak = max_len-msg[0:40][::-1].find(" ", 0, max_len)
-                log_breaks.append(msg[:linebreak])
-                log_breaks.append(msg[linebreak:])
+                # breaks up words by space
+                if linebreak > 14:
+                    log_breaks.append(msg[:linebreak])
+                    log_breaks.append(msg[linebreak:])
             else:
                 log_breaks.append(msg)
+            
+            # num_lines, num_chars = divmod(len(msg), max_len)
+            # line_start = 0
+            # counter = len(msg)
+            # linebreak = max_len-msg[0:40][::-1].find(" ", 0, max_len)
+            # print(linebreak)
+            # log_breaks.append(msg[line_start:linebreak])
+            # line_start = linebreak
+            # counter -= linebreak
+            # while counter > max_len:
+            #     linebreak = max_len-msg[0:40][::-1].find(" ", 0, max_len)
+            #     print(linebreak)
+            #     log_breaks.append(msg[line_start:linebreak])
+            #     line_start = linebreak
+            #     counter -= linebreak
+                
+        
+
+
         self.log_to_display = log_breaks[-num_lines:]
 
 
@@ -2804,7 +2824,7 @@ class ClientState:
             if server_response["msg"] == "setup_complete":
                 self.setup = False
             elif server_response["msg"] == "chat":
-                self.chat_msg = ""
+                self.chat_msg = f"{self.name}: "
                 return
             self.reset_selections()
             return
