@@ -2395,7 +2395,7 @@ class ClientState:
             if user_input == pr.KeyboardKey.KEY_BACKSPACE and len(self.chat_msg) > len(self.name)+2:
                 self.chat_msg = self.chat_msg[:-1]
             # cap msg len to 2 lines = 80 - 12(max player name len) - 2(': ' after player name)
-            elif 66 > len(self.chat_msg) and type(user_input) == int and 126 >= user_input >= 32:
+            elif 128 > len(self.chat_msg) and type(user_input) == int and 126 >= user_input >= 32:
                 self.chat_msg += chr(user_input)
 
 
@@ -2747,30 +2747,27 @@ class ClientState:
         # check if log msg is too long for log_box
         # find last " " between 0 and 40 of msg. ::-1 reverses the string
         for msg in self.log_msgs[-num_lines:]:
-            if len(msg)>max_len:
-                linebreak = max_len-msg[0:40][::-1].find(" ", 0, max_len)
-                # breaks up words by space
-                if linebreak > 14:
-                    log_breaks.append(msg[:linebreak])
-                    log_breaks.append(msg[linebreak:])
-            else:
-                log_breaks.append(msg)
-            
-            # num_lines, num_chars = divmod(len(msg), max_len)
-            # line_start = 0
-            # counter = len(msg)
-            # linebreak = max_len-msg[0:40][::-1].find(" ", 0, max_len)
-            # print(linebreak)
-            # log_breaks.append(msg[line_start:linebreak])
-            # line_start = linebreak
-            # counter -= linebreak
-            # while counter > max_len:
+            # SIMPLIFIED - only handles 1 line break
+            # if len(msg)>max_len:
             #     linebreak = max_len-msg[0:40][::-1].find(" ", 0, max_len)
-            #     print(linebreak)
-            #     log_breaks.append(msg[line_start:linebreak])
-            #     line_start = linebreak
-            #     counter -= linebreak
-                
+            #     # breaks up words by space
+            #     if linebreak > 14:
+            #         log_breaks.append(msg[:linebreak])
+            #         log_breaks.append(msg[linebreak:])
+            # else:
+            #     log_breaks.append(msg)
+            
+            # handles more than 1 line break
+            if max_len > len(msg):
+                log_breaks.append(msg)
+            else:
+                # move along the string w p1 and p2, add last line outside of while loop
+                p1 = 0
+                while (len(msg)-p1 > max_len):
+                    p2 = p1+max_len-msg[p1:p1+max_len][::-1].find(" ", p1, p1+max_len)
+                    log_breaks.append(msg[p1:p2])
+                    p1 = p2
+                log_breaks.append(msg[p1:])
         
 
 
