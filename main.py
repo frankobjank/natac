@@ -2136,12 +2136,13 @@ class ClientState:
         logbox_y = self.screen_height-logbox_h-offset*.5
         self.log_box = pr.Rectangle(logbox_x, logbox_y, logbox_w, logbox_h)
         
-        
         self.log_msgs = []
         self.log_to_display = []
+        self.log_lines = int((logbox_h*9/11)//self.med_text) # can fit 9 at default height
         # offset for scrolling - 0 is showing most recent msgs
         self.log_offset = 0
-        
+        # scroll bar - pr.Rectangle. calculate as needed
+        self.log_scroll = None
 
         self.chat_msg = f"{self.name}: "
         # CLIENT ONLY - for toggling chat or displaying menus or build costs
@@ -2385,16 +2386,33 @@ class ClientState:
                 self.toggle_buttons["chat"].toggle = False
 
         # scroll in log - # positive = scroll up; negative = scroll down - will be float
-        if type(user_input == float):
+        if type(user_input) == float:
             if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_box):
-                pass
+                if self.log_lines > len(self.log_msgs):
+                    self.log_offset = 0
+                else:
+                    self.log_offset += int(user_input)
+                    if -len(self.log_msgs)+self.log_lines > self.log_offset:
+                        self.log_offset = -len(self.log_msgs)+self.log_lines
+                    elif self.log_offset > 0:
+                        self.log_offset = 0
+        
+        # adjust log scroll bar
+        if len(self.log_msgs) > self.log_lines:
+            scroll_w = self.med_text//2
+            scroll_h = (self.log_box.height-self.toggle_buttons["chat"].rec.height)/(len(self.log_msgs)-self.log_lines+1)
+            # if self.med_text > scroll_h:
+                # scroll_h = self.med_text
+            scroll_y = self.log_box.y+self.log_box.height-self.toggle_buttons["chat"].rec.height+scroll_h*(self.log_offset-1)
+
+            self.log_scroll = pr.Rectangle(self.log_box.x+self.log_box.width-scroll_w, scroll_y, scroll_w, scroll_h)
 
         
         # update chat here
         if self.toggle_buttons["chat"].toggle == True:
             if user_input == pr.KeyboardKey.KEY_BACKSPACE and len(self.chat_msg) > len(self.name)+2:
                 self.chat_msg = self.chat_msg[:-1]
-            # cap msg len to 2 lines = 80 - 12(max player name len) - 2(': ' after player name)
+            # can be arbitrary length, capping at 128
             elif 128 > len(self.chat_msg) and type(user_input) == int and 126 >= user_input >= 32:
                 self.chat_msg += chr(user_input)
 
@@ -2742,36 +2760,27 @@ class ClientState:
 
     def format_log(self):
         max_len = 40
-        num_lines = 9
         log_breaks = []
-        # check if log msg is too long for log_box
-        # find last " " between 0 and 40 of msg. ::-1 reverses the string
-        for msg in self.log_msgs[-num_lines:]:
-            # SIMPLIFIED - only handles 1 line break
-            # if len(msg)>max_len:
-            #     linebreak = max_len-msg[0:40][::-1].find(" ", 0, max_len)
-            #     # breaks up words by space
-            #     if linebreak > 14:
-            #         log_breaks.append(msg[:linebreak])
-            #         log_breaks.append(msg[linebreak:])
-            # else:
-            #     log_breaks.append(msg)
-            
-            # handles more than 1 line break
+        if self.log_offset != 0:
+            log_slice = self.log_msgs[self.log_offset-self.log_lines:self.log_offset]
+        else:
+            log_slice = self.log_msgs[-self.log_lines:]
+
+        for msg in log_slice:
+            # check if log msg is too long for log_box
             if max_len > len(msg):
                 log_breaks.append(msg)
             else:
                 # move along the string w p1 and p2, add last line outside of while loop
                 p1 = 0
                 while (len(msg)-p1 > max_len):
+                    # find last " " between 0 and 40 of msg. ::-1 reverses the string
                     p2 = p1+max_len-msg[p1:p1+max_len][::-1].find(" ", p1, p1+max_len)
                     log_breaks.append(msg[p1:p2])
                     p1 = p2
                 log_breaks.append(msg[p1:])
-        
 
-
-        self.log_to_display = log_breaks[-num_lines:]
+        self.log_to_display = log_breaks[-self.log_lines:]
 
 
     # unpack server response and update state
@@ -2955,7 +2964,6 @@ class ClientState:
                                     pass
 
 
-
     def render_board(self):
         # hex details - layout = type, size, origin
         size = 50
@@ -3019,7 +3027,6 @@ class ClientState:
         robber_hex_center = vector2_round(hh.hex_to_pixel(pointy, self.board["robber_hex"]))
         rf.draw_robber(robber_hex_center, alpha)
 
-
     def render_mouse_hover(self):
         # self.hover could prob be replaced with other logic about current player, mode
         # highlight current node if building is possible
@@ -3052,7 +3059,6 @@ class ClientState:
             # highlight current hex if moving robber is possible
             elif self.current_hex:
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
-
 
     def render_client(self):
 
@@ -3105,6 +3111,9 @@ class ClientState:
         # draw log_box and chat
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
         pr.draw_rectangle_lines_ex(self.log_box, 1, pr.BLACK)
+        # draw log scroll bar
+        if self.log_scroll:
+            pr.draw_rectangle_rec(self.log_scroll, pr.BLACK)
 
         # 40 chars can fit in log box for self.med_text
         for i, msg in enumerate(self.log_to_display):
