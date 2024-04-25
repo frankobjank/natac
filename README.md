@@ -1,5 +1,7 @@
 # natac
 
+Free & open source networked game inspired by Klaus Teuber's *Settlers of Catan* for MacOS and Linux.
+
 The Python version used for development is Python 3.11.5.
 
 How to run the game from the terminal:
