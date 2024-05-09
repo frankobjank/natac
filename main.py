@@ -1608,6 +1608,8 @@ class ServerState:
 
         # check for chat submission from all players before any other actions - should be able to chat at any stage in the game
         elif client_request["action"] == "submit" and client_request["chat"] != None:
+            # for debugging double chat bug
+            print(f"client_request = {client_request}")
             self.send_broadcast("log", client_request["chat"])
             self.send_to_player(client_request["name"], "reset", "chat")
 
@@ -1955,6 +1957,20 @@ class Button:
         for i, line in enumerate(display.split("\n")):
             pr.draw_text_ex(pr.gui_get_font(), " "+line, (self.rec.x, self.rec.y+(i+.5)*font_size), font_size, 0, pr.BLACK)
 
+class LogButton:
+    def __init__(self, rec:pr.Rectangle, name:str, toggle:bool|None=None):
+        self.rec = rec
+        self.name = name
+        self.hover = False
+        self.hot = False
+        self.toggle = toggle # if None, not toggle-able
+
+    def __repr__(self):
+        return f"Button({self.name})"
+
+# potentially put log in its own class containing rec, buttons, messages
+class LogBox:
+    pass
     
 class Menu:
     def __init__(self, c_state, name, link: Button, *button_names):
@@ -2091,8 +2107,7 @@ class ClientState:
 
         # buttons
         self.buttons = {}
-        # toggle_buttons for chat and show_build_costs, as well as menu/pause toggles
-        self.toggle_buttons = {}
+        self.log_buttons = {}
         button_division = 17
         button_w = self.screen_width//button_division
         button_h = self.screen_height//button_division
@@ -2117,41 +2132,58 @@ class ClientState:
         # info_box
         infobox_w = self.screen_width/3.5
         infobox_h = self.screen_height/2
-        infobox_x = self.screen_width-infobox_w-offset
-        infobox_y = self.screen_height-infobox_h-11*offset
-        self.info_box = pr.Rectangle(infobox_x, infobox_y, infobox_w, infobox_h)
+        self.info_box = pr.Rectangle(
+            x=self.screen_width-infobox_w-offset,
+            y=self.screen_height-infobox_h-11*offset,
+            width=infobox_w, 
+            height=infobox_h)
 
         
         self.trade_buttons = {}
         for i, resource in enumerate(self.resource_cards):
-            self.trade_buttons[f"offer_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+offset, infobox_w//6, infobox_h/8), f"offer_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
-            self.trade_buttons[f"request_{resource}"] = Button(pr.Rectangle(infobox_x+(i+1)*(infobox_w//10)+offset/1.4*i, infobox_y+infobox_h-2.7*offset, infobox_w//6, infobox_h/8), f"request_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
+            self.trade_buttons[f"offer_{resource}"] = Button(pr.Rectangle(self.info_box.x+(i+1)*(self.info_box.width//10)+offset/1.4*i, self.info_box.y+offset, self.info_box.width//6, self.info_box.height/8), f"offer_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
+            self.trade_buttons[f"request_{resource}"] = Button(pr.Rectangle(self.info_box.x+(i+1)*(self.info_box.width//10)+offset/1.4*i, self.info_box.y+self.info_box.height-2.7*offset, self.info_box.width//6, self.info_box.height/8), f"request_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
         
         self.dev_card_buttons = {}
+
 
         # log
         logbox_w = self.screen_width/2.3
         logbox_h = self.screen_height/4
-        logbox_x = self.screen_width-logbox_w-offset
-        logbox_y = self.screen_height-logbox_h-offset*.5
-        self.log_box = pr.Rectangle(logbox_x, logbox_y, logbox_w, logbox_h)
-        
+        self.log_box = pr.Rectangle(
+            x=self.screen_width-logbox_w-offset, 
+            y=self.screen_height-logbox_h-offset*.5,
+            width=logbox_w,
+            height=logbox_h)
         self.log_msgs = []
         self.log_to_display = []
         self.log_lines = int((logbox_h*9/11)//self.med_text) # can fit 9 at default height
+        
         # offset for scrolling - 0 is showing most recent msgs
         self.log_offset = 0
-        # scroll bar - pr.Rectangle. calculate as needed
-        self.log_scroll = None
-
         self.chat_msg = f"{self.name}: "
-        # CLIENT ONLY - for toggling chat or displaying menus or build costs
-        self.toggle_buttons["chat"] = Button(pr.Rectangle(self.log_box.x, self.log_box.y+(self.med_text*9.5), self.log_box.width, logbox_h-self.med_text*9.5), "chat", toggle=False)
+        
+        self.log_buttons["chat"] = LogButton(
+            rec=pr.Rectangle(self.log_box.x, self.log_box.y+(self.med_text*9.5), self.log_box.width, logbox_h-self.med_text*9.5),
+            name="chat",
+            toggle=False)
+        
 
+        
+        # NEW SCROLLBAR (from scratch)
+        scrollbar_w = self.med_text//2
+        self.log_buttons["scrollbar"] = LogButton(
+            rec=pr.Rectangle(x=self.log_box.x+self.log_box.width-scrollbar_w, y=self.log_box.y,width=scrollbar_w, height=self.log_box.height),
+            name="scrollbar"
+            )
 
+        # OLD SCROLLBAR (commit #1326d1e)
+        # self.log_buttons["scrollbar"] = Button(pr.Rectangle(self.log_box.x+self.log_box.width-self.med_text//2, self.log_box.y, self.med_text//2, self.log_box.height-self.log_buttons["chat"].rec.height), "scrollbar")
 
-        # rendering dict
-        self.rendering_dict = {"width":self.screen_width, "height": self.screen_height, "small_text": self.small_text, "med_text": self.med_text}
+        # thumb - tracks scrolling. calculate as needed
+        self.log_thumb = None # add to log_buttons["thumb"] - calc mouse movement
+        self.min_log_thumb = None
+
 
         # camera controls
         # when changing size of screen, just zoom in?
@@ -2328,6 +2360,13 @@ class ClientState:
         # get mouse input
         if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
             return pr.MouseButton.MOUSE_BUTTON_LEFT
+        # allow continuous mouse button input only in some cases
+        # elif pr.is_mouse_button_pressed(pr.MouseButton.MOUSE_BUTTON_LEFT) or pr.is_mouse_button_down(pr.MouseButton.MOUSE_BUTTON_LEFT):
+            # if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["scrollbar"]):
+                # return pr.MouseButton.MOUSE_BUTTON_LEFT
+            # elif pr.check_collision_point_rec(pr.get_mouse_position(), self.log_box):
+                # return pr.get_mouse_delta()
+
         # use mouse wheel to scroll log box
         elif pr.get_mouse_wheel_move() != 0:
             # positive = scroll up; negative = scroll down - will be float
@@ -2372,20 +2411,10 @@ class ClientState:
         # elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
         #     return pr.KeyboardKey.KEY_R
         
-    def update_local_client(self, user_input):
-        # check for local buttons hover & input since they should be accessible regardless of game state
-        if pr.check_collision_point_rec(pr.get_mouse_position(), self.toggle_buttons["chat"].rec):
-            self.toggle_buttons["chat"].hover = True
-            pr.set_mouse_cursor(pr.MouseCursor.MOUSE_CURSOR_IBEAM)
-            if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                self.toggle_buttons["chat"].toggle = not self.toggle_buttons["chat"].toggle
-        else:
-            self.toggle_buttons["chat"].hover = False
-            pr.set_mouse_cursor(pr.MouseCursor.MOUSE_CURSOR_ARROW)
-            if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                self.toggle_buttons["chat"].toggle = False
 
-        # scroll in log - # positive = scroll up; negative = scroll down - will be float
+    # two client updates - before server for updating menus/ local settings & after server response
+    def update_local_client(self, user_input):
+        # mousewheel scroll in log - # positive = scroll up; negative = scroll down - will be float
         if type(user_input) == float:
             if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_box):
                 if self.log_lines > len(self.log_msgs):
@@ -2400,24 +2429,44 @@ class ClientState:
         # adjust log scroll bar
         if len(self.log_msgs) > self.log_lines:
             scroll_w = self.med_text//2
-            scroll_h = (self.log_box.height-self.toggle_buttons["chat"].rec.height)/(len(self.log_msgs)-self.log_lines+1)
+            scroll_h = (self.log_box.height-self.log_buttons["chat"].rec.height)/(len(self.log_msgs)-self.log_lines+1)
+            # set a minimum for scroll bar to prevent it becoming invisible?
             # if self.med_text > scroll_h:
                 # scroll_h = self.med_text
-            scroll_y = self.log_box.y+self.log_box.height-self.toggle_buttons["chat"].rec.height+scroll_h*(self.log_offset-1)
+            scroll_y = self.log_box.y+self.log_box.height-self.log_buttons["chat"].rec.height+scroll_h*(self.log_offset-1)
 
-            self.log_scroll = pr.Rectangle(self.log_box.x+self.log_box.width-scroll_w, scroll_y, scroll_w, scroll_h)
+            self.log_thumb = pr.Rectangle(self.log_box.x+self.log_box.width-scroll_w, scroll_y, scroll_w, scroll_h)
 
         
         # update chat here
-        if self.toggle_buttons["chat"].toggle == True:
+        if self.log_buttons["chat"].toggle == True:
             if user_input == pr.KeyboardKey.KEY_BACKSPACE and len(self.chat_msg) > len(self.name)+2:
                 self.chat_msg = self.chat_msg[:-1]
             # can be arbitrary length, capping at 128
             elif 128 > len(self.chat_msg) and type(user_input) == int and 126 >= user_input >= 32:
                 self.chat_msg += chr(user_input)
 
+        # check each button individually since there are different rules per button
+        if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["chat"].rec):
+            self.log_buttons["chat"].hover = True
+            pr.set_mouse_cursor(pr.MouseCursor.MOUSE_CURSOR_IBEAM)
+            if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                self.log_buttons["chat"].toggle = not self.log_buttons["chat"].toggle
+        else:
+            self.log_buttons["chat"].hover = False
+            pr.set_mouse_cursor(pr.MouseCursor.MOUSE_CURSOR_ARROW)
+            if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                self.log_buttons["chat"].toggle = False
+        
+        # thumb and scrollbar
+        # if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["thumb"].rec) and user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+            # self.log_buttons["thumb"].rec.x = 
 
-        elif user_input == pr.KeyboardKey.KEY_F1:
+        # elif pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["scrollbar"].rec) and user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+            # self.log_buttons["scrollbar"].rec.x = 
+
+
+        if user_input == pr.KeyboardKey.KEY_F1:
             self.debug = not self.debug # toggle
 
 
@@ -2432,7 +2481,7 @@ class ClientState:
             return self.client_request_to_dict(action="add_player")
         
         # check if chat is submitted -> send to server
-        if self.toggle_buttons["chat"].toggle == True and self.check_submit(user_input):
+        if self.log_buttons["chat"].toggle == True and self.check_submit(user_input):
             return self.client_request_to_dict(action="submit", chat=self.chat_msg)
 
 
@@ -3111,23 +3160,25 @@ class ClientState:
         # draw log_box and chat
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
         pr.draw_rectangle_lines_ex(self.log_box, 1, pr.BLACK)
-        # draw log scroll bar
-        if self.log_scroll:
-            pr.draw_rectangle_rec(self.log_scroll, pr.BLACK)
+        # draw scrollbar rec
+        # pr.draw_rectangle_lines_ex(self.log_scrollbar_rec, 1, pr.BLACK)
+        # pr.draw_line_ex((self.log_box.x+self.log_box.width-self.med_text//2, self.log_box.y), (self.log_box.x+self.log_box.width-self.med_text//2, self.log_box.y+self.log_box.height-self.log_buttons["chat"].rec.height), 1, pr.BLACK)
+
+        # log_thumb = position of scrollbar
+        if self.log_thumb:
+            pr.draw_rectangle_rec(self.log_thumb, pr.BLACK)
 
         # 40 chars can fit in log box for self.med_text
         for i, msg in enumerate(self.log_to_display):
             pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text, 4+self.log_box.y+(i*self.med_text)), self.med_text, 0, pr.BLACK)
 
-        # draw chat bar
-        if self.toggle_buttons["chat"].toggle == True:
-            pr.draw_rectangle_lines_ex(self.toggle_buttons["chat"].rec, 4, pr.BLACK)
+        # draw chat bar - highlight and display cursor if active
+        if self.log_buttons["chat"].toggle == True:
+            pr.draw_rectangle_lines_ex(self.log_buttons["chat"].rec, 4, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), " "+self.chat_msg+"_", (self.log_buttons["chat"].rec.x, self.log_buttons["chat"].rec.y+self.med_text/2.5), self.med_text, 0, pr.BLACK)
         else:
-            pr.draw_rectangle_lines_ex(self.toggle_buttons["chat"].rec, 1, pr.BLACK)
-        
-        # draw chat msg
-        if len(self.chat_msg) > 0:
-            pr.draw_text_ex(pr.gui_get_font(), " "+self.chat_msg, (self.toggle_buttons["chat"].rec.x, self.toggle_buttons["chat"].rec.y+self.med_text/2.3), self.med_text, 0, pr.BLACK)
+            pr.draw_rectangle_lines_ex(self.log_buttons["chat"].rec, 1, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), " "+self.chat_msg, (self.log_buttons["chat"].rec.x, self.log_buttons["chat"].rec.y+self.med_text/2.5), self.med_text, 0, pr.BLACK)
         
             
 
@@ -3232,6 +3283,7 @@ def run_client(name, server_IP=local_IP):
 
     while not pr.window_should_close():
         user_input = c_state.get_user_input()
+        # two client updates - before server for updating menus/ local settings and after server response
         c_state.update_local_client(user_input)
 
         client_request = c_state.build_client_request(user_input)
