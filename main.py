@@ -2416,7 +2416,6 @@ class ClientState:
         # elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
         #     return pr.KeyboardKey.KEY_R
         
-
     # three client updates - two before server (updating local settings, building request) & one after server response
     def update_local_client(self, user_input):
         # update chat
@@ -2445,20 +2444,18 @@ class ClientState:
         
 
 
-
-        # loop for thumb & scrollbar hover
-        for b_object in self.log_buttons.values():
-            # skip over chat button
-            if b_object.toggle != None:
-                continue
-            if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
-                b_object.hover = True
-            else:
-                b_object.hover = False
-            
-        
         # adjust log scroll bar
         if len(self.log_msgs) > self.log_lines: # TODO need to include msgs > 40 chars
+            # loop for thumb & scrollbar hover
+            for b_object in self.log_buttons.values():
+                # skip over chat button
+                if b_object.toggle != None:
+                    continue
+                if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
+                    b_object.hover = True
+                else:
+                    b_object.hover = False
+
             # adjust thumb
             thumb_h = (self.log_buttons["scrollbar"].rec.height)/(len(self.log_msgs)-self.log_lines+1)
             thumb_y = self.log_buttons["scrollbar"].rec.y+self.log_buttons["scrollbar"].rec.height+thumb_h*(self.log_offset-1)
@@ -2481,33 +2478,33 @@ class ClientState:
                 self.log_buttons["thumb"].rec = self.log_thumb_hidden
 
 
-
-        # mousewheel scroll in log - # positive = scroll up; negative = scroll down - will be float
-        if type(user_input) == float:
-            if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_box):
-                if self.log_lines > len(self.log_msgs):
-                    self.log_offset = 0
-                else:
-                    if self.log_lines-len(self.log_msgs) > self.log_offset + int(user_input):
-                        self.log_offset = self.log_lines-len(self.log_msgs)
-                    elif self.log_offset + int(user_input) > 0:
+            # still under scrollbar IF statement
+            # mousewheel scroll in log - # positive = scroll up; negative = scroll down - will be float
+            if type(user_input) == float:
+                if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_box):
+                    if self.log_lines > len(self.log_msgs):
                         self.log_offset = 0
                     else:
-                        self.log_offset += int(user_input)
-        
-        # type will be string for mouse_pressed or mouse_down
-        elif type(user_input) == str:
-            if user_input == "left_mouse_pressed":
-                if self.log_buttons["thumb"].hover:
-                    self.log_buttons["thumb"].hot = True
-                if self.log_buttons["scrollbar"].hover:
-                    self.log_buttons["scrollbar"].hot = True
-            elif user_input == "left_mouse_down":
-                if self.log_buttons["thumb"].hot == False or (self.log_buttons["scrollbar"].hot == True and pr.get_mouse_delta().y != 0):
-                    self.log_offset = self.log_lines-len(self.log_msgs)+int((pr.get_mouse_y() - self.log_buttons["scrollbar"].rec.y)/self.log_buttons["thumb"].rec.height)
-            elif user_input == "left_mouse_released":
-                self.log_buttons["thumb"].hot = False
-                self.log_buttons["scrollbar"].hot = False
+                        if self.log_lines-len(self.log_msgs) > self.log_offset + int(user_input):
+                            self.log_offset = self.log_lines-len(self.log_msgs)
+                        elif self.log_offset + int(user_input) > 0:
+                            self.log_offset = 0
+                        else:
+                            self.log_offset += int(user_input)
+            
+            # type will be string for mouse_pressed or mouse_down
+            elif type(user_input) == str and len(user_input) > 1:
+                if user_input == "left_mouse_pressed":
+                    if self.log_buttons["thumb"].hover:
+                        self.log_buttons["thumb"].hot = True
+                    if self.log_buttons["scrollbar"].hover:
+                        self.log_buttons["scrollbar"].hot = True
+                elif user_input == "left_mouse_down":
+                    if self.log_buttons["thumb"].hot == False or (self.log_buttons["scrollbar"].hot == True and pr.get_mouse_delta().y != 0):
+                        self.log_offset = self.log_lines-len(self.log_msgs)+int((pr.get_mouse_y() - self.log_buttons["scrollbar"].rec.y)/self.log_buttons["thumb"].rec.height)
+                elif user_input == "left_mouse_released":
+                    self.log_buttons["thumb"].hot = False
+                    self.log_buttons["scrollbar"].hot = False
 
 
     def build_client_request(self, user_input):
@@ -3200,13 +3197,19 @@ class ClientState:
         # draw log_box and chat
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
         pr.draw_rectangle_lines_ex(self.log_box, 1, pr.BLACK)
-        # draw scrollbar rec
-        # pr.draw_rectangle_lines_ex(self.log_scrollbar_rec, 1, pr.BLACK)
+        # draw scrollbar outline
+        pr.draw_rectangle_lines_ex(self.log_buttons["scrollbar"].rec, 1, pr.BLACK)
         # pr.draw_line_ex((self.log_box.x+self.log_box.width-self.med_text//2, self.log_box.y), (self.log_box.x+self.log_box.width-self.med_text//2, self.log_box.y+self.log_box.height-self.log_buttons["chat"].rec.height), 1, pr.BLACK)
 
-        # log_thumb = position of scrollbar
-        if self.log_thumb:
-            pr.draw_rectangle_rec(self.log_thumb, pr.BLACK)
+        # thumb = position of scrollbar. only display if thumb != scrollbar
+        if self.log_buttons["thumb"].rec != self.log_buttons["scrollbar"].rec:
+            if self.log_buttons["thumb"].hot == True:
+                pr.draw_rectangle_rec(self.log_buttons["thumb"].rec, pr.BLACK)
+            elif self.log_buttons["thumb"].hover == True:
+                pr.draw_rectangle_rec(self.log_buttons["thumb"].rec, pr.DARKGRAY)
+            else:
+                pr.draw_rectangle_rec(self.log_buttons["thumb"].rec, pr.GRAY)
+
 
         # 40 chars can fit in log box for self.med_text
         for i, msg in enumerate(self.log_to_display):
