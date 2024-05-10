@@ -2181,8 +2181,8 @@ class ClientState:
         # self.log_buttons["scrollbar"] = Button(pr.Rectangle(self.log_box.x+self.log_box.width-self.med_text//2, self.log_box.y, self.med_text//2, self.log_box.height-self.log_buttons["chat"].rec.height), "scrollbar")
 
         # thumb - tracks scrolling. calculate as needed
-        self.log_thumb = None # add to log_buttons["thumb"] - calc mouse movement
-        self.min_log_thumb = None
+        # self.log_thumb_display = None # add to log_buttons["thumb"]
+        self.log_thumb_hidden = None # for offset purposes - shrinks in proportion to items in list
 
 
         # camera controls
@@ -2359,16 +2359,24 @@ class ClientState:
         self.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), self.camera)
         # get mouse input
         if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
+            self.log_buttons["thumb"].hot = False
+            self.log_buttons["scrollbar"].hot = False
             return pr.MouseButton.MOUSE_BUTTON_LEFT
+        
         # allow continuous mouse button input only in some cases
-        # elif pr.is_mouse_button_pressed(pr.MouseButton.MOUSE_BUTTON_LEFT) or pr.is_mouse_button_down(pr.MouseButton.MOUSE_BUTTON_LEFT):
-            # if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["scrollbar"]):
-                # return pr.MouseButton.MOUSE_BUTTON_LEFT
-            # elif pr.check_collision_point_rec(pr.get_mouse_position(), self.log_box):
-                # return pr.get_mouse_delta()
+        elif pr.is_mouse_button_pressed(pr.MouseButton.MOUSE_BUTTON_LEFT):
+            if self.log_buttons["thumb"].hover:
+                self.log_buttons["thumb"].hot = True
+            if self.log_buttons["scrollbar"].hover:
+                self.log_buttons["scrollbar"].hot = True
+        
+        # only for scrolling in log_box
+        elif pr.is_mouse_button_down(pr.MouseButton.MOUSE_BUTTON_LEFT):
+            if self.log_buttons["thumb"].hot == False or (self.log_buttons["scrollbar"].hot == True and pr.get_mouse_delta().y != 0):
+                self.log_offset = self.log_lines-len(self.log_msgs)+int((pr.get_mouse_y() - self.log_buttons["scrollbar"].rec.y)/self.log_buttons["thumb"].rec.height)
 
         # use mouse wheel to scroll log box
-        elif pr.get_mouse_wheel_move() != 0:
+        elif pr.get_mouse_wheel_move() != 0 and pr.check_collision_point_rec(pr.get_mouse_position(), self.log_box):
             # positive = scroll up; negative = scroll down - will be float
             return pr.get_mouse_wheel_move()
 
@@ -2420,14 +2428,48 @@ class ClientState:
                 if self.log_lines > len(self.log_msgs):
                     self.log_offset = 0
                 else:
-                    self.log_offset += int(user_input)
-                    if -len(self.log_msgs)+self.log_lines > self.log_offset:
-                        self.log_offset = -len(self.log_msgs)+self.log_lines
-                    elif self.log_offset > 0:
+                    if self.log_lines-len(self.log_msgs) > self.log_offset + int(user_input):
+                        self.log_offset = self.log_lines-len(self.log_msgs)
+                    elif self.log_offset + int(user_input) > 0:
                         self.log_offset = 0
+                    else:
+                        self.log_offset += int(user_input)
+
+        if "thumb" in self.log_buttons.keys():
+            if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["thumb"].rec):
+                self.log_buttons["thumb"].hover = True
+            else:
+                self.log_buttons["thumb"].hover = False
+        
+        if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["scrollbar"].rec):
+            self.log_buttons["scrollbar"].hover = True
+        else:
+            self.log_buttons["scrollbar"].hover = False
+            
+
         
         # adjust log scroll bar
         if len(self.log_msgs) > self.log_lines:
+            # adjust thumb
+            thumb_h = (scrollbar_rec.height)/(len(lst)-num_lines+1)
+            thumb_y = scrollbar_rec.y+scrollbar_rec.height+thumb_h*(offset-1)
+            thumb_rec = pr.Rectangle(scrollbar_rec.x, thumb_y, scrollbar_rec.width, thumb_h)
+
+            # set minimum display size for thumb
+            if font_size > thumb_h:
+                thumb_display_h = font_size
+
+                max_display_offset = (scrollbar_rec.y+scrollbar_rec.height-thumb_h + thumb_display_h) - (log_rec.y + scrollbar_rec.height)
+                max_offset = num_lines-len(lst) # num steps
+
+                # need to offset difference between thumb real size and thumb display size, while also shrinking that value as offset increases. (1-offset/max_offset) goes from 1 to 0
+                thumb_display_y = scrollbar_rec.y+scrollbar_rec.height+thumb_h*(offset-1)-max_display_offset*(1-offset/max_offset)
+
+                thumb_display_rec = pr.Rectangle(scrollbar_rec.x, thumb_display_y, scrollbar_rec.width,thumb_display_h)
+            
+            else:
+                thumb_display_rec = thumb_rec
+
             scroll_w = self.med_text//2
             scroll_h = (self.log_box.height-self.log_buttons["chat"].rec.height)/(len(self.log_msgs)-self.log_lines+1)
             # set a minimum for scroll bar to prevent it becoming invisible?
