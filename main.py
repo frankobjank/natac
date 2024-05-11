@@ -2133,10 +2133,10 @@ class ClientState:
         infobox_w = self.screen_width/3.5
         infobox_h = self.screen_height/2
         self.info_box = pr.Rectangle(
-            x=self.screen_width-infobox_w-offset,
-            y=self.screen_height-infobox_h-11*offset,
-            width=infobox_w, 
-            height=infobox_h)
+            self.screen_width-infobox_w-offset,
+            self.screen_height-infobox_h-11*offset,
+            infobox_w, 
+            infobox_h)
 
         
         self.trade_buttons = {}
@@ -2151,10 +2151,10 @@ class ClientState:
         logbox_w = self.screen_width/2.3
         logbox_h = self.screen_height/4
         self.log_box = pr.Rectangle(
-            x=self.screen_width-logbox_w-offset, 
-            y=self.screen_height-logbox_h-offset*.5,
-            width=logbox_w,
-            height=logbox_h)
+            self.screen_width-logbox_w-offset, 
+            self.screen_height-logbox_h-offset*.5,
+            logbox_w,
+            logbox_h)
         self.log_msgs = []
         self.log_to_display = []
         self.log_lines = int((logbox_h*9/11)//self.med_text) # can fit 9 at default height
@@ -2171,9 +2171,9 @@ class ClientState:
 
         
         # NEW SCROLLBAR (from scratch)
-        scrollbar_w = self.med_text//2
+        scrollbar_w = self.med_text
         self.log_buttons["scrollbar"] = LogButton(
-            rec=pr.Rectangle(x=self.log_box.x+self.log_box.width-scrollbar_w, y=self.log_box.y,width=scrollbar_w, height=self.log_box.height),
+            rec=pr.Rectangle(self.log_box.x+self.log_box.width-scrollbar_w, self.log_box.y,scrollbar_w, self.log_box.height-self.log_buttons["chat"].rec.height),
             name="scrollbar"
             )
 
@@ -2181,7 +2181,7 @@ class ClientState:
         # self.log_buttons["scrollbar"] = Button(pr.Rectangle(self.log_box.x+self.log_box.width-self.med_text//2, self.log_box.y, self.med_text//2, self.log_box.height-self.log_buttons["chat"].rec.height), "scrollbar")
 
         # thumb - start as same size as scrollbar as placeholder. can render as outline.
-        self.log_buttons["thumb"] = LogButton(self.log_buttons["scrollbar"].rec, name="thumb")
+        self.log_buttons["thumb"] = LogButton(rec=self.log_buttons["scrollbar"].rec, name="thumb")
         self.log_thumb_hidden = self.log_buttons["scrollbar"].rec # for offset purposes - shrinks in proportion to items in list
 
 
@@ -2366,11 +2366,13 @@ class ClientState:
         
         # allow continuous mouse button input only in some cases
         elif pr.is_mouse_button_pressed(pr.MouseButton.MOUSE_BUTTON_LEFT):
-            return "left_mouse_pressed"
+            if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["scrollbar"].rec):
+                return "left_mouse_pressed"
         
         # only for scrolling in log_box - potentially separate into its own function
         elif pr.is_mouse_button_down(pr.MouseButton.MOUSE_BUTTON_LEFT):
-            return "left_mouse_down"
+            if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["scrollbar"].rec):
+                return "left_mouse_down"
 
         # use mouse wheel to scroll log box
         elif pr.get_mouse_wheel_move() != 0 and pr.check_collision_point_rec(pr.get_mouse_position(), self.log_box):
@@ -2485,26 +2487,32 @@ class ClientState:
                     if self.log_lines > len(self.log_msgs):
                         self.log_offset = 0
                     else:
-                        if self.log_lines-len(self.log_msgs) > self.log_offset + int(user_input):
-                            self.log_offset = self.log_lines-len(self.log_msgs)
-                        elif self.log_offset + int(user_input) > 0:
-                            self.log_offset = 0
-                        else:
-                            self.log_offset += int(user_input)
+                        self.log_offset += int(user_input)
             
             # type will be string for mouse_pressed or mouse_down
             elif type(user_input) == str and len(user_input) > 1:
+                # from hover to hot
                 if user_input == "left_mouse_pressed":
                     if self.log_buttons["thumb"].hover:
                         self.log_buttons["thumb"].hot = True
                     if self.log_buttons["scrollbar"].hover:
                         self.log_buttons["scrollbar"].hot = True
+                
+                # calc new offset
                 elif user_input == "left_mouse_down":
                     if self.log_buttons["thumb"].hot == False or (self.log_buttons["scrollbar"].hot == True and pr.get_mouse_delta().y != 0):
-                        self.log_offset = self.log_lines-len(self.log_msgs)+int((pr.get_mouse_y() - self.log_buttons["scrollbar"].rec.y)/self.log_buttons["thumb"].rec.height)
+                        self.log_offset = self.log_lines-len(self.log_msgs)+int((pr.get_mouse_y() - self.log_buttons["scrollbar"].rec.y)/self.log_thumb_hidden.height)
+
                 elif user_input == "left_mouse_released":
                     self.log_buttons["thumb"].hot = False
                     self.log_buttons["scrollbar"].hot = False
+                
+            # keep offset in bounds
+            if self.log_lines-len(self.log_msgs) > self.log_offset:
+                self.log_offset = self.log_lines-len(self.log_msgs)
+            elif self.log_offset > 0:
+                self.log_offset = 0
+
 
 
     def build_client_request(self, user_input):
@@ -3370,8 +3378,8 @@ cmd_line_input = sys.argv[1:]
 
 
 # provide IP as 2nd argument
-# client: python3 main.py <username> <IP_address> (default to local)
-# server: python3 main.py server <IP_address>
+# client: python3 main.py username IP_address (default to local)
+# server: python3 main.py server IP_address
 if len(cmd_line_input) > 0:
     if cmd_line_input[0] == "server":
         if cmd_line_input[1] == "local":
