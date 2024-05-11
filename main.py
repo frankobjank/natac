@@ -2853,7 +2853,7 @@ class ClientState:
     def add_to_log(self, msg):
         self.log_msgs_raw.append(msg)
         # make max_len dynamic according to width of log_box and font_size. default is 40
-        self.log_msgs_formatted.append(self.calc_line_breaks(msg, max_len=40))
+        self.log_msgs_formatted += self.calc_line_breaks(msg, max_len=40)
 
     def calc_line_breaks(self, msg, max_len) -> list:
         # max_len = 40
@@ -2873,7 +2873,7 @@ class ClientState:
                 formatted.append(msg[p1:p2])
                 p1 = p2
             formatted.append(msg[p1:])
-    
+
         return formatted
 
     def get_log_slice(self):
@@ -2881,7 +2881,7 @@ class ClientState:
             log_slice = self.log_msgs_formatted[self.log_offset-self.log_lines:self.log_offset]
         else:
             log_slice = self.log_msgs_formatted[-self.log_lines:]
-        # print(f"offset={self.log_offset} slice={log_slice}")
+        print(f"width={self.log_box.width}")
         return log_slice
 
 
@@ -2913,9 +2913,6 @@ class ClientState:
         # trade : [] [[0, 0, 1, 1, 0], [1, 1, 0, 0, 0], "player_name_string"]
         server_response = json.loads(encoded_server_response)
 
-        # chop log even if no new log recv from server - client can generate log msgs
-        self.format_log()
-
         # split kind of response by what kind of message is received, "log", "reset", etc
         try:
             server_response["kind"]
@@ -2924,8 +2921,7 @@ class ClientState:
             return
     
         if server_response["kind"] == "log":
-            self.log_msgs_raw.append(server_response["msg"])
-            self.log_msgs_formatted.append(self.calc_line_breaks(server_response["msg"]))
+            self.add_to_log(server_response["msg"])
             return
         
         elif server_response["kind"] == "reset":
