@@ -2366,13 +2366,11 @@ class ClientState:
         
         # allow continuous mouse button input only in some cases
         elif pr.is_mouse_button_pressed(pr.MouseButton.MOUSE_BUTTON_LEFT):
-            if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["scrollbar"].rec):
-                return "left_mouse_pressed"
+            return "left_mouse_pressed"
         
         # only for scrolling in log_box - potentially separate into its own function
         elif pr.is_mouse_button_down(pr.MouseButton.MOUSE_BUTTON_LEFT):
-            if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["scrollbar"].rec):
-                return "left_mouse_down"
+            return "left_mouse_down"
 
         # use mouse wheel to scroll log box
         elif pr.get_mouse_wheel_move() != 0 and pr.check_collision_point_rec(pr.get_mouse_position(), self.log_box):
@@ -2446,7 +2444,7 @@ class ClientState:
         
 
 
-        # adjust log scroll bar
+        # scrollbar
         if len(self.log_msgs) > self.log_lines: # TODO need to include msgs > 40 chars
             # loop for thumb & scrollbar hover
             for b_object in self.log_buttons.values():
@@ -2500,7 +2498,8 @@ class ClientState:
                 
                 # calc new offset
                 elif user_input == "left_mouse_down":
-                    if self.log_buttons["thumb"].hot == False or (self.log_buttons["scrollbar"].hot == True and pr.get_mouse_delta().y != 0):
+                    # if scrollbar_selected and (not thumb_selected or pr.get_mouse_delta().y != 0):
+                    if self.log_buttons["scrollbar"].hot == True and (self.log_buttons["thumb"].hot == False or pr.get_mouse_delta().y != 0):
                         self.log_offset = self.log_lines-len(self.log_msgs)+int((pr.get_mouse_y() - self.log_buttons["scrollbar"].rec.y)/self.log_thumb_hidden.height)
 
                 elif user_input == "left_mouse_released":
@@ -3205,9 +3204,9 @@ class ClientState:
         # draw log_box and chat
         pr.draw_rectangle_rec(self.log_box, pr.LIGHTGRAY)
         pr.draw_rectangle_lines_ex(self.log_box, 1, pr.BLACK)
+        
         # draw scrollbar outline
-        pr.draw_rectangle_lines_ex(self.log_buttons["scrollbar"].rec, 1, pr.BLACK)
-        # pr.draw_line_ex((self.log_box.x+self.log_box.width-self.med_text//2, self.log_box.y), (self.log_box.x+self.log_box.width-self.med_text//2, self.log_box.y+self.log_box.height-self.log_buttons["chat"].rec.height), 1, pr.BLACK)
+        pr.draw_line_ex((self.log_box.x+self.log_box.width-self.med_text, self.log_box.y), (self.log_box.x+self.log_box.width-self.med_text, self.log_box.y+self.log_box.height-self.log_buttons["chat"].rec.height), 1, pr.BLACK)
 
         # thumb = position of scrollbar. only display if thumb != scrollbar
         if self.log_buttons["thumb"].rec != self.log_buttons["scrollbar"].rec:
@@ -3216,7 +3215,7 @@ class ClientState:
             elif self.log_buttons["thumb"].hover == True:
                 pr.draw_rectangle_rec(self.log_buttons["thumb"].rec, pr.DARKGRAY)
             else:
-                pr.draw_rectangle_rec(self.log_buttons["thumb"].rec, pr.GRAY)
+                pr.draw_rectangle_rec(self.log_buttons["thumb"].rec, pr.BLACK)
 
 
         # 40 chars can fit in log box for self.med_text
