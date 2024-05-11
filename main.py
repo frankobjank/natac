@@ -2155,8 +2155,8 @@ class ClientState:
             self.screen_height-logbox_h-offset*.5,
             logbox_w,
             logbox_h)
-        self.log_msgs = []
-        self.log_to_display = []
+        self.log_msgs_raw = []
+        self.log_msgs_formatted = []
         self.log_lines = int((logbox_h*9/11)//self.med_text) # can fit 9 at default height
         
         # offset for scrolling - 0 is showing most recent msgs
@@ -2445,7 +2445,7 @@ class ClientState:
 
 
         # scrollbar
-        if len(self.log_msgs) > self.log_lines: # TODO need to include msgs > 40 chars
+        if len(self.log_msgs_formatted) > self.log_lines:
             # loop for thumb & scrollbar hover
             for b_object in self.log_buttons.values():
                 # skip over chat button
@@ -2457,7 +2457,7 @@ class ClientState:
                     b_object.hover = False
 
             # adjust thumb
-            thumb_h = (self.log_buttons["scrollbar"].rec.height)/(len(self.log_msgs)-self.log_lines+1)
+            thumb_h = (self.log_buttons["scrollbar"].rec.height)/(len(self.log_msgs_formatted)-self.log_lines+1)
             thumb_y = self.log_buttons["scrollbar"].rec.y+self.log_buttons["scrollbar"].rec.height+thumb_h*(self.log_offset-1)
             self.log_thumb_hidden = pr.Rectangle(self.log_buttons["scrollbar"].rec.x, thumb_y, self.log_buttons["scrollbar"].rec.width, thumb_h)
 
@@ -2465,7 +2465,7 @@ class ClientState:
             if self.med_text > thumb_h:
                 thumb_button_h = self.med_text
                 max_display_offset = thumb_button_h-self.log_thumb_hidden.height
-                max_offset = self.log_lines-len(self.log_msgs) # num steps
+                max_offset = self.log_lines-len(self.log_msgs_formatted) # num steps
 
                 # need to offset difference between thumb real size and thumb display size, while also shrinking that value as offset increases. (1-offset/max_offset) goes from 1 to 0
 
@@ -2482,7 +2482,7 @@ class ClientState:
             # mousewheel scroll in log - # positive = scroll up; negative = scroll down - will be float
             if type(user_input) == float:
                 if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_box):
-                    if self.log_lines > len(self.log_msgs):
+                    if self.log_lines > len(self.log_msgs_formatted):
                         self.log_offset = 0
                     else:
                         self.log_offset += int(user_input)
@@ -2500,15 +2500,15 @@ class ClientState:
                 elif user_input == "left_mouse_down":
                     # if scrollbar_selected and (not thumb_selected or pr.get_mouse_delta().y != 0):
                     if self.log_buttons["scrollbar"].hot == True and (self.log_buttons["thumb"].hot == False or pr.get_mouse_delta().y != 0):
-                        self.log_offset = self.log_lines-len(self.log_msgs)+int((pr.get_mouse_y() - self.log_buttons["scrollbar"].rec.y)/self.log_thumb_hidden.height)
+                        self.log_offset = self.log_lines-len(self.log_msgs_formatted)+int((pr.get_mouse_y() - self.log_buttons["scrollbar"].rec.y)/self.log_thumb_hidden.height)
 
                 elif user_input == "left_mouse_released":
                     self.log_buttons["thumb"].hot = False
                     self.log_buttons["scrollbar"].hot = False
                 
             # keep offset in bounds
-            if self.log_lines-len(self.log_msgs) > self.log_offset:
-                self.log_offset = self.log_lines-len(self.log_msgs)
+            if self.log_lines-len(self.log_msgs_formatted) > self.log_offset:
+                self.log_offset = self.log_lines-len(self.log_msgs_formatted)
             elif self.log_offset > 0:
                 self.log_offset = 0
 
@@ -2647,7 +2647,7 @@ class ClientState:
                     if all(self.client_players[self.name].hand[resource] >= self.player_trade["request"][resource] for resource in self.resource_cards):
                         return self.client_request_to_dict(action="submit")
                     # should probably move this to the server instead of client
-                    self.log_msgs.append("Insufficient resources for completing trade.")
+                    self.add_to_log("Insufficient resources for completing trade.")
                     return
                 elif self.check_cancel(user_input):
                     return self.client_request_to_dict(action="cancel")
@@ -2707,7 +2707,7 @@ class ClientState:
             # bank trade needs empty dict but regular trade needs hand dicts
             if self.check_submit(user_input):
                 if sum(self.player_trade["offer"].values()) == 0:
-                    self.log_msgs.append("You must offer at least 1 resource.")
+                    self.add_to_log("You must offer at least 1 resource.")
                     return
                 self.player_trade["trade_with"] = self.name
                 return self.client_request_to_dict(action="submit", trade_offer=self.player_trade)
@@ -2726,7 +2726,7 @@ class ClientState:
                 if user_input == pr.KeyboardKey.KEY_RIGHT and self.client_players[self.name].hand[self.resource_cards[self.selection_index]] > self.player_trade["offer"][self.resource_cards[self.selection_index]]:
                     self.player_trade["offer"][self.resource_cards[self.selection_index]] += 1
                 elif user_input == pr.KeyboardKey.KEY_RIGHT and self.client_players[self.name].hand[self.resource_cards[self.selection_index]] <= self.player_trade["offer"][self.resource_cards[self.selection_index]]:
-                    self.log_msgs.append(f"You don't have enough {self.resource_cards[self.selection_index]} to offer.")
+                    self.add_to_log(f"You don't have enough {self.resource_cards[self.selection_index]} to offer.")
                 elif user_input == pr.KeyboardKey.KEY_LEFT:
                     if self.player_trade["offer"][self.resource_cards[self.selection_index]] > 0:
                         self.player_trade["offer"][self.resource_cards[self.selection_index]] -= 1
@@ -2850,30 +2850,39 @@ class ClientState:
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.selection_index = 0
 
-    def format_log(self):
-        # should break up newlines into separate list entries for smoother scrolling - could keep a log_formatted_msgs (with all log msgs split at newline) instead of log_to_display list. will need to be recalculated when resized.
-        max_len = 40
-        log_breaks = []
-        if self.log_offset != 0:
-            log_slice = self.log_msgs[self.log_offset-self.log_lines:self.log_offset]
+    def add_to_log(self, msg):
+        self.log_msgs_raw.append(msg)
+        # make max_len dynamic according to width of log_box and font_size. default is 40
+        self.log_msgs_formatted.append(self.calc_line_breaks(msg, max_len=40))
+
+    def calc_line_breaks(self, msg, max_len) -> list:
+        # max_len = 40
+        formatted = [] # list of strings broken up by line
+
+        if max_len > len(msg):
+            formatted.append(msg)
         else:
-            log_slice = self.log_msgs[-self.log_lines:]
+            # move along the string w p1 and p2, add last line outside of while loop
+            p1 = 0
+            p2 = 0
+            while (len(msg)-p1 > max_len):
+                # find last " " between 0 and 40 of msg. ::-1 reverses the string
+                p2 = p1+max_len-msg[p1:p1+max_len][::-1].find(" ", p1, p1+max_len)
+                if max_len//2 > p2:
+                    p2 = max_len
+                formatted.append(msg[p1:p2])
+                p1 = p2
+            formatted.append(msg[p1:])
+    
+        return formatted
 
-        for msg in log_slice:
-            # check if log msg is too long for log_box
-            if max_len > len(msg):
-                log_breaks.append(msg)
-            else:
-                # move along the string w p1 and p2, add last line outside of while loop
-                p1 = 0
-                while (len(msg)-p1 > max_len):
-                    # find last " " between 0 and 40 of msg. ::-1 reverses the string
-                    p2 = p1+max_len-msg[p1:p1+max_len][::-1].find(" ", p1, p1+max_len)
-                    log_breaks.append(msg[p1:p2])
-                    p1 = p2
-                log_breaks.append(msg[p1:])
-
-        self.log_to_display = log_breaks[-self.log_lines:]
+    def get_log_slice(self):
+        if self.log_offset != 0:
+            log_slice = self.log_msgs_formatted[self.log_offset-self.log_lines:self.log_offset]
+        else:
+            log_slice = self.log_msgs_formatted[-self.log_lines:]
+        # print(f"offset={self.log_offset} slice={log_slice}")
+        return log_slice
 
 
     # unpack server response and update state
@@ -2915,8 +2924,8 @@ class ClientState:
             return
     
         if server_response["kind"] == "log":
-            self.log_msgs.append(server_response["msg"])
-            self.format_log()
+            self.log_msgs_raw.append(server_response["msg"])
+            self.log_msgs_formatted.append(self.calc_line_breaks(server_response["msg"]))
             return
         
         elif server_response["kind"] == "reset":
@@ -3218,8 +3227,8 @@ class ClientState:
                 pr.draw_rectangle_rec(self.log_buttons["thumb"].rec, pr.BLACK)
 
 
-        # 40 chars can fit in log box for self.med_text
-        for i, msg in enumerate(self.log_to_display):
+        # 40 chars can fit in log box at default width for self.med_text
+        for i, msg in enumerate(self.get_log_slice()):
             pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text, 4+self.log_box.y+(i*self.med_text)), self.med_text, 0, pr.BLACK)
 
         # draw chat bar - highlight and display cursor if active
