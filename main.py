@@ -1385,7 +1385,7 @@ class ServerState:
                                 self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
 
 
-    def perform_roll(self, cheat=None):
+    def perform_roll(self, cheat=""):
         # cheat
         if self.ITSOVER9000:
             self.die1, self.die2 = 3, 3
@@ -1434,8 +1434,8 @@ class ServerState:
         for player_name, player_object in self.players.items():
             if self.turn_num % len(self.players) == player_object.order:
                 self.current_player_name = player_name
-                # turning into list so it's not a copy of player's dev_cards var, also doesn't matter how many dev cards are available as only can be played per turn
                 # set available dev_cards for new turn
+                # turning into list so it's not a copy of player's dev_cards var, also doesn't matter how many dev cards are available as only one can be played per turn
                 self.dev_cards_avl = [card for card, num in self.players[self.current_player_name].dev_cards.items() if num != 0]
                 self.send_broadcast("log", f"It is now {self.current_player_name}'s turn.")
 
@@ -1443,13 +1443,18 @@ class ServerState:
     def check_for_win(self):
         if self.players[self.current_player_name].get_vp_public(self.longest_road, self.largest_army) + self.players[self.current_player_name].dev_cards["victory_point"] >= 10:
             msg = f"{self.current_player_name} had {self.players[self.current_player_name].dev_cards['victory_point']} hidden victory point"
-            if self.players[self.current_player_name].dev_cards["victory_point"] > 1:
+            if self.players[self.current_player_name].dev_cards["victory_point"] == 1:
                 self.send_broadcast("log", msg)
-            elif self.players[self.current_player_name].dev_cards["victory_point"] > 2:
+            elif self.players[self.current_player_name].dev_cards["victory_point"] > 1:
                 msg+="s"
                 self.send_broadcast("log", msg)
-
-            self.send_broadcast("log", f"{self.current_player_name} won!")
+            
+            for p_name in self.players.keys():
+                if p_name == self.current_player_name:
+                    self.send_to_player(self.current_player_name, "log", f"Congratulations, you won!")
+                else:
+                    self.send_to_player(p_name, "log", f"{self.current_player_name} won!")
+            
             self.game_over = True
 
 
@@ -1608,10 +1613,8 @@ class ServerState:
 
         # check for chat submission from all players before any other actions - should be able to chat at any stage in the game
         elif client_request["action"] == "submit" and client_request["chat"] != None:
-            # for debugging double chat bug
-            print(f"client_request = {client_request}")
-            self.send_broadcast("log", client_request["chat"])
-            self.send_to_player(client_request["name"], "reset", "chat")
+            # used to send chat as a "log" msg - changed to separate player input from server input
+            self.send_broadcast("chat", client_request["chat"])
 
         elif client_request["action"] == "request_board":
             self.socket.sendto(to_json(self.package_state(client_request["name"], include_board=True)).encode(), address)
@@ -1682,7 +1685,6 @@ class ServerState:
         
         # CODE BELOW ONLY APPLIES TO CURRENT PLAYER
 
-        # for setup (non-debug)
         if self.setup:
             if self.debug:
                 for i, player in enumerate(self.player_order):
@@ -1700,9 +1702,9 @@ class ServerState:
         # force roll_dice before doing anything except play_dev_card
 
         if self.mode == "roll_dice" and self.has_rolled == False:
-            if client_request["action"] == "roll_dice": # and self.dice_rolls == self.turn_num:
+            if client_request["action"] == "roll_dice":
                 self.perform_roll()
-            if client_request["action"] == "ROLL7": # and self.dice_rolls == self.turn_num:
+            elif client_request["action"] == "ROLL7":
                 self.perform_roll(cheat="ROLL7")
             # only action allowed during roll_dice mode is playing a dev card
             elif client_request["action"] == "play_dev_card":
@@ -1810,8 +1812,8 @@ class ServerState:
                 return
             self.play_dev_card(client_request["cards"])
 
-        # elif client_request["action"] == "print_debug":
-            # self.calc_longest_road()
+        elif client_request["action"] == "print_debug":
+            self.calc_longest_road()
             
         
         # # check if dice need to be rolled after playing dev card
@@ -2016,7 +2018,7 @@ class ClientPlayer:
     def __repr__(self) -> str:
         return f"Player: {self.name}, color: {self.color}, order: {self.order}"
 
-
+# TODO double input bug server is receiving 2 inputs on double input error so problem lies in client creating and sending msg
 class ClientState:
     def __init__(self, name, server_IP, port, combined=False):
         print("starting client")
@@ -2032,6 +2034,7 @@ class ClientState:
         self.colors_avl = []
         self.combined = combined # combined client and server vs separate client and server, use for debug
         self.previous_packet = {}
+        self.sounds = {}
 
         # display size = (1440, 900)
         # default values
@@ -2138,6 +2141,12 @@ class ClientState:
             infobox_w, 
             infobox_h)
 
+        self.temp_info_box = pr.Rectangle(
+            self.screen_width-2*infobox_w-2*offset,
+            self.screen_height-infobox_h-15*offset,
+            infobox_w,
+            infobox_h//3
+        )
         
         self.trade_buttons = {}
         for i, resource in enumerate(self.resource_cards):
@@ -2158,6 +2167,9 @@ class ClientState:
         self.log_msgs_raw = []
         self.log_msgs_formatted = []
         self.log_lines = int((logbox_h*9/11)//self.med_text) # can fit 9 at default height
+        # default log_box width = 478.2608642578125
+        # 40 chars can fit on a line by default
+        # 478 / 40 = 11.95 -> multiplier to figure out max_len for log
         
         # offset for scrolling - 0 is showing most recent msgs
         self.log_offset = 0
@@ -2200,7 +2212,6 @@ class ClientState:
     def resize_client(self):
         pr.toggle_borderless_windowed()
 
-
     # INITIALIZING CLIENT FUNCTIONS   
     def does_board_exist(self) -> bool:
         if len(self.board) > 0:
@@ -2216,7 +2227,7 @@ class ClientState:
         else:
             # print(f"Client {self.name} not connected to server")
             return False
-            
+
     def select_color(self, user_input):
         # check if still within bounds if color has been selected
         if self.selection_index > len(self.colors_avl)-1:
@@ -2230,7 +2241,7 @@ class ClientState:
             return self.client_request_to_dict(action="submit", color=self.colors_avl[self.selection_index])
         
     def data_verification(self, packet):
-        lens_for_verification = {"ocean_hexes": 18, "ports_ordered": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19} #, "robber_hex": 2, "dice": 2}
+        lens_for_verification = {"ocean_hexes": 18, "ports_ordered": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19}
 
         for key, length in lens_for_verification.items():
             assert len(packet[key]) == length, f"incorrect number of {key}, actual number = {len(packet[key])}"
@@ -2351,7 +2362,6 @@ class ClientState:
         client_request["chat"] = chat
         
         return client_request
-
 
 
     # GAME LOOP FUNCTIONS
@@ -2511,7 +2521,6 @@ class ClientState:
                 self.log_offset = self.log_lines-len(self.log_msgs_formatted)
             elif self.log_offset > 0:
                 self.log_offset = 0
-
 
 
     def build_client_request(self, user_input):
@@ -2682,7 +2691,7 @@ class ClientState:
                                     # cancel trade, send cancel msg to server if trade has been submitted
                                     if len(self.player_trade["trade_with"]) > 0:
                                         return self.client_request_to_dict(mode=b_object.name, action="cancel")
-                                    # if not submitted yet, trade is just reset for client
+                                    # if not submitted yet, trade is reset for client
                                     else:
                                         self.reset_selections()
                                         return self.client_request_to_dict(mode=b_object.name)
@@ -2878,11 +2887,9 @@ class ClientState:
 
     def get_log_slice(self):
         if self.log_offset != 0:
-            log_slice = self.log_msgs_formatted[self.log_offset-self.log_lines:self.log_offset]
+            return self.log_msgs_formatted[self.log_offset-self.log_lines:self.log_offset]
         else:
-            log_slice = self.log_msgs_formatted[-self.log_lines:]
-        print(f"width={self.log_box.width}")
-        return log_slice
+            return self.log_msgs_formatted[-self.log_lines:]
 
 
     # unpack server response and update state
@@ -2920,15 +2927,35 @@ class ClientState:
             print("packet kind missing")
             return
     
+        # client plays a sound based on log msg - added msgs here in case future conflicts arise
         if server_response["kind"] == "log":
             self.add_to_log(server_response["msg"])
+
+            # self.send_broadcast("log", f"{self.current_player_name} rolled {self.die1 + self.die2}.")
+            if "rolled" in server_response["msg"]:
+                pr.play_sound(self.sounds["dice"])
+            # self.send_broadcast("log", f"It is now {self.current_player_name}'s turn.")
+            elif "It is now" in server_response["msg"]:
+                pr.play_sound(self.sounds["your_turn"])
+            # self.send_to_player(self.current_player_name, "log", f"Congratulations, you won!")
+            elif "Congratulations" in server_response["msg"]:
+                pr.play_sound(self.sounds["win"])
+
+            return
+        
+        # needed to distinguish between log and chat to separate player input from server input
+        elif server_response["kind"] == "chat":
+            self.add_to_log(server_response["msg"])
+            sender = server_response["msg"].split(":")[0]
+            if sender == self.name:
+                self.chat_msg = f"{self.name}: "
+            else:
+                pr.play_sound(self.sounds["chat"])
             return
         
         elif server_response["kind"] == "reset":
             if server_response["msg"] == "setup_complete":
                 self.setup = False
-            elif server_response["msg"] == "chat":
-                self.chat_msg = f"{self.name}: "
                 return
             self.reset_selections()
             return
@@ -3325,16 +3352,41 @@ class ClientState:
         
         pr.end_drawing()
 
+    def init_raylib(self):
+        # pr.set_trace_log_level(7) # removes raylib log msgs
+        # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
+        pr.init_window(self.default_screen_w, self.default_screen_h, f"Natac - {self.name}")
+        pr.init_audio_device()
+        pr.set_target_fps(60)
+        
+        self.load_assets()
+
+    def close_raylib(self):
+        self.unload_assets()
+        pr.close_audio_device()
+        pr.close_window()
+
+    def load_assets(self):
+        pr.gui_set_font(pr.load_font("assets/F25_Bank_Printer.ttf"))
+        sound_files = {
+            "menu": "assets/menu-selection-102220.mp3",
+            "chat": "assets/90s-game-ui-6-185099.mp3",
+            "dice": "assets/shaking-and-rolling-dice-69018-shortened.mp3",
+            "your_turn": "assets/xylophone-c3-87468.mp3",
+            "win": "assets/winsquare-6993-normalized.mp3",
+        }
+        for name, file in sound_files.items():
+            self.sounds[name] = pr.load_sound(file)
+
+    def unload_assets(self):
+        pr.unload_font(pr.gui_get_font())
+        for sound in self.sounds.values():
+            pr.unload_sound(sound)
 
 
 def run_client(name, server_IP=local_IP):
     c_state = ClientState(name=name, server_IP=server_IP, port=default_port, combined=False)
-
-    pr.set_trace_log_level(7) # removes raylib log msgs
-    # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
-    pr.init_window(c_state.default_screen_w, c_state.default_screen_h, f"Natac - {name}")
-    pr.set_target_fps(60)
-    pr.gui_set_font(pr.load_font("assets/F25_Bank_Printer.ttf"))
+    c_state.init_raylib()
 
     while not pr.window_should_close():
         user_input = c_state.get_user_input()
@@ -3357,8 +3409,8 @@ def run_client(name, server_IP=local_IP):
                 c_state.update_client(response)
 
         c_state.render_client()
-    pr.unload_font(pr.gui_get_font())
-    pr.close_window()
+    
+    c_state.close_raylib()
     c_state.socket.close()
 
 

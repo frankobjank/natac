@@ -23,11 +23,11 @@ pip install -r requirements.txt
 ```
 To start a server, include the IP address you want to use:
 ```
-python3 main.py server <IP_address>
+python3 main.py server IP_address
 ```
 To start a client, type a username and include the IP address of the server:
 ```
-python3 main.py <username> <IP_address>
+python3 main.py username IP_address
 ```
 To run the server locally:
 ```
@@ -35,5 +35,5 @@ python3 main.py server local
 ```
 And to run the client locally:
 ```
-python3 main.py <username>
+python3 main.py username
 ```
