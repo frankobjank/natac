@@ -9,12 +9,13 @@ import hex_helper as hh
 import rendering_functions as rf
 import sys
 import time
-import logging
 
 # UI_SCALE constant for changing scale (fullscreen)
 
 
 # sound effects/ visuals ideas:
+    # chat-like notification when trade offer is made
+    # money clink for when a trade is completed
     # when number is rolled, relevant hexes should flash/ change color for a second. animate resource heading towards the player who gets it
 
     # find sound for each resource, like metal clank for ore, baah for sheep. use chimes/vibes for selecting
@@ -307,18 +308,18 @@ class Node:
         
         # check if town is None - is redundant because self.player already checks for this
         if self.town != None:
-            s_state.send_to_player(s_state.current_player_name, "log", f"This location must be empty")
+            s_state.send_to_player(s_state.current_player_name, "log", "This location must be empty")
             return False
 
         # check num_settlements
         if s_state.players[s_state.current_player_name].num_settlements >= 5:
-            s_state.send_to_player(s_state.current_player_name, "log", f"You have no available settlements (max 5).")            
+            s_state.send_to_player(s_state.current_player_name, "log", "You have no available settlements (max 5).")            
             print("no available settlements")
             return False
         
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes and self.hexes[2] in s_state.board.ocean_hexes:
-            s_state.send_to_player(s_state.current_player_name, "log", f"You cannot build in the ocean")
+            s_state.send_to_player(s_state.current_player_name, "log", "You cannot build in the ocean")
             print("can't build in ocean")
             return False
         
@@ -326,11 +327,11 @@ class Node:
         adj_nodes = self.get_adj_nodes_from_node(s_state.board.nodes)
         for node in adj_nodes:
             if node.town == "settlement":
-                s_state.send_to_player(s_state.current_player_name, "log", f"Too close to another settlement")
+                s_state.send_to_player(s_state.current_player_name, "log", "Too close to another settlement")
                 print("too close to settlement")
                 return False
             elif node.town == "city":
-                s_state.send_to_player(s_state.current_player_name, "log", f"Too close to a city")
+                s_state.send_to_player(s_state.current_player_name, "log", "Too close to a city")
                 print("too close to city")
                 return False
 
@@ -338,7 +339,7 @@ class Node:
             adj_edges = self.get_adj_edges(s_state.board.edges)
             # is node adjacent to at least 1 same-colored road
             if all(edge.player != s_state.current_player_name for edge in adj_edges):
-                s_state.send_to_player(s_state.current_player_name, "log", f"You have no adjacent roads")
+                s_state.send_to_player(s_state.current_player_name, "log", "You have no adjacent roads")
                 print("no adjacent roads")
                 return False
                         
@@ -348,7 +349,7 @@ class Node:
     
     def build_check_city(self, s_state):
         if self.town != "settlement":
-            s_state.send_to_player(s_state.current_player_name, "log", f"This location must be a settlement")
+            s_state.send_to_player(s_state.current_player_name, "log", "This location must be a settlement")
             return False
         
         if self.player != s_state.current_player_name:
@@ -357,7 +358,7 @@ class Node:
             return False
 
         if s_state.players[s_state.current_player_name].num_cities >= 4:
-            s_state.send_to_player(s_state.current_player_name, "log", f"You have no more available cities (max 4)")
+            s_state.send_to_player(s_state.current_player_name, "log", "You have no more available cities (max 4)")
             print("no available cities")
             return False
         
@@ -818,7 +819,7 @@ class ServerState:
         if name in self.players:
             if self.players[name].address != address:
                 self.players[name].address = address
-                self.send_broadcast("log", f"Player {name} is reconnecting.")
+                self.send_broadcast("log", f"{name} is reconnecting.")
             else:
                 # print("player already added; redundant call")
                 return
@@ -829,7 +830,7 @@ class ServerState:
             self.player_order.append(name)
             if self.debug == True:
                 self.board.set_demo_settlements(self, name)
-            self.send_broadcast("log", f"Adding Player {name}.")
+            self.send_broadcast("log", f"Adding {name} to game.")
         
         self.send_to_player(name, "log", f"Welcome to natac.")
         self.socket.sendto(to_json(self.package_state(name, include_board=True)).encode(), address)
@@ -963,7 +964,7 @@ class ServerState:
     def calc_longest_road(self):
         
         # find all roads that are connected first
-        # at every node of every road, travel in ONE DIRECTION all the way to the end (or the start)
+        # at every node of every road, travel in ONE DIRECTION all the way to the end
 
         all_paths = {} # player: longest_road
         for p_object in self.players.values():
@@ -1413,22 +1414,21 @@ class ServerState:
                 self.mode = "move_robber"
                 self.send_broadcast("log", f"{self.current_player_name} must move the robber.")
 
-    def reset_turn_vars(self):
-        self.dev_card_played = False
+    def reset_trade_vars(self):
         self.players_declined = set()
         if self.mode == "trade":
             self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
-            self.send_broadcast("log", "Trade offer cancelled.")
             self.send_broadcast("reset", "trade")
 
 
 
     def end_turn(self):
         # increment turn number, reset dev_card counter, set new current_player
-        self.reset_turn_vars() # reset server vars
+        self.reset_trade_vars()
         self.send_broadcast("reset", "end_turn") # reset client vars
         self.turn_num += 1
         self.has_rolled = False
+        self.dev_card_played = False
         self.mode = "roll_dice"
         # TODO this loop could be related to Bug 3
         for player_name, player_object in self.players.items():
@@ -1656,15 +1656,21 @@ class ServerState:
                     
         elif self.mode == "trade" and len(self.player_trade["trade_with"]) > 0 and self.current_player_name != client_request["name"]:
             if client_request["action"] == "submit":
-                self.complete_trade(self.current_player_name, client_request["name"])
+                if all(self.players[client_request["name"]].hand[resource] >= self.player_trade["request"][resource] for resource in self.resource_cards):
+                    self.complete_trade(self.current_player_name, client_request["name"])
+                else:
+                    self.send_to_player(client_request["name"], "log", "Insufficient resources for completing trade.")
                 return
             elif client_request["action"] == "cancel":
                 self.players_declined.add(client_request["name"])
+                self.send_to_player(self.current_player_name, "log", f"{client_request['name']} declined trade.")
+                self.send_to_player(client_request["name"], "log", "You declined the trade.")
                 if len(self.players_declined) == len(self.player_order)-1:
-                    self.reset_turn_vars()
+                    self.reset_trade_vars()
                     self.send_broadcast("log", "All players declined. Cancelling trade.")
                     self.send_broadcast("reset", "trade")
                     self.mode = None
+                return
 
         # elif client_request["action"] == "randomize_board" and 0 >= self.turn_num:
         #     This currently breaks the game (lol)
@@ -1719,7 +1725,7 @@ class ServerState:
                 if client_request["trade_offer"] == self.player_trade:
                     return
                 self.player_trade = client_request["trade_offer"]
-                self.send_broadcast("log", f"Player {self.player_trade['trade_with']} is offering a trade.")
+                self.send_broadcast("log", f"{self.player_trade['trade_with']} is offering a trade.")
                 return
             elif client_request["action"] == "cancel":
                 self.mode = None
@@ -2653,11 +2659,7 @@ class ClientState:
         elif self.mode == "trade":
             if self.name != self.current_player_name:
                 if self.check_submit(user_input):
-                    if all(self.client_players[self.name].hand[resource] >= self.player_trade["request"][resource] for resource in self.resource_cards):
-                        return self.client_request_to_dict(action="submit")
-                    # should probably move this to the server instead of client
-                    self.add_to_log("Insufficient resources for completing trade.")
-                    return
+                    return self.client_request_to_dict(action="submit")
                 elif self.check_cancel(user_input):
                     return self.client_request_to_dict(action="cancel")
 
@@ -2891,6 +2893,23 @@ class ClientState:
         else:
             return self.log_msgs_formatted[-self.log_lines:]
 
+    def play_sounds(self, msg):
+        # self.send_broadcast("log", f"{self.current_player_name} rolled {self.die1 + self.die2}.")
+        if "rolled" in msg:
+            pr.play_sound(self.sounds["dice"])
+        # self.send_broadcast("log", f"It is now {self.current_player_name}'s turn.")
+        elif "It is now" in msg:
+            pr.play_sound(self.sounds["your_turn"])
+        # self.send_to_player(self.current_player_name, "log", f"Congratulations, you won!")
+        elif "Congratulations" in msg:
+            pr.play_sound(self.sounds["win"])
+        elif "chat" in msg:
+            pr.play_sound(self.sounds["chat"])
+        # trade offered
+        # trade accepted
+
+
+
 
     # unpack server response and update state
     def update_client(self, encoded_server_response):
@@ -2930,27 +2949,18 @@ class ClientState:
         # client plays a sound based on log msg - added msgs here in case future conflicts arise
         if server_response["kind"] == "log":
             self.add_to_log(server_response["msg"])
-
-            # self.send_broadcast("log", f"{self.current_player_name} rolled {self.die1 + self.die2}.")
-            if "rolled" in server_response["msg"]:
-                pr.play_sound(self.sounds["dice"])
-            # self.send_broadcast("log", f"It is now {self.current_player_name}'s turn.")
-            elif "It is now" in server_response["msg"]:
-                pr.play_sound(self.sounds["your_turn"])
-            # self.send_to_player(self.current_player_name, "log", f"Congratulations, you won!")
-            elif "Congratulations" in server_response["msg"]:
-                pr.play_sound(self.sounds["win"])
-
+            self.play_sounds(server_response["msg"])
             return
         
         # needed to distinguish between log and chat to separate player input from server input
         elif server_response["kind"] == "chat":
             self.add_to_log(server_response["msg"])
+            # only play sound if sender not self; reset msg if self
             sender = server_response["msg"].split(":")[0]
             if sender == self.name:
                 self.chat_msg = f"{self.name}: "
             else:
-                pr.play_sound(self.sounds["chat"])
+                self.play_sounds("chat")
             return
         
         elif server_response["kind"] == "reset":
@@ -3374,6 +3384,8 @@ class ClientState:
             "dice": "assets/shaking-and-rolling-dice-69018-shortened.mp3",
             "your_turn": "assets/xylophone-c3-87468.mp3",
             "win": "assets/winsquare-6993-normalized.mp3",
+            # trade offered
+            # trade accepted
         }
         for name, file in sound_files.items():
             self.sounds[name] = pr.load_sound(file)
