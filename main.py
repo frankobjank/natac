@@ -3267,10 +3267,12 @@ class ClientState:
         # draw chat bar - highlight and display cursor if active
         if self.log_buttons["chat"].toggle == True:
             pr.draw_rectangle_lines_ex(self.log_buttons["chat"].rec, 4, pr.BLACK)
-            pr.draw_text_ex(pr.gui_get_font(), " "+self.chat_msg+"_", (self.log_buttons["chat"].rec.x, self.log_buttons["chat"].rec.y+self.med_text/2.5), self.med_text, 0, pr.BLACK)
+            current_chat = self.chat_msg+"_"
         else:
             pr.draw_rectangle_lines_ex(self.log_buttons["chat"].rec, 1, pr.BLACK)
-            pr.draw_text_ex(pr.gui_get_font(), " "+self.chat_msg, (self.log_buttons["chat"].rec.x, self.log_buttons["chat"].rec.y+self.med_text/2.5), self.med_text, 0, pr.BLACK)
+            current_chat = self.chat_msg
+            
+        pr.draw_text_ex(pr.gui_get_font(), current_chat, (self.med_text+self.log_buttons["chat"].rec.x, self.log_buttons["chat"].rec.y+self.med_text/3.2), self.med_text, 0, pr.BLACK)
         
             
 
@@ -3289,7 +3291,10 @@ class ClientState:
         
         # "submit" - acts as start game button
         if self.mode == "select_color":
-            self.buttons["submit"].draw_display(str_override="start_game")
+            if self.client_players[self.name].color == pr.GRAY:
+                self.buttons["submit"].draw_display(str_override="select_color")
+            else:
+                self.buttons["submit"].draw_display(str_override="start_game")
         elif self.mode == "trade" and self.name != self.current_player_name:
             self.buttons["submit"].draw_display(str_override="accept_trade")
         elif self.mode == "trade" and self.name == self.current_player_name:
