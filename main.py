@@ -237,7 +237,7 @@ class Edge:
         
         if verbose:
             s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
-            s_state.send_to_player(s_state.current_player_name, "log", f"You have {len(owned_roads)} roads remaining.")
+            s_state.send_to_player(s_state.current_player_name, "log", f"You have {15-len(owned_roads)} roads remaining.")
 
             print("no conflicts")
         return True
@@ -345,7 +345,7 @@ class Node:
                 return False
                         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a settlement.")
-        s_state.send_to_player(s_state.current_player_name, "log", f"You have {s_state.players[s_state.current_player_name].num_settlements} remaining.")
+        s_state.send_to_player(s_state.current_player_name, "log", f"You have {5-s_state.players[s_state.current_player_name].num_settlements} remaining.")
         print("no conflicts, building settlement")
         return True
     
@@ -365,7 +365,7 @@ class Node:
             return False
         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a city.")
-        s_state.send_to_player(s_state.current_player_name, "log", f"You have {s_state.players[s_state.current_player_name].num_cities} remaining.")
+        s_state.send_to_player(s_state.current_player_name, "log", f"You have {4-s_state.players[s_state.current_player_name].num_cities} remaining.")
         print("no conflicts, building city")
         return True
 
@@ -1252,6 +1252,12 @@ class ServerState:
             return
         card = self.dev_card_deck.pop()
         self.send_broadcast("log", f"{self.current_player_name} bought a development card.")
+
+        if 10 >= len(self.dev_card_deck):
+            if len(self.dev_card_deck) != 1:
+                self.send_broadcast("log", f"There are {len(self.dev_card_deck)} development cards left.")
+            else:
+                self.send_broadcast("log", f"There is only {len(self.dev_card_deck)} development card left.")
         self.players[self.current_player_name].dev_cards[card] += 1
         self.pay_for("dev_card")
         
