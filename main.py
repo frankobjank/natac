@@ -855,8 +855,12 @@ class ServerState:
 
     def start_game(self):
         # right now board is initialized when server is started
+        self.send_broadcast("log", "Starting game!")
         self.randomize_player_order()
-        self.send_broadcast("log", f"Starting game! Player order: {self.player_order}")
+        p_order_str = "Player order:"
+        for i, p in enumerate(self.player_order):
+            p_order_str += f"\\n{i+1}. {p}"
+        self.send_broadcast("log", p_order_str)
         if self.turn_num == 0 and len(self.player_order) > 0:
             self.current_player_name = self.player_order[0]
         self.mode = "build_settlement"
@@ -2889,7 +2893,11 @@ class ClientState:
         self.selection_index = 0
 
     def add_to_log(self, msg):
-        self.log_msgs_raw.append(msg)
+        if "\n" in msg:
+            self.log_msgs_raw += msg.split("\n")
+            print("hello")
+        else:
+            self.log_msgs_raw.append(msg)
         # make max_len dynamic according to width of log_box and font_size. default is 40
         self.log_msgs_formatted += self.calc_line_breaks(msg, max_len=40)
 
@@ -2958,18 +2966,20 @@ class ClientState:
         # client plays a sound based on log msg - added msgs here in case future conflicts arise
         if server_response["kind"] == "log":
             self.add_to_log(server_response["msg"])
-            self.check_sounds(server_response["msg"])
+            mentions = []
+            for name in self.client_players.keys():
+                if name in server_response["msg"]:
+                    mentions.append(name)
+            self.check_sounds(server_response["msg"], mentions=mentions)
             return
         
         # needed to distinguish between log and chat to separate player input from server input
         elif server_response["kind"] == "chat":
-            self.add_to_log(server_response["msg"])
-            # only play sound if sender not self; reset msg if self
             sender = server_response["msg"].split(":")[0]
+            self.add_to_log(server_response["msg"])
+            self.check_sounds("chat", mentions=[sender])
             if sender == self.name:
                 self.chat_msg = f"{self.name}: "
-            else:
-                self.check_sounds("chat")
             return
         
         elif server_response["kind"] == "reset":
@@ -3376,51 +3386,47 @@ class ClientState:
         
         pr.end_drawing()
 
-    def check_sounds(self, msg):
-        if msg=="chat":
-            pr.play_sound(self.sounds["chat"])
-            return
-
-        sound_to_keywords = {
-            "joining_game": ["is reconnecting.", "to game."],
-            "start_game": ["Starting game!"],
+    def check_sounds(self, msg:str, mentions:list=[]) -> None:        
+        # meant for all
+        sound_keywords = {
             "dice": ["rolled"], 
-            "your_turn": ["It is now"],
             "object_placed": ["built a road.", "built a settlement.", "built a city.", "moved the robber."],
             "trade_offered": ["is offering a trade."], 
             "trade_cancelled": ["Trade offer cancelled."],
             "play_dev_card": ["played a Monopoly card.", "played a Knight card.", "played a Year Of Plenty card.", "played a Road Building card."],
-            "robber_hit": ["stole a card from"],
-            "trade_accepted": ["accepted the trade."],
-            "win": ["Congratulations"],
-        }        
-        for sound, keywords in sound_to_keywords.items():
-            for phrase in keywords:
-                if phrase in msg:
+            
+            # self
+            # "your_turn": ["It is now"],
+            # "robber_hit": ["stole a card from"],
+            # "trade_accepted": ["accepted the trade."],
+            # "win": ["Congratulations"],
+            
+            # others
+            # "joining_game": ["is reconnecting.", "to game."],
+            # "start_game": ["Starting game!"],
+            # "chat": ["chat"]
+        }
+
+        if len(mentions) > 0:
+            # if self.name is in the msg
+            if self.name in mentions:
+                keywords["your_turn"] = ["It is now"]
+                keywords["robber_hit"] = ["stole a card from"]
+                keywords["trade_accepted"] = ["accepted the trade."]
+                keywords["win"] = ["Congratulations"]
+
+            # if someone else is in the msg
+            elif self.name not in mentions:
+                keywords["joining_game"] = ["is reconnecting.", "to game."]
+                keywords["start_game"] = ["Starting game!"]
+                keywords["chat"] = ["chat"]
+
+        for sound, keywords in sound_keywords.items():
+            for words in keywords:
+                if words in msg:
                     pr.play_sound(self.sounds[sound])
                     return
 
-        # reversed
-        # keyword_to_sound = {
-        #     "is reconnecting.": "joining_game",
-        #     "to game.": "joining_game",
-        #     "key": "start_game",
-        #     "rolled": "dice", 
-        #     "It is now": "your_turn",
-        #     "Congratulations": "win",
-        #     "chat": "chat",
-        #     "built a road.": "object_placed", 
-        #     "built a settlement.": "object_placed", 
-        #     "built a city.": "object_placed", 
-        #     "is offering a trade.": "trade_offered", 
-        #     "Trade offer cancelled.": "trade_cancelled",
-        #     "played a Monopoly card.": "play_dev_card",
-        #     "played a Knight card.": "play_dev_card",
-        #     "played a Year Of Plenty card.": "play_dev_card",
-        #     "played a Road Building card.": "play_dev_card",
-        #     "stole a card from": "robber_hit",
-        #     "accepted the trade.": "trade_accepted",
-        # }
 
     def load_assets(self):
         pr.gui_set_font(pr.load_font("assets/F25_Bank_Printer.ttf"))
@@ -3447,8 +3453,8 @@ class ClientState:
             pr.unload_sound(sound)
 
     def init_raylib(self):
-        # pr.set_trace_log_level(7) # removes raylib log msgs
         # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
+        pr.set_trace_log_level(7) # removes raylib log msgs
         pr.init_window(self.default_screen_w, self.default_screen_h, f"Natac - {self.name}")
         pr.init_audio_device()
         pr.set_target_fps(60)
