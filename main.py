@@ -300,15 +300,15 @@ class Node:
         # check if player owns node
         if self.player != None:
             if self.player == s_state.players[s_state.current_player_name]:
-                s_state.send_to_player(s_state.current_player_name, "log", "You already own this location")
+                s_state.send_to_player(s_state.current_player_name, "log", "You already own this location.")
             else:
-                s_state.send_to_player(s_state.current_player_name, "log", f"{self.player} already owns this location")
+                s_state.send_to_player(s_state.current_player_name, "log", f"{self.player} already owns this location.")
             print("location already owned")
             return False
         
         # check if town is None - is redundant because self.player already checks for this
         if self.town != None:
-            s_state.send_to_player(s_state.current_player_name, "log", "This location must be empty")
+            s_state.send_to_player(s_state.current_player_name, "log", "This location must be empty.")
             return False
 
         # check num_settlements
@@ -319,7 +319,7 @@ class Node:
         
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes and self.hexes[2] in s_state.board.ocean_hexes:
-            s_state.send_to_player(s_state.current_player_name, "log", "You cannot build in the ocean")
+            s_state.send_to_player(s_state.current_player_name, "log", "You cannot build in the ocean.")
             print("can't build in ocean")
             return False
         
@@ -327,11 +327,11 @@ class Node:
         adj_nodes = self.get_adj_nodes_from_node(s_state.board.nodes)
         for node in adj_nodes:
             if node.town == "settlement":
-                s_state.send_to_player(s_state.current_player_name, "log", "Too close to another settlement")
+                s_state.send_to_player(s_state.current_player_name, "log", "Too close to another settlement.")
                 print("too close to settlement")
                 return False
             elif node.town == "city":
-                s_state.send_to_player(s_state.current_player_name, "log", "Too close to a city")
+                s_state.send_to_player(s_state.current_player_name, "log", "Too close to a city.")
                 print("too close to city")
                 return False
 
@@ -339,30 +339,30 @@ class Node:
             adj_edges = self.get_adj_edges(s_state.board.edges)
             # is node adjacent to at least 1 same-colored road
             if all(edge.player != s_state.current_player_name for edge in adj_edges):
-                s_state.send_to_player(s_state.current_player_name, "log", "You have no adjacent roads")
+                s_state.send_to_player(s_state.current_player_name, "log", "You have no adjacent roads.")
                 print("no adjacent roads")
                 return False
                         
-        s_state.send_broadcast("log", f"{s_state.current_player_name} built a settlement")
+        s_state.send_broadcast("log", f"{s_state.current_player_name} built a settlement.")
         print("no conflicts, building settlement")
         return True
     
     def build_check_city(self, s_state):
         if self.town != "settlement":
-            s_state.send_to_player(s_state.current_player_name, "log", "This location must be a settlement")
+            s_state.send_to_player(s_state.current_player_name, "log", "This location must be a settlement.")
             return False
         
         if self.player != s_state.current_player_name:
-            s_state.send_to_player(s_state.current_player_name, "log", f"{self.player} already owns this location")
+            s_state.send_to_player(s_state.current_player_name, "log", f"{self.player} already owns this location.")
             print("owned by someone else")
             return False
 
         if s_state.players[s_state.current_player_name].num_cities >= 4:
-            s_state.send_to_player(s_state.current_player_name, "log", "You have no more available cities (max 4)")
+            s_state.send_to_player(s_state.current_player_name, "log", "You have no more available cities (max 4).")
             print("no available cities")
             return False
         
-        s_state.send_broadcast("log", f"{s_state.current_player_name} built a city")
+        s_state.send_broadcast("log", f"{s_state.current_player_name} built a city.")
         print("no conflicts, building city")
         return True
 
@@ -1116,7 +1116,7 @@ class ServerState:
         if self.dev_card_played == True:
             self.send_to_player(self.current_player_name, "log", "You can only play one dev card per turn.")
             return
-        self.send_broadcast("log", f"{self.current_player_name} played a {rf.to_title(kind)} card")
+        self.send_broadcast("log", f"{self.current_player_name} played a {rf.to_title(kind)} card.")
         self.dev_card_played = True
 
         if kind == "knight":
@@ -1328,8 +1328,8 @@ class ServerState:
         
         self.players[from_player].hand[chosen_card] -= 1
         self.players[to_player].hand[chosen_card] += 1
-        self.send_broadcast("log", f"{to_player} stole a card from {from_player}")
-        self.send_to_player(to_player, "log", f"Received {chosen_card} from {from_player}")
+        self.send_broadcast("log", f"{to_player} stole a card from {from_player}.")
+        self.send_to_player(to_player, "log", f"Received {chosen_card} from {from_player}.")
         
         # reset mode and steal list
         if self.has_rolled:
@@ -1444,9 +1444,10 @@ class ServerState:
         if self.players[self.current_player_name].get_vp_public(self.longest_road, self.largest_army) + self.players[self.current_player_name].dev_cards["victory_point"] >= 10:
             msg = f"{self.current_player_name} had {self.players[self.current_player_name].dev_cards['victory_point']} hidden victory point"
             if self.players[self.current_player_name].dev_cards["victory_point"] == 1:
+                msg+="."
                 self.send_broadcast("log", msg)
             elif self.players[self.current_player_name].dev_cards["victory_point"] > 1:
-                msg+="s"
+                msg+="s."
                 self.send_broadcast("log", msg)
             
             for p_name in self.players.keys():

@@ -491,7 +491,7 @@ mode_text = {
     # with font_size c_state.med_text*.9 (~16.9) -- 314.3/16.9 +1 for " " = ~19.6 font width
     # which means multiplier from height -> width (19.59/16.9) = ~1.16
     # TODO calc line breaks on the fly (using above conversions) instead of hardcoding
-    "select_color": " Use arrow keys to move\n selection.\n Press Enter to make a choice.\n Click Start Game when all\n players are ready.",
+    "select_color": " Click Start Game when all\n players are ready.",
     "setup": " Players will take turns\n placing their initial\n settlements and roads.",
     "build_road": " Select a location to build\n a road.",
     "build_settlement": " Select a location to build\n a settlement.",
