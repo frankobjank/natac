@@ -188,7 +188,6 @@ class Edge:
         if len(owned_roads) >= 15:
             if verbose:
                 s_state.send_to_player(s_state.current_player_name, "log", "You ran out of roads (max 15).")
-                s_state.send_to_player(s_state.current_player_name, "log", f"You have {len(owned_roads)} roads.")
                 print("no available roads")
             return False
         
@@ -238,6 +237,8 @@ class Edge:
         
         if verbose:
             s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
+            s_state.send_to_player(s_state.current_player_name, "log", f"You have {len(owned_roads)} roads remaining.")
+
             print("no conflicts")
         return True
         
@@ -344,6 +345,7 @@ class Node:
                 return False
                         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a settlement.")
+        s_state.send_to_player(s_state.current_player_name, "log", f"You have {s_state.players[s_state.current_player_name].num_settlements} remaining.")
         print("no conflicts, building settlement")
         return True
     
@@ -363,6 +365,7 @@ class Node:
             return False
         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a city.")
+        s_state.send_to_player(s_state.current_player_name, "log", f"You have {s_state.players[s_state.current_player_name].num_cities} remaining.")
         print("no conflicts, building city")
         return True
 
@@ -832,7 +835,7 @@ class ServerState:
                 self.board.set_demo_settlements(self, name)
             self.send_broadcast("log", f"Adding {name} to game.")
         
-        self.send_to_player(name, "log", f"Welcome to natac.")
+        self.send_to_player(name, "log", "Welcome to natac.")
         self.socket.sendto(to_json(self.package_state(name, include_board=True)).encode(), address)
 
     def randomize_player_order(self):
@@ -853,6 +856,7 @@ class ServerState:
     def start_game(self):
         # right now board is initialized when server is started
         self.randomize_player_order()
+        self.send_broadcast("log", f"Starting game! Player order: {self.player_order}")
         if self.turn_num == 0 and len(self.player_order) > 0:
             self.current_player_name = self.player_order[0]
         self.mode = "build_settlement"
@@ -1285,6 +1289,7 @@ class ServerState:
             return
 
         self.board.robber_hex = location_hex
+        self.send_broadcast("log", f"{self.current_player_name} moved the robber.")
         
         adj_players = set()
         for node in self.board.nodes:
@@ -1910,7 +1915,7 @@ class ServerState:
 
 
 class Button:
-    def __init__(self, rec:pr.Rectangle, name:str, color:pr.Color=pr.RAYWHITE, resource:str|None=None, mode:bool=False, action:bool=False, toggle:bool|None=None):
+    def __init__(self, rec:pr.Rectangle, name:str, color:pr.Color=pr.RAYWHITE, resource:str|None=None, mode:bool=False, action:bool=False):
         self.rec = rec
         self.name = name
         self.color = color
@@ -1918,7 +1923,6 @@ class Button:
         self.mode = mode
         self.action = action
         self.hover = False
-        self.toggle = toggle # if None, not toggle-able
 
         if self.resource != None:
             self.display = self.resource
@@ -1965,6 +1969,17 @@ class Button:
         display, font_size = self.calc_display_font_size(self.display)
         for i, line in enumerate(display.split("\n")):
             pr.draw_text_ex(pr.gui_get_font(), " "+line, (self.rec.x, self.rec.y+(i+.5)*font_size), font_size, 0, pr.BLACK)
+
+class ClientButton:
+    def __init__(self, rec:pr.Rectangle, name:str, toggle:bool|None=None):
+        self.rec = rec
+        self.name = name
+        self.hover = False
+        self.hot = False
+        self.toggle = toggle # if None, not toggle-able
+
+    def __repr__(self):
+        return f"Button({self.name})"
 
 class LogButton:
     def __init__(self, rec:pr.Rectangle, name:str, toggle:bool|None=None):
@@ -2118,6 +2133,8 @@ class ClientState:
         # buttons
         self.buttons = {}
         self.log_buttons = {}
+        self.client_buttons = {}
+        # self.client_buttons["mute"] = ClientButton() # add mute button
         button_division = 17
         button_w = self.screen_width//button_division
         button_h = self.screen_height//button_division
@@ -2148,12 +2165,12 @@ class ClientState:
             infobox_w, 
             infobox_h)
 
-        self.temp_info_box = pr.Rectangle(
-            self.screen_width-2*infobox_w-2*offset,
-            self.screen_height-infobox_h-15*offset,
-            infobox_w,
-            infobox_h//3
-        )
+        # self.temp_info_box = pr.Rectangle(
+        #     self.screen_width-2*infobox_w-2*offset,
+        #     self.screen_height-infobox_h-15*offset,
+        #     infobox_w,
+        #     infobox_h//3
+        # )
         
         self.trade_buttons = {}
         for i, resource in enumerate(self.resource_cards):
@@ -2203,6 +2220,7 @@ class ClientState:
         self.log_buttons["thumb"] = LogButton(rec=self.log_buttons["scrollbar"].rec, name="thumb")
         self.log_thumb_hidden = self.log_buttons["scrollbar"].rec # for offset purposes - shrinks in proportion to items in list
 
+        
 
         # camera controls
         # when changing size of screen, just zoom in?
@@ -2458,6 +2476,8 @@ class ClientState:
 
         if user_input == pr.KeyboardKey.KEY_F1:
             self.debug = not self.debug # toggle
+
+        
         
 
 
@@ -2894,24 +2914,6 @@ class ClientState:
         else:
             return self.log_msgs_formatted[-self.log_lines:]
 
-    def play_sounds(self, msg):
-        # self.send_broadcast("log", f"{self.current_player_name} rolled {self.die1 + self.die2}.")
-        if "rolled" in msg:
-            pr.play_sound(self.sounds["dice"])
-        # self.send_broadcast("log", f"It is now {self.current_player_name}'s turn.")
-        elif "It is now" in msg:
-            pr.play_sound(self.sounds["your_turn"])
-        # self.send_to_player(self.current_player_name, "log", f"Congratulations, you won!")
-        elif "Congratulations" in msg:
-            pr.play_sound(self.sounds["win"])
-        elif "chat" in msg:
-            pr.play_sound(self.sounds["chat"])
-        # trade offered
-        # trade accepted
-
-
-
-
     # unpack server response and update state
     def update_client(self, encoded_server_response):
         # name : self.name
@@ -2950,7 +2952,7 @@ class ClientState:
         # client plays a sound based on log msg - added msgs here in case future conflicts arise
         if server_response["kind"] == "log":
             self.add_to_log(server_response["msg"])
-            self.play_sounds(server_response["msg"])
+            self.check_sounds(server_response["msg"])
             return
         
         # needed to distinguish between log and chat to separate player input from server input
@@ -2961,7 +2963,7 @@ class ClientState:
             if sender == self.name:
                 self.chat_msg = f"{self.name}: "
             else:
-                self.play_sounds("chat")
+                self.check_sounds("chat")
             return
         
         elif server_response["kind"] == "reset":
@@ -3368,6 +3370,76 @@ class ClientState:
         
         pr.end_drawing()
 
+    def check_sounds(self, msg):
+        if msg=="chat":
+            pr.play_sound(self.sounds["chat"])
+            return
+
+        sound_to_keywords = {
+            "joining_game": ["is reconnecting.", "to game."],
+            "start_game": ["Starting game!"],
+            "dice": ["rolled"], 
+            "your_turn": ["It is now"],
+            "object_placed": ["built a road.", "built a settlement.", "built a city.", "moved the robber."],
+            "trade_offered": ["is offering a trade."], 
+            "trade_cancelled": ["Trade offer cancelled."],
+            "play_dev_card": ["played a Monopoly card.", "played a Knight card.", "played a Year Of Plenty card.", "played a Road Building card."],
+            "robber_hit": ["stole a card from"],
+            "trade_accepted": ["accepted the trade."],
+            "win": ["Congratulations"],
+        }        
+        for sound, keywords in sound_to_keywords.items():
+            for phrase in keywords:
+                if phrase in msg:
+                    pr.play_sound(self.sounds[sound])
+                    return
+
+        # reversed
+        # keyword_to_sound = {
+        #     "is reconnecting.": "joining_game",
+        #     "to game.": "joining_game",
+        #     "key": "start_game",
+        #     "rolled": "dice", 
+        #     "It is now": "your_turn",
+        #     "Congratulations": "win",
+        #     "chat": "chat",
+        #     "built a road.": "object_placed", 
+        #     "built a settlement.": "object_placed", 
+        #     "built a city.": "object_placed", 
+        #     "is offering a trade.": "trade_offered", 
+        #     "Trade offer cancelled.": "trade_cancelled",
+        #     "played a Monopoly card.": "play_dev_card",
+        #     "played a Knight card.": "play_dev_card",
+        #     "played a Year Of Plenty card.": "play_dev_card",
+        #     "played a Road Building card.": "play_dev_card",
+        #     "stole a card from": "robber_hit",
+        #     "accepted the trade.": "trade_accepted",
+        # }
+
+    def load_assets(self):
+        pr.gui_set_font(pr.load_font("assets/F25_Bank_Printer.ttf"))
+        sound_files = {
+            "joining_game": "assets/90s-game-ui-3-185096.mp3",
+            "start_game": "assets/elektron-continuation-with-errors-160923.mp3",
+            "dice": "assets/shaking-and-rolling-dice-69018-shortened.mp3",
+            "your_turn": "assets/90s-game-ui-10-185103.mp3",
+            "chat": "assets/90s-game-ui-4-185097.mp3",
+            "object_placed": "assets/menu-selection-102220.mp3",
+            "trade_offered": "assets/90s-game-ui-2-185095.mp3",
+            "trade_cancelled": "assets/90s-game-ui-5-185098.mp3",
+            "trade_accepted": "assets/90s-game-ui-6-185099.mp3",
+            "robber_hit": "assets/sword-hit-7160.mp3",
+            "play_dev_card": "assets/hitting-the-sandbag-131853.mp3",
+            "win": "assets/winsquare-6993-normalized.mp3",
+        }
+        for name, file in sound_files.items():
+            self.sounds[name] = pr.load_sound(file)
+
+    def unload_assets(self):
+        pr.unload_font(pr.gui_get_font())
+        for sound in self.sounds.values():
+            pr.unload_sound(sound)
+
     def init_raylib(self):
         # pr.set_trace_log_level(7) # removes raylib log msgs
         # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
@@ -3381,26 +3453,6 @@ class ClientState:
         self.unload_assets()
         pr.close_audio_device()
         pr.close_window()
-
-    def load_assets(self):
-        pr.gui_set_font(pr.load_font("assets/F25_Bank_Printer.ttf"))
-        sound_files = {
-            "menu": "assets/menu-selection-102220.mp3",
-            "chat": "assets/90s-game-ui-6-185099.mp3",
-            "dice": "assets/shaking-and-rolling-dice-69018-shortened.mp3",
-            "your_turn": "assets/xylophone-c3-87468.mp3",
-            "win": "assets/winsquare-6993-normalized.mp3",
-            # trade offered
-            # trade accepted
-        }
-        for name, file in sound_files.items():
-            self.sounds[name] = pr.load_sound(file)
-
-    def unload_assets(self):
-        pr.unload_font(pr.gui_get_font())
-        for sound in self.sounds.values():
-            pr.unload_sound(sound)
-
 
 def run_client(name, server_IP=local_IP):
     c_state = ClientState(name=name, server_IP=server_IP, port=default_port, combined=False)
