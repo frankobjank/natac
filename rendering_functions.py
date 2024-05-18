@@ -265,6 +265,18 @@ def draw_mode_text(c_state, title, text):
     pr.draw_text_ex(pr.gui_get_font(), " "+to_title(title), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
     for i, line in enumerate(reversed(text.split("\n"))):
         pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
+    # draw remaining roads, settle, cities
+    if c_state.mode != None and c_state.setup == False and c_state.mode.split("_")[0] == "build":
+        if c_state.mode == "build_road":
+            remaining = f" You have {15-c_state.client_players[c_state.current_player_name].num_roads} roads remaining."
+        elif c_state.mode == "build_settlement":
+            remaining = f" You have {5-c_state.client_players[c_state.current_player_name].num_settlements} settlements\n remaining."
+        elif c_state.mode == "build_city":
+            remaining = f" You have {4-c_state.client_players[c_state.current_player_name].num_cities} cities remaining."
+        
+        pr.draw_text_ex(pr.gui_get_font(), remaining, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height//2), c_state.med_text*.9, 0, pr.BLACK)
+            
+
 
 
 def draw_infobox(c_state, hover_object=None):
@@ -349,10 +361,10 @@ def draw_infobox(c_state, hover_object=None):
         return
 
     # ONLY CURRENT PLAYER
-    # if c_state.mode in mode_text.keys():
-    #     draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
+    if c_state.mode in mode_text.keys():
+        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
 
-    if c_state.mode == "trade":
+    elif c_state.mode == "trade":
         draw_trade_interface(c_state)
     
     elif c_state.mode == "bank_trade":

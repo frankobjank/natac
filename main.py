@@ -155,6 +155,14 @@ class Edge:
                     s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
                     return True
                 
+        # check num roads
+        owned_roads = [edge for edge in s_state.board.edges if edge.player == s_state.current_player_name]
+        if len(owned_roads) >= 15:
+            if verbose:
+                s_state.send_to_player(s_state.current_player_name, "log", "You ran out of roads (max 15).")
+                print("no available roads")
+            return False
+        
         # check if edge is owned
         if self.player != None:
             if self.player == s_state.players[s_state.current_player_name]:
@@ -165,7 +173,6 @@ class Edge:
                     s_state.send_to_player(s_state.current_player_name, "log", "This location is owned by another player.")
                     print("This location is already owned")
             return False
-
 
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes:
@@ -181,15 +188,10 @@ class Edge:
                 if verbose:
                     s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
                     print("building next to settlement")
+                    # -1 since this is before road gets added to board
+                    s_state.send_to_player(self.current_player_name, "log", f"You have {15-1-len(owned_roads)} total roads remaining.")
                 return True
         
-        # check num roads
-        owned_roads = [edge for edge in s_state.board.edges if edge.player == s_state.current_player_name]
-        if len(owned_roads) >= 15:
-            if verbose:
-                s_state.send_to_player(s_state.current_player_name, "log", "You ran out of roads (max 15).")
-                print("no available roads")
-            return False
         
         # contiguous check. if no edges are not owned by player, break
         adj_edges = self.get_adj_node_edges(s_state.board.nodes, s_state.board.edges)
@@ -237,7 +239,8 @@ class Edge:
         
         if verbose:
             s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
-            s_state.send_to_player(s_state.current_player_name, "log", f"You have {15-len(owned_roads)} roads remaining.")
+            # -1 since this is before road gets added to board
+            s_state.send_to_player(s_state.current_player_name, "log", f"You have {15-1-len(owned_roads)} total roads remaining.")
 
             print("no conflicts")
         return True
@@ -298,6 +301,12 @@ class Node:
         if s_state.current_player_name == None:
             return False
 
+        # check num_settlements
+        if s_state.players[s_state.current_player_name].num_settlements >= 5:
+            s_state.send_to_player(s_state.current_player_name, "log", "You have no available settlements (max 5).")            
+            print("no available settlements")
+            return False
+
         # check if player owns node
         if self.player != None:
             if self.player == s_state.players[s_state.current_player_name]:
@@ -312,11 +321,6 @@ class Node:
             s_state.send_to_player(s_state.current_player_name, "log", "This location must be empty.")
             return False
 
-        # check num_settlements
-        if s_state.players[s_state.current_player_name].num_settlements >= 5:
-            s_state.send_to_player(s_state.current_player_name, "log", "You have no available settlements (max 5).")            
-            print("no available settlements")
-            return False
         
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes and self.hexes[2] in s_state.board.ocean_hexes:
@@ -345,7 +349,9 @@ class Node:
                 return False
                         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a settlement.")
-        s_state.send_to_player(s_state.current_player_name, "log", f"You have {5-s_state.players[s_state.current_player_name].num_settlements} remaining.")
+        
+        # -1 since this is before road gets added to board
+        s_state.send_to_player(s_state.current_player_name, "log", f"You have {5-1-s_state.players[s_state.current_player_name].num_settlements} settlements remaining.")
         print("no conflicts, building settlement")
         return True
     
@@ -365,7 +371,8 @@ class Node:
             return False
         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a city.")
-        s_state.send_to_player(s_state.current_player_name, "log", f"You have {4-s_state.players[s_state.current_player_name].num_cities} remaining.")
+        # -1 since this is before road gets added to board
+        s_state.send_to_player(s_state.current_player_name, "log", f"You have {4-1-s_state.players[s_state.current_player_name].num_cities} cities remaining.")
         print("no conflicts, building city")
         return True
 
@@ -615,6 +622,7 @@ class Board:
         for edge in self.edges:
             for red_edge in spec_edges:
                 if edge.hexes[0] == red_edge.hexes[0] and edge.hexes[1] == red_edge.hexes[1]:
+                    player_object.num_roads += 1
                     edge.player = player_object.name
         for hex in spec_nodes[1].hexes:
             player_object.hand[hex_to_resource[hex]] += 1
@@ -702,12 +710,6 @@ class ServerState:
         if self.combined == False:
             self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
             self.socket.bind((IP_address, port))
-        
-        
-        # use this for an undo button??? can store actions like "Player {name} built road"
-        # might be too hard to literally undo every action.. maybe there is a trick to it. Like restoring from an old game state. could store history of packets as a 'save file'-ish thing. can learn about how save files are created. after every message, check if action was made, then only add the new data to the next entry, so you can "rebuild" the game starting at packet 1, then modifying the values according to the new data
-        # could start with prototype save file in test.py
-        self.history = []
 
         # BOARD
         self.board = None
@@ -801,7 +803,6 @@ class ServerState:
 
     def is_server_full(self, name, max_players=4):
         if len(self.player_order) >= max_players or (name not in self.player_order and self.setup == False):
-            # not sure if this is actually received
             print("Server cannot accept any more players")
             return True
         else:
@@ -927,10 +928,6 @@ class ServerState:
                     if self.players[self.current_player_name].num_roads == 1 and self.current_player_name != self.player_order[-1]:
                         current_index = self.player_order.index(self.current_player_name)
                         self.current_player_name = self.player_order[current_index+1]
-
-                    # # 1 road and the last player
-                    # if self.players[self.current_player_name].num_roads == 1 and self.current_player_name == self.player_order[-1]:
-                    #     return
 
                     # 2 roads and not the first player
                     elif self.players[self.current_player_name].num_roads == 2 and self.current_player_name != self.player_order[0]:
@@ -1184,7 +1181,7 @@ class ServerState:
                     self.calc_longest_road()
                     
 
-            if self.road_building_counter == 2:
+            if self.road_building_counter == 2 or not self.can_build_road:
                 self.send_to_player(self.current_player_name, "log", f"Exiting Road Building Mode.")
 
                 self.mode = None
@@ -1535,10 +1532,16 @@ class ServerState:
         visible_knights = []
         victory_points = []
         num_to_discard = []
+        num_roads = []
+        num_settlements = []
+        num_cities = []
         for player_name, player_object in self.players.items():
             colors.append(player_object.color)
             visible_knights.append(player_object.visible_knights)
             victory_points.append(player_object.get_vp_public(self.longest_road, self.largest_army))
+            num_roads.append(player_object.num_roads)
+            num_settlements.append(player_object.num_settlements)
+            num_cities.append(player_object.num_cities)
             # pack actual hand for recipient
             if recipient == player_name:
                 hand = []
@@ -1594,7 +1597,10 @@ class ServerState:
             "longest_road": self.longest_road, 
             "largest_army": self.largest_army,
             "trade": trade,
-            "setup": self.setup
+            "setup": self.setup,
+            "num_roads": num_roads,
+            "num_settlements": num_settlements,
+            "num_cities": num_cities,
             }
 
         combined = packet|self.package_board()
@@ -2031,7 +2037,7 @@ class Menu:
 class ClientPlayer:
     def __init__(self, name: str, order: int, rec: pr.Rectangle):
         self.name = name
-        self.color = pr.GRAY # rf.game_color_dict[color]
+        self.color = pr.GRAY
         self.order = order
         self.rec = rec
 
@@ -2040,6 +2046,10 @@ class ClientPlayer:
         self.hand_size = 0
         self.dev_cards = {"knight": 0, "victory_point": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0}
         self.dev_cards_size = 0
+
+        self.num_roads = 0
+        self.num_settlements = 0
+        self.num_cities = 0
 
         self.visible_knights = 0
         self.victory_points = 0
@@ -2893,17 +2903,17 @@ class ClientState:
         self.selection_index = 0
 
     def add_to_log(self, msg):
-        if "\n" in msg:
-            self.log_msgs_raw += msg.split("\n")
-            print("hello")
-        else:
-            self.log_msgs_raw.append(msg)
+        self.log_msgs_raw.append(msg)
         # make max_len dynamic according to width of log_box and font_size. default is 40
         self.log_msgs_formatted += self.calc_line_breaks(msg, max_len=40)
 
     def calc_line_breaks(self, msg, max_len) -> list:
-        # max_len = 40
+        # max_len = 40 by default
         formatted = [] # list of strings broken up by line
+
+        if "\\n" in msg:
+            formatted += msg.split("\\n")
+            return formatted
 
         if max_len > len(msg):
             formatted.append(msg)
@@ -2919,6 +2929,7 @@ class ClientState:
                 formatted.append(msg[p1:p2])
                 p1 = p2
             formatted.append(msg[p1:])
+        
 
         return formatted
 
@@ -2954,6 +2965,10 @@ class ClientState:
         # to_steal_from : []
         # ports : []
         # trade : [] [[0, 0, 1, 1, 0], [1, 1, 0, 0, 0], "player_name_string"]
+        # setup
+        # num_roads : []
+        # num_settlements : []
+        # num_cities : []
         server_response = json.loads(encoded_server_response)
 
         # split kind of response by what kind of message is received, "log", "reset", etc
@@ -3083,6 +3098,11 @@ class ClientState:
 
                 # assign victory points
                 self.client_players[name].victory_points = server_response["victory_points"][order]
+                
+                # num roads, settlements, cities
+                self.client_players[name].num_roads = server_response["num_roads"][order]
+                self.client_players[name].num_settlements = server_response["num_settlements"][order]
+                self.client_players[name].num_cities = server_response["num_cities"][order]
                 
                 # construct hand
                 for position, number in enumerate(server_response["hands"][order]):
@@ -3259,6 +3279,7 @@ class ClientState:
                 hover_object=b_object.name
                 break
         
+        
         # one call to draw info_box so no conflicts displaying 2 things at once
         rf.draw_infobox(self, hover_object)
 
@@ -3389,6 +3410,7 @@ class ClientState:
     def check_sounds(self, msg:str, mentions:list=[]) -> None:        
         # meant for all
         sound_keywords = {
+            "start_game": ["Starting game!"],
             "dice": ["rolled"], 
             "object_placed": ["built a road.", "built a settlement.", "built a city.", "moved the robber."],
             "trade_offered": ["is offering a trade."], 
@@ -3410,16 +3432,15 @@ class ClientState:
         if len(mentions) > 0:
             # if self.name is in the msg
             if self.name in mentions:
-                keywords["your_turn"] = ["It is now"]
-                keywords["robber_hit"] = ["stole a card from"]
-                keywords["trade_accepted"] = ["accepted the trade."]
-                keywords["win"] = ["Congratulations"]
+                sound_keywords["your_turn"] = ["It is now"]
+                sound_keywords["robber_hit"] = ["stole a card from"]
+                sound_keywords["trade_accepted"] = ["accepted the trade."]
+                sound_keywords["win"] = ["Congratulations"]
 
             # if someone else is in the msg
             elif self.name not in mentions:
-                keywords["joining_game"] = ["is reconnecting.", "to game."]
-                keywords["start_game"] = ["Starting game!"]
-                keywords["chat"] = ["chat"]
+                sound_keywords["joining_game"] = ["is reconnecting.", "to game."]
+                sound_keywords["chat"] = ["chat"]
 
         for sound, keywords in sound_keywords.items():
             for words in keywords:
@@ -3431,18 +3452,19 @@ class ClientState:
     def load_assets(self):
         pr.gui_set_font(pr.load_font("assets/F25_Bank_Printer.ttf"))
         sound_files = {
-            "joining_game": "assets/90s-game-ui-3-185096.mp3",
-            "start_game": "assets/elektron-continuation-with-errors-160923.mp3",
-            "dice": "assets/shaking-and-rolling-dice-69018-shortened.mp3",
-            "your_turn": "assets/90s-game-ui-10-185103.mp3",
-            "chat": "assets/90s-game-ui-4-185097.mp3",
-            "object_placed": "assets/menu-selection-102220.mp3",
-            "trade_offered": "assets/90s-game-ui-2-185095.mp3",
+            "joining_game": "assets/90s-game-ui-2-185095.mp3",
+            "trade_offered": "assets/90s-game-ui-3-185096.mp3",
+            # "make_selection": "assets/menu-selection-102220.mp3",
             "trade_cancelled": "assets/90s-game-ui-5-185098.mp3",
-            "trade_accepted": "assets/90s-game-ui-6-185099.mp3",
-            "robber_hit": "assets/sword-hit-7160.mp3",
+            "your_turn": "assets/90s-game-ui-6-185103.mp3",
+            "trade_accepted": "assets/90s-game-ui-7-185100.mp3",
+            "chat": "assets/90s-game-ui-10-185103.mp3",
+            "start_game": "assets/elektron-continuation-with-errors-160923.mp3",
             "play_dev_card": "assets/hitting-the-sandbag-131853.mp3",
+            "object_placed": "assets/menu-selection-102220.mp3",
             "win": "assets/winsquare-6993-normalized.mp3",
+            "dice": "assets/shaking-and-rolling-dice-69018-shortened.mp3",
+            "robber_hit": "assets/sword-hit-7160.mp3",
         }
         for name, file in sound_files.items():
             self.sounds[name] = pr.load_sound(file)
