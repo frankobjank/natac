@@ -3536,27 +3536,27 @@ def run_server(IP_address, debug=False, port=default_port):
 # sys.argv = list of args passed thru command line
 cmd_line_input = sys.argv[1:]
 
-
-# provide IP as 2nd argument
-# client: python3 main.py username IP_address (default to local)
-# server: python3 main.py server IP_address
-if len(cmd_line_input) > 0:
-    if cmd_line_input[0] == "server":
-        if cmd_line_input[1] == "local":
-            if len(cmd_line_input) > 2:
-                if cmd_line_input[2] == "-d" or cmd_line_input[2] == "debug":
-                    run_server(local_IP, debug=True) # local default board
+def parse_cmd_line(cmd_line_input):
+    # provide IP as 2nd argument
+    # client: python3 main.py username IP_address (default to local)
+    # server: python3 main.py server IP_address
+    if len(cmd_line_input) > 0:
+        if cmd_line_input[0] == "server":
+            if cmd_line_input[1] == "local":
+                if len(cmd_line_input) > 2:
+                    if cmd_line_input[2] == "-d" or cmd_line_input[2] == "debug":
+                        run_server(local_IP, debug=True) # local default board
+                else:
+                    run_server(local_IP) # local random board
             else:
-                run_server(local_IP) # local random board
+                if len(cmd_line_input) > 2:
+                    run_server(cmd_line_input[1], cmd_line_input[2]) # remote default board
+                else:
+                    run_server(cmd_line_input[1]) # remote random board
         else:
-            if len(cmd_line_input) > 2:
-                run_server(cmd_line_input[1], cmd_line_input[2]) # remote default board
-            else:
-                run_server(cmd_line_input[1]) # remote random board
-    else:
-        if len(cmd_line_input) == 1:
-            run_client(name=cmd_line_input[0][:12], server_IP=local_IP)
-        elif len(cmd_line_input) == 2:
-            run_client(name=cmd_line_input[0][:12], server_IP=cmd_line_input[1])
+            if len(cmd_line_input) == 1:
+                run_client(name=cmd_line_input[0][:12], server_IP=local_IP)
+            elif len(cmd_line_input) == 2:
+                run_client(name=cmd_line_input[0][:12], server_IP=cmd_line_input[1])
 
-
+parse_cmd_line(cmd_line_input)
