@@ -10,6 +10,65 @@ import rendering_functions as rf
 import sys
 import time
 
+# style to implement:
+# If operators with different priorities are used, consider adding whitespace around the operators with the lowest priority(ies). Use your own judgment; however, never use more than one space, and always have the same amount of whitespace on both sides of a binary operator.
+# Yes:
+# i = i + 1
+# submitted += 1
+# x = x*2 - 1
+# hypot2 = x*x + y*y
+# c = (a+b) * (a-b)
+
+# No:
+# i=i+1
+# submitted +=1
+# x = x * 2 - 1
+# hypot2 = x * x + y * y
+# c = (a + b) * (a - b)
+
+
+# Function annotations should use the normal rules for colons and always have spaces around the -> arrow if present. (See Function Annotations below for more about function annotations.)
+# Yes:
+# def munge(input: AnyStr): ...
+# def munge() -> AnyStr: ...
+
+# No:
+# def munge(input:AnyStr): ...
+# def munge()->PosInt: ...
+
+
+# Use ''.startswith() and ''.endswith() instead of string slicing to check for prefixes or suffixes.
+# Yes: if foo.startswith('bar'):
+# No:  if foo[:3] == 'bar':
+
+# Object type comparisons should always use isinstance() instead of comparing types directly.
+# Yes: if isinstance(obj, int):
+# No:  if type(obj) is type(1):
+
+# Be consistent in return statements. Either all return statements in a function should return an expression, or none of them should. If any return statement returns an expression, any return statements where no value is returned should explicitly state this as return None, and an explicit return statement should be present at the end of the function (if reachable).
+# Yes:
+# def foo(x):
+#     if x >= 0:
+#         return math.sqrt(x)
+#     else:
+#         return None
+# def bar(x):
+#     if x < 0:
+#         return None
+#     return math.sqrt(x)
+
+# No:
+# def foo(x):
+#     if x >= 0:
+#         return math.sqrt(x)
+# def bar(x):
+#     if x < 0:
+#         return
+#     return math.sqrt(x)
+
+
+
+
 # UI_SCALE constant for changing scale (fullscreen)
 
 
@@ -47,7 +106,7 @@ def point_round(point):
 
 
 # raylib functions without raylib for server
-def radius_check_v(pt1:Point, pt2:Point, radius:int)->bool:
+def radius_check_v(pt1:Point, pt2:Point, radius:int) -> bool:
     if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
         return True
     else:
@@ -2146,6 +2205,7 @@ class ClientState:
         self.selection_index = 0 # combined player_index and card_index to create generic index
 
         self.debug = False
+        self.connected = False
 
         # offset from right side of screen for buttons,  info_box, and logbox
         offset = self.screen_height/27.5 # 27.7 with height = 750
@@ -2410,7 +2470,7 @@ class ClientState:
 
 
     # GAME LOOP FUNCTIONS
-    def get_user_input(self):# -> float|int|enum|None
+    def get_user_input(self):# -> float|int|None
         self.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), self.camera)
         # get mouse input
         if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
@@ -2467,9 +2527,6 @@ class ClientState:
         # # 9 for ITSOVER9000
         # elif pr.is_key_pressed(pr.KeyboardKey.KEY_NINE):
         #     return pr.KeyboardKey.KEY_NINE
-        # # randomize board
-        # elif pr.is_key_pressed(pr.KeyboardKey.KEY_R):
-        #     return pr.KeyboardKey.KEY_R
         
     # three client updates - two before server (updating local settings, building request) & one after server response
     def update_local_client(self, user_input):
@@ -2577,6 +2634,10 @@ class ClientState:
             self.print_debug()
 
         if not self.is_connected():
+            self.connected = False
+            self.mode = "connect"
+
+        if self.mode == "connect":
             return self.client_request_to_dict(action="add_player")
         
         # check if chat is submitted -> send to server
@@ -2871,14 +2932,14 @@ class ClientState:
 
     def client_to_server(self, client_request, combined=False):
         msg_to_send = json.dumps(client_request).encode()
-
+        print(self.socket.gettimeout())
         if combined == False:
             # send pulse b'null' every once a second to force server response
             if msg_to_send != b'null' or time.time() - self.time_last_sent > buffer_time:
                 self.num_msgs_sent += 1
                 self.socket.sendto(msg_to_send, (self.server_IP, self.port))
                 self.time_last_sent = time.time()
-
+                
             # receive message from server
             try:
                 msg_recv, address = self.socket.recvfrom(buffer_size, socket.MSG_DONTWAIT)
@@ -3259,6 +3320,11 @@ class ClientState:
             for i, msg in enumerate(reversed(debug_msgs)):
                 pr.draw_text_ex(pr.gui_get_font(), msg, pr.Vector2(5, self.screen_height-(i+1)*self.med_text*1.5), self.med_text, 0, pr.BLACK)
 
+        if self.is_connected() is True:
+            connect_color = pr.GREEN
+        else:
+            connect_color = pr.RED
+        pr.draw_circle_v((self.screen_width*.985, self.screen_height*.98), self.screen_width*.005, connect_color)
 
         hover_object = None
 
@@ -3477,7 +3543,7 @@ class ClientState:
     def init_raylib(self):
         # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
         pr.set_trace_log_level(7) # removes raylib log msgs
-        pr.init_window(self.default_screen_w, self.default_screen_h, f"Natac - {self.name}")
+        pr.init_window(self.default_screen_w, self.default_screen_h, "Natac")
         pr.init_audio_device()
         pr.set_target_fps(60)
         
@@ -3488,7 +3554,7 @@ class ClientState:
         pr.close_audio_device()
         pr.close_window()
 
-def run_client(name, server_IP=local_IP):
+def run_client(name="", server_IP=local_IP):
     c_state = ClientState(name=name, server_IP=server_IP, port=default_port, combined=False)
     c_state.init_raylib()
 
