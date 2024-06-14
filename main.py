@@ -27,44 +27,11 @@ import time
 # c = (a + b) * (a - b)
 
 
-# Function annotations should use the normal rules for colons and always have spaces around the -> arrow if present. (See Function Annotations below for more about function annotations.)
-# Yes:
-# def munge(input: AnyStr): ...
-# def munge() -> AnyStr: ...
-
-# No:
-# def munge(input:AnyStr): ...
-# def munge()->PosInt: ...
-
 
 # Use ''.startswith() and ''.endswith() instead of string slicing to check for prefixes or suffixes.
 # Yes: if foo.startswith('bar'):
 # No:  if foo[:3] == 'bar':
 
-# Object type comparisons should always use isinstance() instead of comparing types directly.
-# Yes: if isinstance(obj, int):
-# No:  if type(obj) is type(1):
-
-# Be consistent in return statements. Either all return statements in a function should return an expression, or none of them should. If any return statement returns an expression, any return statements where no value is returned should explicitly state this as return None, and an explicit return statement should be present at the end of the function (if reachable).
-# Yes:
-# def foo(x):
-#     if x >= 0:
-#         return math.sqrt(x)
-#     else:
-#         return None
-# def bar(x):
-#     if x < 0:
-#         return None
-#     return math.sqrt(x)
-
-# No:
-# def foo(x):
-#     if x >= 0:
-#         return math.sqrt(x)
-# def bar(x):
-#     if x < 0:
-#         return
-#     return math.sqrt(x)
 
 
 
@@ -106,7 +73,7 @@ def point_round(point):
 
 
 # raylib functions without raylib for server
-def radius_check_v(pt1:Point, pt2:Point, radius:int) -> bool:
+def radius_check_v(pt1: Point, pt2: Point, radius: int) -> bool:
     if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
         return True
     else:
@@ -178,7 +145,7 @@ class Edge:
             if radius_check_two_circles(hh.hex_to_pixel(pointy, self.hexes[0]), 60, hh.hex_to_pixel(pointy, hex), 60) and radius_check_two_circles(hh.hex_to_pixel(pointy, self.hexes[1]), 60, hh.hex_to_pixel(pointy, hex), 60):
                 adj_hexes.append(hex)
         if len(adj_hexes) < 2:
-            return
+            return None
         
         adj_nodes = []
         self_nodes = [Node(self.hexes[0], self.hexes[1], h) for h in adj_hexes]
@@ -191,7 +158,7 @@ class Edge:
     def get_adj_node_edges(self, nodes, edges) -> list:
         adj_nodes = self.get_adj_nodes(nodes)
         if len(adj_nodes) < 2:
-            return
+            return None
         adj_edges_1 = adj_nodes[0].get_adj_edges_set(edges)
         adj_edges_2 = adj_nodes[1].get_adj_edges_set(edges)
 
@@ -202,11 +169,11 @@ class Edge:
         if verbose:
             print("build_check_road")
 
-        if s_state.current_player_name == None:
+        if s_state.current_player_name is None:
             return False
         
         if setup:
-            if s_state.players[s_state.current_player_name].setup_settlement != None:
+            if s_state.players[s_state.current_player_name].setup_settlement is not None:
                 if not set(self.hexes).issubset(set(s_state.players[s_state.current_player_name].setup_settlement.hexes)):
                     s_state.send_to_player(s_state.current_player_name, "log", "You must choose a location adjacent to the settlement you just placed.")
                     return False
@@ -223,7 +190,7 @@ class Edge:
             return False
         
         # check if edge is owned
-        if self.player != None:
+        if self.player is not None:
             if self.player == s_state.players[s_state.current_player_name]:
                 if verbose:
                     s_state.send_to_player(s_state.current_player_name, "log", "This location is already owned by you.")
@@ -282,10 +249,10 @@ class Edge:
                 destination_node = self_nodes[0]
 
             # match with adj edge, build is ok
-            if origin_node.player != None and origin_node.player == s_state.current_player_name:
+            if origin_node.player is not None and origin_node.player == s_state.current_player_name:
                 break
             # origin node blocked by another player
-            elif origin_node.player != None and origin_node.player != s_state.current_player_name:
+            elif origin_node.player is not None and origin_node.player != s_state.current_player_name:
                 if verbose:
                     print("adjacent node blocked by settlement, checking others")
                 blocked_count += 1
@@ -357,7 +324,7 @@ class Node:
     def build_check_settlement(self, s_state, setup=False):
         # print("build_check_settlement")
 
-        if s_state.current_player_name == None:
+        if s_state.current_player_name is None:
             return False
 
         # check num_settlements
@@ -367,7 +334,7 @@ class Node:
             return False
 
         # check if player owns node
-        if self.player != None:
+        if self.player is not None:
             if self.player == s_state.players[s_state.current_player_name]:
                 s_state.send_to_player(s_state.current_player_name, "log", "You already own this location.")
             else:
@@ -376,7 +343,7 @@ class Node:
             return False
         
         # check if town is None - is redundant because self.player already checks for this
-        if self.town != None:
+        if self.town is not None:
             s_state.send_to_player(s_state.current_player_name, "log", "This location must be empty.")
             return False
 
@@ -435,12 +402,12 @@ class Node:
         print("no conflicts, building city")
         return True
 
-def obj_to_int(obj):
+def obj_to_int(hex_edge_node):
     name=""
-    if type(obj) == hh.Hex:
-        name += str(obj.q+3)+str(obj.r+3)
+    if isinstance(hex_edge_node, hh.Hex):
+        name += str(hex_edge_node.q+3)+str(hex_edge_node.r+3)
     else:
-        for hex in obj.hexes:
+        for hex in hex_edge_node.hexes:
             for i in hex[:-1]:
                 i += 3
                 name += str(i)
@@ -515,7 +482,7 @@ class Board:
     def get_port_to_nodes(self, ports):
         port_order_for_nodes_random = []
         for port in ports:
-            if port != None:
+            if port is not None:
                 port_order_for_nodes_random.append(port)
                 port_order_for_nodes_random.append(port)
         return port_order_for_nodes_random
@@ -766,7 +733,7 @@ class ServerState:
         # NETWORKING
         self.msg_number_recv = 0
         self.combined = combined
-        if self.combined == False:
+        if not self.combined:
             self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
             self.socket.bind((IP_address, port))
 
@@ -828,7 +795,7 @@ class ServerState:
     
     def initialize_game(self):
         self.board = Board()
-        if self.debug == True:
+        if self.debug:
             random.seed(4)
         self.board.initialize_board(fixed=self.debug)
         self.shuffle_dev_cards()
@@ -861,7 +828,7 @@ class ServerState:
                 player_object.hand[r] = 1
 
     def is_server_full(self, name, max_players=4):
-        if len(self.player_order) >= max_players or (name not in self.player_order and self.setup == False):
+        if len(self.player_order) >= max_players or (name not in self.player_order and not self.setup):
             print("Server cannot accept any more players")
             return True
         else:
@@ -872,7 +839,7 @@ class ServerState:
             self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), p_object.address)
     
     def send_to_player(self, name: str, kind: str, msg: str):
-        if type(msg) == str:
+        if isinstance(msg, str):
             self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), self.players[name].address)
             
 
@@ -891,7 +858,7 @@ class ServerState:
             order = len(self.player_order)
             self.players[name] = Player(name, order, address)
             self.player_order.append(name)
-            if self.debug == True:
+            if self.debug:
                 self.board.set_demo_settlements(self, name)
             self.send_broadcast("log", f"Adding {name} to game.")
         
@@ -927,13 +894,13 @@ class ServerState:
         
     def setup_town_road(self, location, action):
         # taken from end of update_server() and modified
-        if all(hex == None for hex in location.values()):
+        if all(hex is None for hex in location.values()):
             return
         
         # convert location hex coords to hexes
         location_hexes = {}
         for hex_num, hex_coords in location.items():
-            if hex_coords != None:
+            if hex_coords is not None:
                 location_hexes[hex_num] = hh.set_hex_from_coords(hex_coords)
             else:
                 location_hexes[hex_num] = None
@@ -944,12 +911,12 @@ class ServerState:
         location_edge = None
         
         hex_a, hex_b, hex_c = location_hexes.values()
-        if location_hexes["hex_c"] != None and self.mode == "build_settlement":
+        if location_hexes["hex_c"] is not None and self.mode == "build_settlement":
             for node in self.board.nodes:
                 if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
                     location_node = node
 
-            if action == "build_settlement" and location_node != None:
+            if action == "build_settlement" and location_node is not None:
                 if location_node.build_check_settlement(self, setup=True):
                     self.mode = "build_road" # set to build road
                     location_node.town = "settlement"
@@ -972,12 +939,12 @@ class ServerState:
                         self.players[location_node.player].ports.append(location_node.port)
 
 
-        elif location_hexes["hex_b"] != None and self.mode == "build_road":
+        elif location_hexes["hex_b"] is not None and self.mode == "build_road":
             for edge in self.board.edges:
                 if edge.hexes == sort_hexes([hex_a, hex_b]):
                     location_edge = edge
 
-            if action == "build_road" and location_edge != None:
+            if action == "build_road" and location_edge is not None:
                 if location_edge.build_check_road(self, setup=True):
                     self.mode = "build_settlement"
                     location_edge.player = self.current_player_name
@@ -1070,9 +1037,9 @@ class ServerState:
                     visited_edges.append(current_edge)
                     # print(f"visited edges = {visited_edges}")
                     current_node = self.get_next_node(visited_nodes, current_edge, edges_to_nodes)
-                    if current_node == None:
+                    if current_node is None:
                         break
-                    if current_node.player != None and current_node.player != p_object.name:
+                    if current_node.player is not None and current_node.player != p_object.name:
                         print(f"finding path for {p_object.name}, node {current_node} player = {current_node.player}")
                         break
 
@@ -1088,11 +1055,11 @@ class ServerState:
                 visited_edges.append(current_edge)
                 while True:
                     current_node = self.get_next_node(visited_nodes, current_edge, edges_to_nodes)
-                    if current_node == None:
+                    if current_node is None:
                         # print(f"breaking fork at {current_edge}, no other Nodes found")
                         # print(f"total visited nodes: {visited_nodes}, visited edges: {visited_edges}")
                         break
-                    elif current_node.player != None and current_node.player != p_object.name:
+                    elif current_node.player is not None and current_node.player != p_object.name:
                         # print(f"finding path for {p_object.name}, node {current_node} player = {current_node.player}")
                         break
 
@@ -1177,7 +1144,7 @@ class ServerState:
         return False
 
     def play_dev_card(self, kind):
-        if self.dev_card_played == True:
+        if self.dev_card_played:
             self.send_to_player(self.current_player_name, "log", "You can only play one dev card per turn.")
             return
         self.send_broadcast("log", f"{self.current_player_name} played a {rf.to_title(kind)} card.")
@@ -1189,7 +1156,7 @@ class ServerState:
             self.mode = "move_robber"
 
         elif kind == "road_building":
-            if self.can_build_road() == False:
+            if not self.can_build_road():
                 self.send_to_player(self.current_player_name, "log", "No valid road placements.")
                 self.mode = None
                 return
@@ -1211,20 +1178,20 @@ class ServerState:
         if self.mode == "road_building":
             
             # copied location parsing-unpacking code from update_server - could turn to its own function
-            if all(hex == None for hex in location.values()):
+            if all(hex is None for hex in location.values()):
                 return
             
             # convert location hex coords to hexes
             location_hexes = {}
             for hex_num, hex_coords in location.items():
-                if hex_coords != None:
+                if hex_coords is not None:
                     location_hexes[hex_num] = hh.set_hex_from_coords(hex_coords)
                 else:
                     location_hexes[hex_num] = None
 
             hex_a, hex_b, hex_c = location_hexes.values()
 
-            if hex_b == None:
+            if hex_b is None:
                 return
             location_edge = None
             for edge in self.board.edges:
@@ -1247,7 +1214,7 @@ class ServerState:
                 self.road_building_counter = 0
 
                 
-        elif self.mode == "year_of_plenty" and action == "submit" and cards != None:
+        elif self.mode == "year_of_plenty" and action == "submit" and cards is not None:
             if sum(cards.values()) != 2:
                 self.send_to_player(self.current_player_name, "log", "You must request two cards.")
                 return
@@ -1265,7 +1232,7 @@ class ServerState:
                 self.send_to_player(self.current_player_name, "log", f"You receive 1 {cards_recv[0]} and 1 {cards_recv[1]}.")
             
 
-        elif self.mode == "monopoly" and action == "submit" and resource != None:
+        elif self.mode == "monopoly" and action == "submit" and resource is not None:
             collected = 0
             for p_object in self.players.values():
                 if p_object.name != self.current_player_name:
@@ -1277,10 +1244,8 @@ class ServerState:
             # lets client know action was accepted - client resets vars
             self.send_to_player(self.current_player_name, "reset", "monopoly")
 
-        if self.mode == None and not self.has_rolled:
+        if self.mode is None and not self.has_rolled:
             self.mode = "roll_dice"
-
-        return
 
     # build functions
     def build_settlement(self, location_node):
@@ -1360,7 +1325,7 @@ class ServerState:
         adj_players = set()
         for node in self.board.nodes:
             # if node is associated with player and contains the robber hex, add to list
-            if self.board.robber_hex in node.hexes and node.player != None and node.player != self.current_player_name:
+            if self.board.robber_hex in node.hexes and node.player is not None and node.player != self.current_player_name:
                 adj_players.add(node.player)
         
         self.to_steal_from = []
@@ -1378,9 +1343,9 @@ class ServerState:
         elif len(self.to_steal_from) == 1:
             self.steal_card(self.to_steal_from.pop(), self.current_player_name)
         
-        if self.has_rolled == True:
+        if self.has_rolled:
             self.mode = None # only one robber move at a time
-        elif self.has_rolled == False:
+        elif not self.has_rolled:
             self.mode = "roll_dice"
 
 
@@ -1444,7 +1409,7 @@ class ServerState:
         # terrain_to_resource = {"mountain": "ore", "field": "wheat", "pasture": "sheep", "forest": "wood", "hill": "brick"}
 
         for node in self.board.nodes:
-            if node.player != None:
+            if node.player is not None:
                 for hex in node.hexes:
                     for tile in tiles:
                         if hex == tile.hex and hex != self.board.robber_hex:
@@ -1546,7 +1511,7 @@ class ServerState:
         
         # add all nodes/edge owned by players, abridge hexes
         for node in self.board.nodes:
-            if node.player != None:
+            if node.player is not None:
                 # reconstruct node so it doesn't change the original
                 new_node = {}
                 new_node["hexes"] = [hex[:2] for hex in node.hexes]
@@ -1556,7 +1521,7 @@ class ServerState:
                 town_nodes.append(new_node)
                 
         for edge in self.board.edges:
-            if edge.player != None:
+            if edge.player is not None:
                 # reconstruct edge so it doesn't change the original
                 new_edge = {}
                 new_edge["hexes"] = [hex[:2] for hex in edge.hexes]
@@ -1681,19 +1646,19 @@ class ServerState:
         # client_request["selected_player"] = other player name
         # client_request["color"] = color
 
-        if client_request == None or len(client_request) == 0:
+        if client_request is None or len(client_request) == 0:
             return
         
         # action
         if client_request["action"] == "add_player":
-            if self.is_server_full(client_request["name"]) == True:
+            if self.is_server_full(client_request["name"]):
                 return
             else:
                 self.add_player(client_request["name"], address)
             return
 
         # check for chat submission from all players before any other actions - should be able to chat at any stage in the game
-        elif client_request["action"] == "submit" and client_request["chat"] != None:
+        elif client_request["action"] == "submit" and client_request["chat"] is not None:
             # used to send chat as a "log" msg - changed to separate player input from server input
             self.send_broadcast("chat", client_request["chat"])
 
@@ -1701,7 +1666,7 @@ class ServerState:
             self.socket.sendto(to_json(self.package_state(client_request["name"], include_board=True)).encode(), address)
             return
         
-        elif client_request["action"] == "submit" and self.mode == "select_color" and client_request["color"] != None:
+        elif client_request["action"] == "submit" and self.mode == "select_color" and client_request["color"] is not None:
             if client_request["color"] in self.colors_avl:
                 self.players[client_request["name"]].color = client_request["color"]
                 self.colors_avl.remove(client_request["color"])
@@ -1721,7 +1686,7 @@ class ServerState:
             return
 
         # receive input from non-current player for discard_cards and trade
-        elif client_request["action"] == "submit" and self.mode == "discard" and client_request["cards"] != None:
+        elif client_request["action"] == "submit" and self.mode == "discard" and client_request["cards"] is not None:
             if sum(client_request["cards"].values()) == self.players[client_request["name"]].num_to_discard:
                 self.send_to_player(client_request["name"], "reset", "discard")
                 self.players[client_request["name"]].num_to_discard = 0
@@ -1783,12 +1748,12 @@ class ServerState:
 
 
         # set mode to "roll_dice" may be redundant since there is another check for dice roll after playing dev card/completing action
-        if (self.mode not in self.dev_card_modes) and self.mode != "move_robber" and self.has_rolled == False:
+        if (self.mode not in self.dev_card_modes) and self.mode != "move_robber" and not self.has_rolled:
             self.mode = "roll_dice"
 
         # force roll_dice before doing anything except play_dev_card
 
-        if self.mode == "roll_dice" and self.has_rolled == False:
+        if self.mode == "roll_dice" and not self.has_rolled:
             if client_request["action"] == "roll_dice":
                 self.perform_roll()
             elif client_request["action"] == "ROLL7":
@@ -1801,7 +1766,7 @@ class ServerState:
             return
         
         elif self.mode == "trade":
-            if client_request["action"] == "submit" and client_request["trade_offer"] != None:
+            if client_request["action"] == "submit" and client_request["trade_offer"] is not None:
                 # don't let current player send trade offer multiple times
                 if client_request["trade_offer"] == self.player_trade:
                     return
@@ -1818,7 +1783,7 @@ class ServerState:
                 
         elif self.mode == "bank_trade":
             # trade_offer = {"offer": ["ore", -4], "request": ["wheat", 1]}
-            if client_request["action"] == "submit" and client_request["trade_offer"] != None:
+            if client_request["action"] == "submit" and client_request["trade_offer"] is not None:
                 offer, offer_num = client_request["trade_offer"]["offer"]
                 request, request_num = client_request["trade_offer"]["request"]
                 if self.players[client_request["name"]].hand[offer] + offer_num >= 0:
@@ -1832,22 +1797,22 @@ class ServerState:
                 self.mode = None
 
         elif self.mode == "steal":
-            if client_request["action"] == "submit" and client_request["selected_player"] != None:
+            if client_request["action"] == "submit" and client_request["selected_player"] is not None:
                 self.steal_card(client_request["selected_player"], self.current_player_name)
             return
 
         # don't allow other actions while move_robber or discard_cards is active
         elif self.mode == "move_robber":
-            if client_request["action"] != "move_robber" and client_request["action"] != None:
+            if client_request["action"] != "move_robber" and client_request["action"] is not None:
                 self.send_to_player(client_request["name"], "log", "You must move the robber first.")
                 return
             # move robber
-            if client_request["location"]["hex_a"] != None:
+            if client_request["location"]["hex_a"] is not None:
                 self.move_robber(hh.set_hex_from_coords(client_request["location"]["hex_a"]))
             return
 
         elif self.mode == "discard":
-            if client_request["action"] != None:
+            if client_request["action"] is not None:
                 self.send_to_player(client_request["name"], "log", "All players must finish discarding first.")
             return                
 
@@ -1857,7 +1822,7 @@ class ServerState:
             return
 
 
-        if client_request["mode"] != None:
+        if client_request["mode"] is not None:
             if self.mode == client_request["mode"]:
                 self.send_to_player(self.current_player_name, "reset", {"new_mode": None})
                 self.mode = None
@@ -1882,10 +1847,7 @@ class ServerState:
         # PROCESS client_request["action"] ONLY FROM CURRENT PLAYER
         
 
-        if client_request["action"] == "end_turn" and self.has_rolled == True:
-            # only allow if # rolls > turn_num
-            # if self.turn_num >= self.dice_rolls:
-                # return
+        if client_request["action"] == "end_turn" and self.has_rolled:
             self.end_turn()
             return
         
@@ -1904,20 +1866,20 @@ class ServerState:
             
         
         # # check if dice need to be rolled after playing dev card
-        # if self.dev_card_played == True and self.has_rolled == False:
+        # if self.dev_card_played and not self.has_rolled:
         #     self.mode = "roll_dice"
         #     return
     
         
         # board change - use client_request["location"]
         # check if location is empty
-        if all(hex == None for hex in client_request["location"].values()):
+        if all(hex is None for hex in client_request["location"].values()):
             return
         
         # convert location hex coords to hexes
         location_hexes = {}
         for hex_num, hex_coords in client_request["location"].items():
-            if hex_coords != None:
+            if hex_coords is not None:
                 location_hexes[hex_num] = hh.set_hex_from_coords(hex_coords)
             else:
                 location_hexes[hex_num] = None
@@ -1928,7 +1890,7 @@ class ServerState:
         location_edge = None
         
         hex_a, hex_b, hex_c = location_hexes.values()
-        if location_hexes["hex_c"] != None:
+        if location_hexes["hex_c"] is not None:
             if self.mode == "build_settlement" or self.mode == "build_city":
                 for node in self.board.nodes:
                     if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
@@ -1942,7 +1904,7 @@ class ServerState:
                 if location_node.build_check_city(self) and self.cost_check("city"):
                     self.build_city(location_node)
 
-        elif location_hexes["hex_b"] != None and self.mode == "build_road":
+        elif location_hexes["hex_b"] is not None and self.mode == "build_road":
             for edge in self.board.edges:
                 if edge.hexes == sort_hexes([hex_a, hex_b]):
                     location_edge = edge
@@ -1958,7 +1920,7 @@ class ServerState:
         
     def server_to_client(self, encoded_client_request=None, combined=False):
         msg_recv = ""
-        if combined == False:
+        if not combined:
             # use socket to receive msg
             msg_recv, address = self.socket.recvfrom(buffer_size)
             self.msg_number_recv += 1
@@ -1972,7 +1934,7 @@ class ServerState:
             self.update_server(packet_recv, address)
             
 
-        if combined == False:
+        if not combined:
             # use socket to respond
             for p_name, p_object in self.players.items():
                 # print(f"current_time = {time.time()}, last_updated = {p_object.last_updated}")
@@ -1990,7 +1952,7 @@ class ServerState:
 
 
 class Button:
-    def __init__(self, rec:pr.Rectangle, name:str, color:pr.Color=pr.RAYWHITE, resource:str|None=None, mode:bool=False, action:bool=False):
+    def __init__(self, rec: pr.Rectangle, name: str, color: pr.Color=pr.RAYWHITE, resource: str|None=None, mode: bool=False, action: bool=False):
         self.rec = rec
         self.name = name
         self.color = color
@@ -1999,7 +1961,7 @@ class Button:
         self.action = action
         self.hover = False
 
-        if self.resource != None:
+        if self.resource is not None:
             self.display = self.resource
         else:
             self.display = self.name.capitalize()
@@ -2046,7 +2008,7 @@ class Button:
             pr.draw_text_ex(pr.gui_get_font(), " "+line, (self.rec.x, self.rec.y+(i+.5)*font_size), font_size, 0, pr.BLACK)
 
 class ClientButton:
-    def __init__(self, rec:pr.Rectangle, name:str, toggle:bool|None=None):
+    def __init__(self, rec: pr.Rectangle, name: str, toggle: bool|None=None):
         self.rec = rec
         self.name = name
         self.hover = False
@@ -2057,7 +2019,7 @@ class ClientButton:
         return f"Button({self.name})"
 
 class LogButton:
-    def __init__(self, rec:pr.Rectangle, name:str, toggle:bool|None=None):
+    def __init__(self, rec: pr.Rectangle, name: str, toggle: bool|None=None):
         self.rec = rec
         self.name = name
         self.hover = False
@@ -2166,7 +2128,7 @@ class ClientState:
         self.client_players = {} # use ClientPlayer class
         self.player_order = [] # use len(player_order) to get num_players
         self.current_player_name = None
-        self.hand_rec = pr.Rectangle(self.screen_width//2-150, self.screen_height-100, self.screen_width-300, self.screen_height//10)
+        self.hand_rec = pr.Rectangle(self.screen_width//2 - 150, self.screen_height - 100, self.screen_width - 300, self.screen_height//10)
 
         # GAMEPLAY
         self.board = {}
@@ -2474,7 +2436,7 @@ class ClientState:
         self.world_position = pr.get_screen_to_world_2d(pr.get_mouse_position(), self.camera)
         # get mouse input
         if pr.is_mouse_button_released(pr.MouseButton.MOUSE_BUTTON_LEFT):
-            if self.log_buttons["thumb"].hot == True or self.log_buttons["scrollbar"].hot == True:
+            if self.log_buttons["thumb"].hot or self.log_buttons["scrollbar"].hot:
                 return "left_mouse_released"
             else:
                 return pr.MouseButton.MOUSE_BUTTON_LEFT
@@ -2531,11 +2493,11 @@ class ClientState:
     # three client updates - two before server (updating local settings, building request) & one after server response
     def update_local_client(self, user_input):
         # update chat
-        if self.log_buttons["chat"].toggle == True:
+        if self.log_buttons["chat"].toggle:
             if user_input == pr.KeyboardKey.KEY_BACKSPACE and len(self.chat_msg) > len(self.name)+2:
                 self.chat_msg = self.chat_msg[:-1]
             # can be arbitrary length, capping at 128
-            elif 128 > len(self.chat_msg) and type(user_input) == int and 126 >= user_input >= 32:
+            elif 128 > len(self.chat_msg) and isinstance(user_input, int) and 126 >= user_input >= 32:
                 self.chat_msg += chr(user_input)
 
         # toggling chat
@@ -2563,7 +2525,7 @@ class ClientState:
             # loop for thumb & scrollbar hover
             for b_object in self.log_buttons.values():
                 # skip over chat button
-                if b_object.toggle != None:
+                if b_object.toggle is not None:
                     continue
                 if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
                     b_object.hover = True
@@ -2594,7 +2556,7 @@ class ClientState:
 
             # still under scrollbar IF statement
             # mousewheel scroll in log - # positive = scroll up; negative = scroll down - will be float
-            if type(user_input) == float:
+            if isinstance(user_input, float):
                 if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_box):
                     if self.log_lines > len(self.log_msgs_formatted):
                         self.log_offset = 0
@@ -2602,7 +2564,7 @@ class ClientState:
                         self.log_offset += int(user_input)
             
             # type will be string for mouse_pressed or mouse_down
-            elif type(user_input) == str and len(user_input) > 1:
+            elif isinstance(user_input, str) and len(user_input) > 1:
                 # from hover to hot
                 if user_input == "left_mouse_pressed":
                     if self.log_buttons["thumb"].hover:
@@ -2613,7 +2575,7 @@ class ClientState:
                 # calc new offset
                 elif user_input == "left_mouse_down":
                     # if scrollbar_selected and (not thumb_selected or pr.get_mouse_delta().y != 0):
-                    if self.log_buttons["scrollbar"].hot == True and (self.log_buttons["thumb"].hot == False or pr.get_mouse_delta().y != 0):
+                    if self.log_buttons["scrollbar"].hot and (not self.log_buttons["thumb"].hot or pr.get_mouse_delta().y != 0):
                         self.log_offset = self.log_lines-len(self.log_msgs_formatted)+int((pr.get_mouse_y() - self.log_buttons["scrollbar"].rec.y)/self.log_thumb_hidden.height)
 
                 elif user_input == "left_mouse_released":
@@ -2641,7 +2603,7 @@ class ClientState:
             return self.client_request_to_dict(action="add_player")
         
         # check if chat is submitted -> send to server
-        if self.log_buttons["chat"].toggle == True and self.check_submit(user_input):
+        if self.log_buttons["chat"].toggle and self.check_submit(user_input):
             return self.client_request_to_dict(action="submit", chat=self.chat_msg)
 
 
@@ -2711,7 +2673,7 @@ class ClientState:
             # make all buttons.hover False for non-current player
             if self.name != self.current_player_name:
                 self.buttons["roll_dice"].hover = False
-                return
+                return None
             # selecting action using keyboard
             if user_input == pr.KeyboardKey.KEY_TAB:
                 return self.client_request_to_dict(action="roll_dice")
@@ -2726,12 +2688,12 @@ class ClientState:
             else:
                 self.buttons["roll_dice"].hover = False
             # end if no other input
-            return
+            return None
         
         # discard - selecting cards - available for ALL players, not just current
         elif self.mode == "discard":
             if self.client_players[self.name].num_to_discard == 0:
-                return
+                return None
             # select new cards if num_to_discard is above num selected_cards
             if user_input == pr.KeyboardKey.KEY_UP and self.selection_index > 0:
                 self.selection_index -= 1
@@ -2748,14 +2710,14 @@ class ClientState:
                     self.selected_cards[self.resource_cards[self.selection_index]] -= 1
 
             # selected enough cards to return, can submit to server
-            if self.check_submit(user_input) == True:
+            if self.check_submit(user_input):
                 if self.client_players[self.name].num_to_discard == sum(self.selected_cards.values()):
                     return self.client_request_to_dict(action="submit", cards=self.selected_cards)
                 else:
                     print("need to select more cards")
             
             # end function with no client_request if nothing is submitted
-            return
+            return None
 
         # trade - non-current player has option to accept incoming trade
         elif self.mode == "trade":
@@ -2810,7 +2772,7 @@ class ClientState:
 
         # anything below only applies to current player
         if self.name != self.current_player_name:
-            return
+            return None
 
         # adapted from "discard" mode actions, maybe will make an arrow keys for incrementing menu function
         if self.mode == "steal":
@@ -2821,7 +2783,7 @@ class ClientState:
             if self.check_submit(user_input):
                 if sum(self.player_trade["offer"].values()) == 0:
                     self.add_to_log("You must offer at least 1 resource.")
-                    return
+                    return None
                 self.player_trade["trade_with"] = self.name
                 return self.client_request_to_dict(action="submit", trade_offer=self.player_trade)
             elif self.check_cancel(user_input):
@@ -2829,7 +2791,7 @@ class ClientState:
             # no further input if current offer is submitted
 
             if len(self.player_trade["trade_with"]) > 0:
-                return
+                return None
             if user_input == pr.KeyboardKey.KEY_UP and self.selection_index > 0:
                 self.selection_index -= 1
             elif user_input == pr.KeyboardKey.KEY_DOWN and self.selection_index < 9:
@@ -2869,7 +2831,7 @@ class ClientState:
                                 self.bank_trade["offer"] = [b_object.display, -self.client_players[self.name].ratios[b_object.display]]
                             elif b_object.display in self.bank_trade["offer"]:
                                 self.bank_trade["offer"] = []
-                                return
+                                return None
 
                     elif "request" in b_object.name:
                         b_object.hover = True
@@ -2878,7 +2840,7 @@ class ClientState:
                                 self.bank_trade["request"] = [b_object.display, 1]
                             elif b_object.display in self.bank_trade["request"]:
                                 self.bank_trade["request"] = []
-                                return
+                                return None
                 else:
                     b_object.hover = False
 
@@ -2900,7 +2862,7 @@ class ClientState:
                 if self.selected_cards[self.resource_cards[self.selection_index]] > 0:
                     self.selected_cards[self.resource_cards[self.selection_index]] -= 1
             # end function with no client_request if nothing is submitted
-            return
+            return None
         
         elif self.mode == "monopoly":
             # adapted from discard/yop; selected_cards = 1 if selecting a resource
@@ -2914,7 +2876,7 @@ class ClientState:
                 self.selection_index += 1
 
             # end function with no client_request if nothing is submitted
-            return
+            return None
 
 
 
@@ -2927,13 +2889,13 @@ class ClientState:
             return self.submit_board_selection()
 
 
-        if self.combined == True:
+        if self.combined:
             self.name = self.current_player_name
 
     def client_to_server(self, client_request, combined=False):
         msg_to_send = json.dumps(client_request).encode()
-        print(self.socket.gettimeout())
-        if combined == False:
+        
+        if not combined:
             # send pulse b'null' every once a second to force server response
             if msg_to_send != b'null' or time.time() - self.time_last_sent > buffer_time:
                 self.num_msgs_sent += 1
@@ -2949,7 +2911,7 @@ class ClientState:
                 return None
             return msg_recv
 
-        elif combined == True:
+        else:
             return msg_to_send
 
     def add_card(self):
@@ -3100,7 +3062,7 @@ class ClientState:
             self.current_player_name = server_response["current_player"]
 
             # initialize all players at once for combined
-            if self.combined == True and len(self.client_players) == 0:
+            if self.combined and len(self.client_players) == 0:
                 self.client_initialize_dummy_players()
 
             # or add players as they connect to server
@@ -3117,7 +3079,7 @@ class ClientState:
                     new_player_dict[player].order = i
                     # new rec
                     rec_size = self.screen_width / 25
-                    rec_y = (i*2+.5)*rec_size
+                    rec_y = (i*2+.5) * rec_size
                     new_player_dict[player].rec = pr.Rectangle(rec_size/4, rec_y, rec_size, rec_size)
 
             
@@ -3218,7 +3180,7 @@ class ClientState:
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 2, pr.BLACK)
 
             # draw numbers, dots on hexes
-            if tile.token != None:
+            if tile.token is not None:
                 # have to specify hex layout for hex calculations
                 rf.draw_tokens(tile.hex, tile.token, layout=pointy)      
 
@@ -3227,7 +3189,7 @@ class ClientState:
             pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 2, pr.BLACK)
         
             # draw ports
-            if tile.port != None:
+            if tile.port is not None:
                 hex_center = hh.hex_to_pixel(pointy, tile.hex)
                 display_text = rf.port_to_display[tile.port]
                 text_offset = pr.measure_text_ex(pr.gui_get_font(), display_text, 16, 0)
@@ -3265,7 +3227,7 @@ class ClientState:
     def render_mouse_hover(self):
         # self.hover could prob be replaced with other logic about current player, mode
         # highlight current node if building is possible
-        if self.debug == False:
+        if not self.debug:
             if self.current_hex_3 and self.mode == "build_settlement":
                 node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
                 pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
@@ -3279,7 +3241,7 @@ class ClientState:
             # highlight current hex if moving robber is possible
             elif self.current_hex and self.mode == "move_robber":
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
-        elif self.debug == True:
+        elif self.debug:
             # highlight current node if building is possible
             if self.current_hex_3:
                 node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
@@ -3305,7 +3267,7 @@ class ClientState:
             self.render_board()
             pr.end_mode_2d()
 
-        if self.debug == True:
+        if self.debug:
             debug_msgs = [f"Screen mouse at: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
             if self.current_hex_3:
                 msg1 = f"Current Node: {Node(self.current_hex, self.current_hex_2, self.current_hex_3)}"
@@ -3340,7 +3302,7 @@ class ClientState:
 
         # 2nd for loop drawing hover
         for b_object in self.dev_card_buttons.values():
-            if b_object.hover == True:
+            if b_object.hover:
                 rf.draw_button_outline(b_object)
                 hover_object=b_object.name
                 break
@@ -3358,9 +3320,9 @@ class ClientState:
 
         # thumb = position of scrollbar. only display if thumb != scrollbar
         if self.log_buttons["thumb"].rec != self.log_buttons["scrollbar"].rec:
-            if self.log_buttons["thumb"].hot == True:
+            if self.log_buttons["thumb"].hot:
                 pr.draw_rectangle_rec(self.log_buttons["thumb"].rec, pr.BLACK)
-            elif self.log_buttons["thumb"].hover == True:
+            elif self.log_buttons["thumb"].hover:
                 pr.draw_rectangle_rec(self.log_buttons["thumb"].rec, pr.DARKGRAY)
             else:
                 pr.draw_rectangle_rec(self.log_buttons["thumb"].rec, pr.BLACK)
@@ -3371,7 +3333,7 @@ class ClientState:
             pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text, 4+self.log_box.y+(i*self.med_text)), self.med_text, 0, pr.BLACK)
 
         # draw chat bar - highlight and display cursor if active
-        if self.log_buttons["chat"].toggle == True:
+        if self.log_buttons["chat"].toggle:
             pr.draw_rectangle_lines_ex(self.log_buttons["chat"].rec, 4, pr.BLACK)
             current_chat = self.chat_msg+"_"
         else:
@@ -3458,7 +3420,7 @@ class ClientState:
 
 
         score_font = self.med_text - 2 # (self.small_text + self.med_text)/2
-        if len(self.player_order) > 0 and self.setup == False:
+        if len(self.player_order) > 0 and not self.setup:
             if len(self.longest_road) > 0:
                 name = self.longest_road
             elif len(self.longest_road) == 0:
@@ -3473,7 +3435,7 @@ class ClientState:
         
         pr.end_drawing()
 
-    def check_sounds(self, msg:str, mentions:list=[]) -> None:        
+    def check_sounds(self, msg: str, mentions: list=[]) -> None:        
         # meant for all
         sound_keywords = {
             "start_game": ["Starting game!"],
@@ -3512,7 +3474,7 @@ class ClientState:
             for words in keywords:
                 if words in msg:
                     pr.play_sound(self.sounds[sound])
-                    return
+                    break
 
 
     def load_assets(self):
@@ -3569,13 +3531,13 @@ def run_client(name="", server_IP=local_IP):
 
         while True:
             response = c_state.client_to_server(client_request)
-            if response == None:
+            if response is None:
                 break
             else:
                 server_responses.append(response)
 
         for response in server_responses:
-            if response != None:
+            if response is not None:
                 c_state.update_client(response)
 
         c_state.render_client()

@@ -159,7 +159,7 @@ def draw_city(node_point, color):
     # draw city base
     pr.draw_rectangle_rec(city_base_rec, color)
 
-def draw_dice(dice, button_rec:pr.Rectangle):
+def draw_dice(dice, button_rec: pr.Rectangle):
     # 1 = center
     # 2 = 2 corners
     # 3 = center + 2 corners
@@ -195,7 +195,7 @@ def draw_dice(dice, button_rec:pr.Rectangle):
             pr.draw_circle(die_center_x-die_corner_offset+die2_x_offset, die_center_y, dot_size, pr.BLACK)
 
 
-def draw_discard_cards(selected_cards, location:pr.Vector2, card_type:str, num_cards:int, i:int, x_offset:int, size:int, color:pr.Color):
+def draw_discard_cards(selected_cards, location: pr.Vector2, card_type: str, num_cards: int, i: int, x_offset: int, size: int, color: pr.Color):
     card_type_display = card_type
     while 5 > len(card_type_display):
         card_type_display += " "
@@ -203,7 +203,7 @@ def draw_discard_cards(selected_cards, location:pr.Vector2, card_type:str, num_c
     if selected_cards[card_type] > 0:
         pr.draw_text_ex(pr.gui_get_font(), f"-> {selected_cards[card_type]}", (location.x+x_offset+(size*6), location.y-size+(i*size)), size, 0, color)
 
-def draw_added_cards(mode, selected_cards, location:pr.Vector2, card_type:str, num_cards:int, i:int, x_offset:int, size:int, color:pr.Color):
+def draw_added_cards(mode, selected_cards, location: pr.Vector2, card_type: str, num_cards: int, i: int, x_offset: int, size: int, color: pr.Color):
     card_type_display = card_type
     while 5 > len(card_type_display):
         card_type_display += " "
@@ -266,7 +266,7 @@ def draw_mode_text(c_state, title, text):
     for i, line in enumerate(reversed(text.split("\n"))):
         pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
     # draw remaining roads, settle, cities
-    if c_state.mode != None and c_state.setup == False and c_state.mode.split("_")[0] == "build":
+    if c_state.mode is not None and c_state.setup is False and c_state.mode.split("_")[0] == "build":
         if c_state.mode == "build_road":
             remaining = f" You have {15-c_state.client_players[c_state.current_player_name].num_roads} roads remaining."
         elif c_state.mode == "build_settlement":
@@ -294,7 +294,7 @@ def draw_infobox(c_state, hover_object=None):
             text_color = pr.BLACK
             if i == c_state.selection_index:
                 text_color = pr.WHITE
-            pr.draw_text_ex(pr.gui_get_font(), f" {color}", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height//3+c_state.med_text*(i+1)), c_state.med_text*.9, 0, text_color)
+            pr.draw_text_ex(pr.gui_get_font(), f" {color}", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//3 + c_state.med_text*(i+1)), c_state.med_text*.9, 0, text_color)
 
         return
 
@@ -305,10 +305,10 @@ def draw_infobox(c_state, hover_object=None):
         if c_state.client_players[c_state.name].num_to_discard > 0:
             # instructions on discarding
             for i, line in enumerate(reversed(mode_text[c_state.mode].split("\n"))):
-                pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height - c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
 
             # number to select
-            pr.draw_text_ex(pr.gui_get_font(), f" Select {c_state.client_players[c_state.name].num_to_discard} cards", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f" Select {c_state.client_players[c_state.name].num_to_discard} cards", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height/2 - c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
             
             # number cards left
             # pr.draw_text_ex(pr.gui_get_font(), f" Cards left: {c_state.client_players[c_state.name].num_to_discard-sum(c_state.selected_cards.values())}", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*2.2), c_state.med_text, 0, pr.BLACK)
@@ -316,7 +316,7 @@ def draw_infobox(c_state, hover_object=None):
             # redraw hand w arrows in info box 
             x_offset = c_state.screen_width//20
             size = c_state.med_text-2
-            location = pr.Vector2(c_state.info_box.x+c_state.info_box.width/8, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*6)
+            location = pr.Vector2(c_state.info_box.x + c_state.info_box.width/8, c_state.info_box.y + c_state.info_box.height/2 - c_state.med_text*6)
 
             for i, (card_type, num_cards) in enumerate(c_state.client_players[c_state.name].hand.items()):
                 # not current card index, draw in black
@@ -405,7 +405,7 @@ def draw_infobox(c_state, hover_object=None):
                 color = pr.WHITE
             pr.draw_text_ex(pr.gui_get_font(), resource, (location.x, location.y+size*(i*1.1+1.1)), size, 0, color)
     
-    elif hover_object and c_state.mode == None:
+    elif hover_object and c_state.mode is None:
         pr.draw_text_ex(pr.gui_get_font(), hover_text[hover_object], (c_state.info_box.x, c_state.info_box.y+c_state.med_text*1.1), c_state.med_text*.9, 0, pr.BLACK)
 
 
@@ -415,7 +415,7 @@ def draw_infobox(c_state, hover_object=None):
 def draw_discard_interface(c_state, player_object):
     pr.draw_text_ex(pr.gui_get_font(), f" Select {player_object.num_to_discard} cards.", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*3.3), c_state.med_text, 0, pr.BLACK)
     pr.draw_text_ex(pr.gui_get_font(), f" Cards left: {sum(c_state.selected_cards.values())}.", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*2.2), c_state.med_text, 0, pr.BLACK)
-    selected_cards = [f"{num} {type}" for type, num in c_state.selected_cards.items() if num > 0]
+    selected_cards = [f"{num} {kind}" for kind, num in c_state.selected_cards.items() if num > 0]
     pr.draw_text_ex(pr.gui_get_font(), f" Currently selected: {selected_cards}.", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
 
 
@@ -492,7 +492,7 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, bank_
 
 
 
-def to_title(s:str) -> str:
+def to_title(s: str) -> str:
     cap = ""
     for word in s.split("_"):
         cap += word.capitalize() + " "
