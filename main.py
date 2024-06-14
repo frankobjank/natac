@@ -10,31 +10,6 @@ import rendering_functions as rf
 import sys
 import time
 
-# style to implement:
-# If operators with different priorities are used, consider adding whitespace around the operators with the lowest priority(ies). Use your own judgment; however, never use more than one space, and always have the same amount of whitespace on both sides of a binary operator.
-# Yes:
-# i = i + 1
-# submitted += 1
-# x = x*2 - 1
-# hypot2 = x*x + y*y
-# c = (a+b) * (a-b)
-
-# No:
-# i=i+1
-# submitted +=1
-# x = x * 2 - 1
-# hypot2 = x * x + y * y
-# c = (a + b) * (a - b)
-
-
-
-# Use ''.startswith() and ''.endswith() instead of string slicing to check for prefixes or suffixes.
-# Yes: if foo.startswith('bar'):
-# No:  if foo[:3] == 'bar':
-
-
-
-
 
 # UI_SCALE constant for changing scale (fullscreen)
 
@@ -2018,17 +1993,6 @@ class ClientButton:
     def __repr__(self):
         return f"Button({self.name})"
 
-class LogButton:
-    def __init__(self, rec: pr.Rectangle, name: str, toggle: bool|None=None):
-        self.rec = rec
-        self.name = name
-        self.hover = False
-        self.hot = False
-        self.toggle = toggle # if None, not toggle-able
-
-    def __repr__(self):
-        return f"Button({self.name})"
-
 # potentially put log in its own class containing rec, buttons, messages
 class LogBox:
     pass
@@ -2205,7 +2169,8 @@ class ClientState:
             self.screen_width-infobox_w-offset,
             self.screen_height-infobox_h-11*offset,
             infobox_w, 
-            infobox_h)
+            infobox_h
+            )
 
         # self.temp_info_box = pr.Rectangle(
         #     self.screen_width-2*infobox_w-2*offset,
@@ -2216,8 +2181,8 @@ class ClientState:
         
         self.trade_buttons = {}
         for i, resource in enumerate(self.resource_cards):
-            self.trade_buttons[f"offer_{resource}"] = Button(pr.Rectangle(self.info_box.x+(i+1)*(self.info_box.width//10)+offset/1.4*i, self.info_box.y+offset, self.info_box.width//6, self.info_box.height/8), f"offer_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
-            self.trade_buttons[f"request_{resource}"] = Button(pr.Rectangle(self.info_box.x+(i+1)*(self.info_box.width//10)+offset/1.4*i, self.info_box.y+self.info_box.height-2.7*offset, self.info_box.width//6, self.info_box.height/8), f"request_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
+            self.trade_buttons[f"offer_{resource}"] = Button(pr.Rectangle(self.info_box.x + (i+1)*(self.info_box.width//10) + offset/1.4*i, self.info_box.y + offset, self.info_box.width//6, self.info_box.height/8), f"offer_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
+            self.trade_buttons[f"request_{resource}"] = Button(pr.Rectangle(self.info_box.x + (i+1)*(self.info_box.width//10) + offset/1.4*i, self.info_box.y + self.info_box.height - 2.7*offset, self.info_box.width//6, self.info_box.height/8), f"request_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
         
         self.dev_card_buttons = {}
 
@@ -2226,8 +2191,8 @@ class ClientState:
         logbox_w = self.screen_width/2.3
         logbox_h = self.screen_height/4
         self.log_box = pr.Rectangle(
-            self.screen_width-logbox_w-offset, 
-            self.screen_height-logbox_h-offset*.5,
+            self.screen_width - logbox_w - offset, 
+            self.screen_height - logbox_h - offset*.5,
             logbox_w,
             logbox_h)
         self.log_msgs_raw = []
@@ -2241,31 +2206,26 @@ class ClientState:
         self.log_offset = 0
         self.chat_msg = f"{self.name}: "
         
-        self.log_buttons["chat"] = LogButton(
-            rec=pr.Rectangle(self.log_box.x, self.log_box.y+(self.med_text*9.5), self.log_box.width, logbox_h-self.med_text*9.5),
+        self.log_buttons["chat"] = ClientButton(
+            rec=pr.Rectangle(self.log_box.x, self.log_box.y + (self.med_text*9.5), self.log_box.width, logbox_h - self.med_text*9.5),
             name="chat",
-            toggle=False)
+            toggle=False
+            )
         
-
-        
-        # NEW SCROLLBAR (from scratch)
         scrollbar_w = self.med_text
-        self.log_buttons["scrollbar"] = LogButton(
-            rec=pr.Rectangle(self.log_box.x+self.log_box.width-scrollbar_w, self.log_box.y,scrollbar_w, self.log_box.height-self.log_buttons["chat"].rec.height),
+        self.log_buttons["scrollbar"] = ClientButton(
+            rec=pr.Rectangle(self.log_box.x + self.log_box.width - scrollbar_w, self.log_box.y,scrollbar_w, self.log_box.height - self.log_buttons["chat"].rec.height),
             name="scrollbar"
             )
 
-        # OLD SCROLLBAR (commit #1326d1e)
-        # self.log_buttons["scrollbar"] = Button(pr.Rectangle(self.log_box.x+self.log_box.width-self.med_text//2, self.log_box.y, self.med_text//2, self.log_box.height-self.log_buttons["chat"].rec.height), "scrollbar")
-
         # thumb - start as same size as scrollbar as placeholder. can render as outline.
-        self.log_buttons["thumb"] = LogButton(rec=self.log_buttons["scrollbar"].rec, name="thumb")
-        self.log_thumb_hidden = self.log_buttons["scrollbar"].rec # for offset purposes - shrinks in proportion to items in list
+        self.log_buttons["thumb"] = ClientButton(rec=self.log_buttons["scrollbar"].rec, name="thumb")
+        # log_thumb_hidden for offset purposes - shrinks in proportion to items in list - might be able to just use log scrollbar.rec
+        self.log_thumb_hidden = self.log_buttons["scrollbar"].rec
 
         
 
         # camera controls
-        # when changing size of screen, just zoom in?
         self.default_zoom = 0.9
         self.camera = pr.Camera2D()
         self.camera.target = pr.Vector2(0, 0)
@@ -2398,8 +2358,8 @@ class ClientState:
         if self.check_submit(user_input):
             return self.client_request_to_dict(action="submit", player=self.to_steal_from[self.selection_index])
         
-        # end function with no client_request if nothing is submitted
-        return
+        # end function with no client_request if nothing is submitted; this may be unnecessary return statement
+        return None
 
     def check_submit(self, user_input):
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["submit"].rec):
@@ -2412,7 +2372,6 @@ class ClientState:
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["roll_dice"].rec):
             return True
         return False
-
 
     def client_request_to_dict(self, mode=None, action=None, cards=None, resource=None, player=None, trade_offer=None, color=None, chat=None) -> dict:
         # could get rid of some of these variables by having a "kind" variable describing the client request. kind = location|mode|action|cards|resource|selected_player|trade_offer|color|chat
@@ -2429,7 +2388,6 @@ class ClientState:
         client_request["chat"] = chat
         
         return client_request
-
 
     # GAME LOOP FUNCTIONS
     def get_user_input(self):# -> float|int|None
@@ -2533,8 +2491,8 @@ class ClientState:
                     b_object.hover = False
 
             # adjust thumb
-            thumb_h = (self.log_buttons["scrollbar"].rec.height)/(len(self.log_msgs_formatted)-self.log_lines+1)
-            thumb_y = self.log_buttons["scrollbar"].rec.y+self.log_buttons["scrollbar"].rec.height+thumb_h*(self.log_offset-1)
+            thumb_h = (self.log_buttons["scrollbar"].rec.height) / (len(self.log_msgs_formatted)-self.log_lines+1)
+            thumb_y = self.log_buttons["scrollbar"].rec.y + self.log_buttons["scrollbar"].rec.height + thumb_h*(self.log_offset - 1)
             self.log_thumb_hidden = pr.Rectangle(self.log_buttons["scrollbar"].rec.x, thumb_y, self.log_buttons["scrollbar"].rec.width, thumb_h)
 
             # set a minimum for scroll bar to prevent it becoming too small
@@ -2576,15 +2534,15 @@ class ClientState:
                 elif user_input == "left_mouse_down":
                     # if scrollbar_selected and (not thumb_selected or pr.get_mouse_delta().y != 0):
                     if self.log_buttons["scrollbar"].hot and (not self.log_buttons["thumb"].hot or pr.get_mouse_delta().y != 0):
-                        self.log_offset = self.log_lines-len(self.log_msgs_formatted)+int((pr.get_mouse_y() - self.log_buttons["scrollbar"].rec.y)/self.log_thumb_hidden.height)
+                        self.log_offset = self.log_lines - len(self.log_msgs_formatted) + int((pr.get_mouse_y() - self.log_buttons["scrollbar"].rec.y)/self.log_thumb_hidden.height)
 
                 elif user_input == "left_mouse_released":
                     self.log_buttons["thumb"].hot = False
                     self.log_buttons["scrollbar"].hot = False
                 
             # keep offset in bounds
-            if self.log_lines-len(self.log_msgs_formatted) > self.log_offset:
-                self.log_offset = self.log_lines-len(self.log_msgs_formatted)
+            if self.log_lines - len(self.log_msgs_formatted) > self.log_offset:
+                self.log_offset = self.log_lines - len(self.log_msgs_formatted)
             elif self.log_offset > 0:
                 self.log_offset = 0
 
