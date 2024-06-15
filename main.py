@@ -3498,21 +3498,25 @@ class ClientState:
                     break
 
     def load_assets(self):
-        pr.gui_set_font(pr.load_font("assets/F25_Bank_Printer.ttf"))
+        print("WORKING DIRECTORY"+pr.get_working_directory())
+        relative_path = "/Users/jacobfrank/sources/natac/dist/main/_internal/assets"
+        if pr.change_directory(relative_path):
+            print("changed directory")
+        pr.gui_set_font(pr.load_font("F25_Bank_Printer.ttf"))
         sound_files = {
-            "joining_game": "assets/90s-game-ui-2-185095.mp3",
-            "trade_offered": "assets/90s-game-ui-3-185096.mp3",
-            # "make_selection": "assets/menu-selection-102220.mp3",
-            "trade_cancelled": "assets/90s-game-ui-5-185098.mp3",
-            "your_turn": "assets/90s-game-ui-6-185103.mp3",
-            "trade_accepted": "assets/90s-game-ui-7-185100.mp3",
-            "chat": "assets/90s-game-ui-10-185103.mp3",
-            "start_game": "assets/elektron-continuation-with-errors-160923.mp3",
-            "play_dev_card": "assets/hitting-the-sandbag-131853.mp3",
-            "object_placed": "assets/menu-selection-102220.mp3",
-            "win": "assets/winsquare-6993-normalized.mp3",
-            "dice": "assets/shaking-and-rolling-dice-69018-shortened.mp3",
-            "robber_hit": "assets/sword-hit-7160.mp3",
+            "joining_game": "90s-game-ui-2-185095.mp3",
+            "trade_offered": "90s-game-ui-3-185096.mp3",
+            # "make_selection": "menu-selection-102220.mp3",
+            "trade_cancelled": "90s-game-ui-5-185098.mp3",
+            "your_turn": "90s-game-ui-6-185103.mp3",
+            "trade_accepted": "90s-game-ui-7-185100.mp3",
+            "chat": "90s-game-ui-10-185103.mp3",
+            "start_game": "elektron-continuation-with-errors-160923.mp3",
+            "play_dev_card": "hitting-the-sandbag-131853.mp3",
+            "object_placed": "menu-selection-102220.mp3",
+            "win": "winsquare-6993-normalized.mp3",
+            "dice": "shaking-and-rolling-dice-69018-shortened.mp3",
+            "robber_hit": "sword-hit-7160.mp3",
         }
         for name, file in sound_files.items():
             self.sounds[name] = pr.load_sound(file)
@@ -3524,7 +3528,7 @@ class ClientState:
 
     def init_raylib(self):
         # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
-        pr.set_trace_log_level(7) # removes raylib log msgs
+        # pr.set_trace_log_level(7) # removes raylib log msgs
         pr.init_window(self.default_screen_w, self.default_screen_h, "Natac")
         pr.init_audio_device()
         pr.set_target_fps(60)

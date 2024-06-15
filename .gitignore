@@ -1,9 +1,8 @@
+dist/
+build/
+main.spec
 .venv/
 .vscode/
-__pycache__/
-vendor/
+__pycache__
 natac.code-workspace
-test.py
-basic_raylib_game_loop
-.DS_Store
 TODO.md

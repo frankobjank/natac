@@ -283,8 +283,7 @@ def draw_infobox(c_state, hover_object=None):
     # draw info_box
     pr.draw_rectangle_rec(c_state.info_box, pr.LIGHTGRAY)
     pr.draw_rectangle_lines_ex(c_state.info_box, 1, pr.BLACK)
-
-    print(f"name={c_state.name}, mode={c_state.mode}, setup={c_state.setup}, connected={c_state.connected}")
+    
     # setup - all players
     if not c_state.connected:
         if c_state.mode == "connect":
