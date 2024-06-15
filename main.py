@@ -826,7 +826,7 @@ class ServerState:
                 self.players[name].address = address
                 self.send_broadcast("log", f"{name} is reconnecting.")
             else:
-                # print("player already added; redundant call")
+                print("player already added; redundant call")
                 return
 
         elif not name in self.players:
@@ -838,6 +838,7 @@ class ServerState:
             self.send_broadcast("log", f"Adding {name} to game.")
         
         self.send_to_player(name, "log", "Welcome to natac.")
+        self.send_to_player(name, "confirm", "add_player")
         self.socket.sendto(to_json(self.package_state(name, include_board=True)).encode(), address)
 
     def randomize_player_order(self):
@@ -2221,7 +2222,8 @@ class ClientState:
         
         # offset for scrolling - 0 is showing most recent msgs
         self.log_offset = 0
-        self.chat_msg = f"{self.name}: "
+        # self.chat_msg = f"{self.name}: "
+        self.chat_msg = ""
         
         self.log_buttons["chat"] = ClientButton(
             rec=pr.Rectangle(self.log_box.x, self.log_box.y + (self.med_text*9.5), self.log_box.width, logbox_h - self.med_text*9.5),
@@ -2584,9 +2586,7 @@ class ClientState:
             elif self.log_offset > 0:
                 self.log_offset = 0
 
-
     def build_client_request(self, user_input):
-
         # tells server and self to print debug
         if user_input == pr.KeyboardKey.KEY_ZERO:
             self.print_debug()
@@ -2597,8 +2597,10 @@ class ClientState:
         else:
             self.connected = True
 
-        if self.mode == "connect":    
+        if self.mode == "connect":
             if self.check_submit(user_input):
+                self.name = self.info_box_buttons["input_name"].text_input
+                self.server_IP = self.info_box_buttons["input_IP"].text_input
                 return self.client_request_to_dict(action="add_player")
             else:
                 return None
@@ -2967,7 +2969,7 @@ class ClientState:
     # unpack server response and update state
     def update_client(self, encoded_server_response):
         # name : self.name
-        # kind : log, game state
+        # kind : log, game state, confirm
         # ocean_hexes : [[0, -3], [1, -3],
         # ports_ordered :["three", None, "wheat", None, 
         # port_corners : [(5, 0), None,
@@ -3028,6 +3030,12 @@ class ClientState:
                 return
             self.reset_selections()
             return
+        
+        elif server_response["kind"] == "confirm":
+            if server_response["msg"] == "add_player":
+                self.chat_msg = f"{self.name}: "
+            # add other confirmations later
+            return
 
         self.data_verification(server_response)
         self.construct_client_board(server_response)
@@ -3081,7 +3089,7 @@ class ClientState:
                     new_player_dict[player].order = i
                     # new rec
                     rec_size = self.screen_width / 25
-                    rec_y = (i*2+.5) * rec_size
+                    rec_y = (i*2 + .5)*rec_size
                     new_player_dict[player].rec = pr.Rectangle(rec_size/4, rec_y, rec_size, rec_size)
 
             
@@ -3153,7 +3161,15 @@ class ClientState:
                             button_division = 17
                             button_w = self.screen_width//button_division
                             if number > 0:
-                                self.dev_card_buttons[self.dev_card_order[position]] = Button(pr.Rectangle(self.screen_width/2.8-(dev_card_offset+1.2)*button_w, self.screen_height*.9, button_w, self.client_players[name].rec.height), self.dev_card_order[position], action=True)
+                                self.dev_card_buttons[self.dev_card_order[position]] = Button(
+                                    pr.Rectangle(self.screen_width/2.8 - (dev_card_offset+1.2)*button_w, 
+                                        self.screen_height*.9, 
+                                        button_w, 
+                                        self.client_players[name].rec.height
+                                        ), 
+                                    self.dev_card_order[position], 
+                                    action=True
+                                    )
 
                                 dev_card_offset += 1
                             elif number == 0:
@@ -3336,7 +3352,7 @@ class ClientState:
 
         # draw chat bar - highlight and display cursor if active
         if self.log_buttons["chat"].toggle:
-            pr.draw_rectangle_lines_ex(self.log_buttons["chat"].rec, 4, pr.BLACK)
+            pr.draw_rectangle_lines_ex(self.log_buttons["chat"].rec, 2, pr.BLACK)
             current_chat = self.chat_msg+"_"
         else:
             pr.draw_rectangle_lines_ex(self.log_buttons["chat"].rec, 1, pr.BLACK)
@@ -3360,7 +3376,10 @@ class ClientState:
                 rf.draw_button_outline(b_object)
         
         # "submit" - acts as start game button
-        if self.mode == "select_color":
+        if self.mode == "connect":
+            self.turn_buttons["submit"].draw_display(str_override="Connect")
+
+        elif self.mode == "select_color":
             if self.client_players[self.name].color == pr.GRAY:
                 self.turn_buttons["submit"].draw_display(str_override="select_color")
             else:
@@ -3427,7 +3446,7 @@ class ClientState:
                 name = self.longest_road
             elif len(self.longest_road) == 0:
                 name = "Unassigned"
-            pr.draw_text_ex(pr.gui_get_font(), f"Longest Road:\n {name}", (self.client_players[self.name].rec.x, score_font + 4*score_font*(len(self.player_order)+1)+score_font), score_font, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f"Longest Road:\n {name}", (self.client_players[self.name].rec.x, score_font + 4*score_font*(len(self.player_order)+1) + score_font), score_font, 0, pr.BLACK)
 
             if len(self.largest_army) > 0:
                 name = self.largest_army
@@ -3437,7 +3456,7 @@ class ClientState:
         
         pr.end_drawing()
 
-    def check_sounds(self, msg: str, mentions: list=[]) -> None:        
+    def check_sounds(self, msg: str, mentions: list=[]) -> None:
         # meant for all
         sound_keywords = {
             "start_game": ["Starting game!"],
@@ -3477,7 +3496,6 @@ class ClientState:
                 if words in msg:
                     pr.play_sound(self.sounds[sound])
                     break
-
 
     def load_assets(self):
         pr.gui_set_font(pr.load_font("assets/F25_Bank_Printer.ttf"))
@@ -3588,5 +3606,7 @@ def parse_cmd_line(cmd_line_input):
                 run_client(name=cmd_line_input[0][:12], server_IP=local_IP)
             elif len(cmd_line_input) == 2:
                 run_client(name=cmd_line_input[0][:12], server_IP=cmd_line_input[1])
+    else:
+        run_client(name="", server_IP=local_IP)
 
 parse_cmd_line(cmd_line_input)

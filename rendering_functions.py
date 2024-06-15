@@ -292,10 +292,8 @@ def draw_infobox(c_state, hover_object=None):
             pr.draw_text_ex(pr.gui_get_font(), " IP address:", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//3 - c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
             pr.draw_text_ex(pr.gui_get_font(), " Username:", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//1.5 - c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
             for button in c_state.info_box_buttons.values():
-                if button.hover:
+                if button.hover or button.hot or button.toggle:
                     pr.draw_rectangle_lines_ex(button.rec, 2, pr.BLACK)
-                elif button.hot:
-                    pr.draw_rectangle_lines_ex(button.rec, 4, pr.BLACK)
                 else:
                     pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
 
