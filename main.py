@@ -1989,6 +1989,7 @@ class ClientButton:
         self.hover = False
         self.hot = False
         self.toggle = toggle # if None, not toggle-able
+        self.text_input = ""
 
     def __repr__(self):
         return f"Button({self.name})"
@@ -2053,6 +2054,7 @@ class ClientState:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_IP = server_IP
         self.port = port
+        self.connected = False
         self.num_msgs_sent = 0 # for debug
         self.num_msgs_recv = 0 # for debug
         self.time_last_sent = 0 # time.time()
@@ -2089,7 +2091,7 @@ class ClientState:
         # 2nd frame counter to keep track of when animations should start/ end
         self.frame_2 = 0
 
-        self.client_players = {} # use ClientPlayer class
+        self.client_players = {} # {name: ClientPlayer object}
         self.player_order = [] # use len(player_order) to get num_players
         self.current_player_name = None
         self.hand_rec = pr.Rectangle(self.screen_width//2 - 150, self.screen_height - 100, self.screen_width - 300, self.screen_height//10)
@@ -2097,6 +2099,7 @@ class ClientState:
         # GAMEPLAY
         self.board = {}
         self.dice = [] 
+        # CLIENT MAY NOT NEED TO RECEIVE TURN NUM AT ALL FROM SERVER
         self.turn_num = -1 # this might be the cause of the bug requiring button pressed before able to roll dice
         self.mode = None # can be move_robber, build_town, build_road, trade, roll_dice, discard, bank_trade, road_building, year_of_plenty, monopoly, color_selection
         self.setup = True
@@ -2131,14 +2134,14 @@ class ClientState:
         self.selection_index = 0 # combined player_index and card_index to create generic index
 
         self.debug = False
-        self.connected = False
 
         # offset from right side of screen for buttons,  info_box, and logbox
         offset = self.screen_height/27.5 # 27.7 with height = 750
 
         # buttons
-        self.buttons = {}
+        self.turn_buttons = {}
         self.log_buttons = {}
+        self.info_box_buttons = {}
         self.client_buttons = {}
         # self.client_buttons["mute"] = ClientButton() # add mute button
         button_division = 17
@@ -2155,21 +2158,35 @@ class ClientState:
             else:
                 mode = True
                 action = None
-            self.buttons[b_name] = Button(pr.Rectangle(self.screen_width-(i+1)*(button_w+offset), offset/4, button_w+offset/2, 1.1*button_h), b_name, mode=mode, action=action)
+            self.turn_buttons[b_name] = Button(pr.Rectangle(self.screen_width - (i+1)*(button_w + offset), offset/4, button_w + offset/2, 1.1*button_h), b_name, mode=mode, action=action)
 
         # action_button_names = ["end_turn", "submit", "roll_dice"]
-        self.buttons["end_turn"] = Button(pr.Rectangle(self.screen_width-2.8*(2.45*button_w), self.screen_height-(6.5*button_h), 2*button_w, 1.5*button_h), "end_turn", action=True)
-        self.buttons["submit"] = Button(pr.Rectangle(self.screen_width-1.9*(2.45*button_w), self.screen_height-(6.5*button_h), 2*button_w, 1.5*button_h), "submit", color=rf.game_color_dict["submit"], action=True)
-        self.buttons["roll_dice"] = Button(pr.Rectangle(self.screen_width-(2.45*button_w), self.screen_height-(6.5*button_h), 2*button_w, 1.5*button_h), "roll_dice", action=True)
+        self.turn_buttons["end_turn"] = Button(
+            pr.Rectangle(self.screen_width - 2.8*(2.45*button_w), self.screen_height - 6.5*button_h, 2*button_w, 1.5*button_h), "end_turn", action=True)
+        self.turn_buttons["submit"] = Button(
+            pr.Rectangle(self.screen_width - 1.9*(2.45*button_w), self.screen_height - 6.5*button_h, 2*button_w, 1.5*button_h), "submit", color=rf.game_color_dict["submit"], action=True)
+        self.turn_buttons["roll_dice"] = Button(
+            pr.Rectangle(self.screen_width - (2.45*button_w), self.screen_height - 6.5*button_h, 2*button_w, 1.5*button_h), "roll_dice", action=True)
 
         # info_box
         infobox_w = self.screen_width/3.5
         infobox_h = self.screen_height/2
         self.info_box = pr.Rectangle(
-            self.screen_width-infobox_w-offset,
-            self.screen_height-infobox_h-11*offset,
+            self.screen_width - infobox_w - offset,
+            self.screen_height - infobox_h - 11*offset,
             infobox_w, 
             infobox_h
+            )
+        
+        self.info_box_buttons["input_IP"] = ClientButton(
+            pr.Rectangle(self.info_box.x + .6*button_w, self.info_box.y + 3*button_h, self.info_box.width//1.3, self.info_box.height//10), 
+            name="input_IP",
+            toggle=False
+            )
+        self.info_box_buttons["input_name"] = ClientButton(
+            pr.Rectangle(self.info_box.x + .6*button_w, self.info_box.y + 6*button_h, self.info_box.width//1.3, self.info_box.height//10), 
+            name="input_name",
+            toggle=False
             )
 
         # self.temp_info_box = pr.Rectangle(
@@ -2362,14 +2379,14 @@ class ClientState:
         return None
 
     def check_submit(self, user_input):
-        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["submit"].rec):
+        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.turn_buttons["submit"].rec):
             return True
         elif user_input == pr.KeyboardKey.KEY_ENTER:
             return True
         return False
 
     def check_cancel(self, user_input):
-        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["roll_dice"].rec):
+        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.turn_buttons["roll_dice"].rec):
             return True
         return False
 
@@ -2450,33 +2467,54 @@ class ClientState:
         
     # three client updates - two before server (updating local settings, building request) & one after server response
     def update_local_client(self, user_input):
-        # update chat
-        if self.log_buttons["chat"].toggle:
-            if user_input == pr.KeyboardKey.KEY_BACKSPACE and len(self.chat_msg) > len(self.name)+2:
-                self.chat_msg = self.chat_msg[:-1]
-            # can be arbitrary length, capping at 128
-            elif 128 > len(self.chat_msg) and isinstance(user_input, int) and 126 >= user_input >= 32:
-                self.chat_msg += chr(user_input)
-
-        # toggling chat
-        if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["chat"].rec):
-            self.log_buttons["chat"].hover = True
-            pr.set_mouse_cursor(pr.MouseCursor.MOUSE_CURSOR_IBEAM)
-            if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                self.log_buttons["chat"].toggle = not self.log_buttons["chat"].toggle
-        else:
-            self.log_buttons["chat"].hover = False
-            pr.set_mouse_cursor(pr.MouseCursor.MOUSE_CURSOR_ARROW)
-            if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                self.log_buttons["chat"].toggle = False
-        
-
+        # toggling debug
         if user_input == pr.KeyboardKey.KEY_F1:
-            self.debug = not self.debug # toggle
+            self.debug = not self.debug
 
-        
-        
+        if not self.connected:
+            # toggling input boxes
+            for button in self.info_box_buttons.values():
+                if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
+                    button.hover = True
+                    pr.set_mouse_cursor(pr.MouseCursor.MOUSE_CURSOR_IBEAM)
+                    if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                        button.toggle = not button.toggle
+                else:
+                    button.hover = False
+                    pr.set_mouse_cursor(pr.MouseCursor.MOUSE_CURSOR_ARROW)
+                    if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                        button.toggle = False
+            
+            # updating input boxes
+            # for button in self.info_box_buttons.values():
+                if button.toggle:
+                    if user_input == pr.KeyboardKey.KEY_BACKSPACE:
+                        button.text_input = button.text_input[:-1]
+                    elif 12 > len(button.text_input) and isinstance(user_input, int) and 126 >= user_input >= 32:
+                        button.text_input += chr(user_input)
 
+
+        elif self.connected:
+            # toggling chat
+            if pr.check_collision_point_rec(pr.get_mouse_position(), self.log_buttons["chat"].rec):
+                self.log_buttons["chat"].hover = True
+                pr.set_mouse_cursor(pr.MouseCursor.MOUSE_CURSOR_IBEAM)
+                if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                    self.log_buttons["chat"].toggle = not self.log_buttons["chat"].toggle
+            else:
+                self.log_buttons["chat"].hover = False
+                pr.set_mouse_cursor(pr.MouseCursor.MOUSE_CURSOR_ARROW)
+                if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                    self.log_buttons["chat"].toggle = False
+            
+            # updating
+            if self.log_buttons["chat"].toggle:
+                if user_input == pr.KeyboardKey.KEY_BACKSPACE and len(self.chat_msg) > len(self.name) + 2:
+                    self.chat_msg = self.chat_msg[:-1]
+                # can be arbitrary length, capping at 128
+                elif 128 > len(self.chat_msg) and isinstance(user_input, int) and 126 >= user_input >= 32:
+                    self.chat_msg += chr(user_input)
+        
 
         # scrollbar
         if len(self.log_msgs_formatted) > self.log_lines:
@@ -2556,13 +2594,19 @@ class ClientState:
         if not self.is_connected():
             self.connected = False
             self.mode = "connect"
+        else:
+            self.connected = True
 
-        if self.mode == "connect":
-            return self.client_request_to_dict(action="add_player")
+        if self.mode == "connect":    
+            if self.check_submit(user_input):
+                return self.client_request_to_dict(action="add_player")
+            else:
+                return None
         
         # check if chat is submitted -> send to server
         if self.log_buttons["chat"].toggle and self.check_submit(user_input):
             return self.client_request_to_dict(action="submit", chat=self.chat_msg)
+        
 
 
         if self.mode == "select_color":
@@ -2630,7 +2674,7 @@ class ClientState:
         if self.mode == "roll_dice":
             # make all buttons.hover False for non-current player
             if self.name != self.current_player_name:
-                self.buttons["roll_dice"].hover = False
+                self.turn_buttons["roll_dice"].hover = False
                 return None
             # selecting action using keyboard
             if user_input == pr.KeyboardKey.KEY_TAB:
@@ -2639,12 +2683,12 @@ class ClientState:
             if self.debug and user_input == pr.KeyboardKey.KEY_SEVEN:
                 return self.client_request_to_dict(action="ROLL7")
             # selecting with mouse
-            if pr.check_collision_point_rec(pr.get_mouse_position(), self.buttons["roll_dice"].rec):
-                self.buttons["roll_dice"].hover = True
+            if pr.check_collision_point_rec(pr.get_mouse_position(), self.turn_buttons["roll_dice"].rec):
+                self.turn_buttons["roll_dice"].hover = True
                 if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                     return self.client_request_to_dict(action="roll_dice")
             else:
-                self.buttons["roll_dice"].hover = False
+                self.turn_buttons["roll_dice"].hover = False
             # end if no other input
             return None
         
@@ -2692,7 +2736,7 @@ class ClientState:
         
         
         # buttons - check for hover, then for mouse click
-        for b_object in self.buttons.values():
+        for b_object in self.turn_buttons.values():
             if self.mode == "move_robber":
                 break
             # if not current player, no hover or selecting buttons
@@ -3274,7 +3318,7 @@ class ClientState:
         pr.draw_rectangle_lines_ex(self.log_box, 1, pr.BLACK)
         
         # draw scrollbar outline
-        pr.draw_line_ex((self.log_box.x+self.log_box.width-self.med_text, self.log_box.y), (self.log_box.x+self.log_box.width-self.med_text, self.log_box.y+self.log_box.height-self.log_buttons["chat"].rec.height), 1, pr.BLACK)
+        pr.draw_line_ex((self.log_box.x + self.log_box.width - self.med_text, self.log_box.y), (self.log_box.x + self.log_box.width - self.med_text, self.log_box.y + self.log_box.height - self.log_buttons["chat"].rec.height), 1, pr.BLACK)
 
         # thumb = position of scrollbar. only display if thumb != scrollbar
         if self.log_buttons["thumb"].rec != self.log_buttons["scrollbar"].rec:
@@ -3288,7 +3332,7 @@ class ClientState:
 
         # 40 chars can fit in log box at default width for self.med_text
         for i, msg in enumerate(self.get_log_slice()):
-            pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x+self.med_text, 4+self.log_box.y+(i*self.med_text)), self.med_text, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), msg, (self.log_box.x + self.med_text, 4 + self.log_box.y + (i*self.med_text)), self.med_text, 0, pr.BLACK)
 
         # draw chat bar - highlight and display cursor if active
         if self.log_buttons["chat"].toggle:
@@ -3298,11 +3342,11 @@ class ClientState:
             pr.draw_rectangle_lines_ex(self.log_buttons["chat"].rec, 1, pr.BLACK)
             current_chat = self.chat_msg
             
-        pr.draw_text_ex(pr.gui_get_font(), current_chat, (self.med_text+self.log_buttons["chat"].rec.x, self.log_buttons["chat"].rec.y+self.med_text/3.2), self.med_text, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), current_chat, (self.med_text + self.log_buttons["chat"].rec.x, self.log_buttons["chat"].rec.y + self.med_text/3.2), self.med_text, 0, pr.BLACK)
         
             
 
-        for b_object in self.buttons.values():
+        for b_object in self.turn_buttons.values():
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
 
@@ -3318,31 +3362,31 @@ class ClientState:
         # "submit" - acts as start game button
         if self.mode == "select_color":
             if self.client_players[self.name].color == pr.GRAY:
-                self.buttons["submit"].draw_display(str_override="select_color")
+                self.turn_buttons["submit"].draw_display(str_override="select_color")
             else:
-                self.buttons["submit"].draw_display(str_override="start_game")
+                self.turn_buttons["submit"].draw_display(str_override="start_game")
         elif self.mode == "trade" and self.name != self.current_player_name:
-            self.buttons["submit"].draw_display(str_override="accept_trade")
+            self.turn_buttons["submit"].draw_display(str_override="accept_trade")
         elif self.mode == "trade" and self.name == self.current_player_name:
-            self.buttons["submit"].draw_display(str_override="offer_trade")
+            self.turn_buttons["submit"].draw_display(str_override="offer_trade")
         else:
-            self.buttons["submit"].draw_display()
+            self.turn_buttons["submit"].draw_display()
 
         # "roll_dice" -- or decline trade
         
         if self.dice == [0, 0]:
-            self.buttons["roll_dice"].draw_display()
+            self.turn_buttons["roll_dice"].draw_display()
 
         elif self.mode == "trade" and self.name != self.current_player_name:
-            self.buttons["roll_dice"].draw_display(str_override="decline_trade")
+            self.turn_buttons["roll_dice"].draw_display(str_override="decline_trade")
         
         elif (self.mode == "trade" and self.name == self.current_player_name) or self.mode == "bank_trade":
-            self.buttons["roll_dice"].draw_display(str_override="cancel")
+            self.turn_buttons["roll_dice"].draw_display(str_override="cancel")
 
         elif len(self.dice) > 0:
-            rf.draw_dice(self.dice, self.buttons["roll_dice"].rec)
+            rf.draw_dice(self.dice, self.turn_buttons["roll_dice"].rec)
             # draw line between dice
-            pr.draw_line_ex((int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y)), (int(self.buttons["roll_dice"].rec.x + self.buttons["roll_dice"].rec.width//2), int(self.buttons["roll_dice"].rec.y+self.buttons["roll_dice"].rec.height)), 2, pr.BLACK)
+            pr.draw_line_ex((int(self.turn_buttons["roll_dice"].rec.x + self.turn_buttons["roll_dice"].rec.width//2), int(self.turn_buttons["roll_dice"].rec.y)), (int(self.turn_buttons["roll_dice"].rec.x + self.turn_buttons["roll_dice"].rec.width//2), int(self.turn_buttons["roll_dice"].rec.y + self.turn_buttons["roll_dice"].rec.height)), 2, pr.BLACK)
         
 
 

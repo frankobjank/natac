@@ -284,22 +284,42 @@ def draw_infobox(c_state, hover_object=None):
     pr.draw_rectangle_rec(c_state.info_box, pr.LIGHTGRAY)
     pr.draw_rectangle_lines_ex(c_state.info_box, 1, pr.BLACK)
 
-    # all players
-    # setup
-    if c_state.mode == "select_color":
-        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
-        if c_state.client_players[c_state.name].color == pr.GRAY:
-            pr.draw_text_ex(pr.gui_get_font(), " Available colors:", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height//3-c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
-        for i, color in enumerate(c_state.colors_avl):
-            text_color = pr.BLACK
-            if i == c_state.selection_index:
-                text_color = pr.WHITE
-            pr.draw_text_ex(pr.gui_get_font(), f" {color}", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//3 + c_state.med_text*(i+1)), c_state.med_text*.9, 0, text_color)
+    print(f"name={c_state.name}, mode={c_state.mode}, setup={c_state.setup}, connected={c_state.connected}")
+    # setup - all players
+    if not c_state.connected:
+        if c_state.mode == "connect":
+            draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
+            pr.draw_text_ex(pr.gui_get_font(), " IP address:", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//3 - c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), " Username:", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//1.5 - c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
+            for button in c_state.info_box_buttons.values():
+                if button.hover:
+                    pr.draw_rectangle_lines_ex(button.rec, 2, pr.BLACK)
+                elif button.hot:
+                    pr.draw_rectangle_lines_ex(button.rec, 4, pr.BLACK)
+                else:
+                    pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
 
+                if button.toggle:
+                    text = button.text_input+"_"
+                else:
+                    text = button.text_input
+
+                pr.draw_text_ex(pr.gui_get_font(), text, (c_state.med_text + button.rec.x, button.rec.y + c_state.med_text/3.2), c_state.med_text, 0, pr.BLACK)
         return
 
+    elif c_state.setup:
+        if c_state.mode == "select_color":
+            draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
+            if c_state.client_players[c_state.name].color == pr.GRAY:
+                pr.draw_text_ex(pr.gui_get_font(), " Available colors:", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height//3-c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
+            for i, color in enumerate(c_state.colors_avl):
+                text_color = pr.BLACK
+                if i == c_state.selection_index:
+                    text_color = pr.WHITE
+                pr.draw_text_ex(pr.gui_get_font(), f" {color}", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//3 + c_state.med_text*(i+1)), c_state.med_text*.9, 0, text_color)
+        return
     # gameplay
-    elif c_state.mode == "discard":
+    if c_state.mode == "discard":
         pr.draw_text_ex(pr.gui_get_font(), " "+to_title(c_state.mode), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
 
         if c_state.client_players[c_state.name].num_to_discard > 0:
@@ -340,22 +360,22 @@ def draw_infobox(c_state, hover_object=None):
     # non-current players
     if c_state.name != c_state.current_player_name:
         if c_state.mode == "trade" and len(c_state.player_trade['trade_with'])> 0:
-            pr.draw_text_ex(pr.gui_get_font(), f" Received Trade Request from\n {c_state.player_trade['trade_with']}", (c_state.info_box.x, 4+c_state.info_box.y), c_state.med_text, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f" Received Trade Request from\n {c_state.player_trade['trade_with']}", (c_state.info_box.x, 4 + c_state.info_box.y), c_state.med_text, 0, pr.BLACK)
 
             request = f" Player {c_state.player_trade['trade_with']} is requesting:\n"
             for card, num in c_state.player_trade["request"].items():
                 if num > 0:
                     request += f" {num} {card}\n"
-            pr.draw_text_ex(pr.gui_get_font(), request, (c_state.info_box.x, 4+c_state.info_box.y+c_state.info_box.height//4), c_state.med_text, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), request, (c_state.info_box.x, 4 + c_state.info_box.y + c_state.info_box.height//4), c_state.med_text, 0, pr.BLACK)
 
             receive = " You would receive:\n"
             for card, num in c_state.player_trade["offer"].items():
                 if num > 0:
                     receive += f" {num} {card}\n"
-            pr.draw_text_ex(pr.gui_get_font(), receive, (c_state.info_box.x, 4+c_state.info_box.y+c_state.info_box.height//1.5), c_state.med_text, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), receive, (c_state.info_box.x, 4 + c_state.info_box.y + c_state.info_box.height//1.5), c_state.med_text, 0, pr.BLACK)
 
         elif hover_object:
-            pr.draw_text_ex(pr.gui_get_font(), hover_text[hover_object], (c_state.info_box.x, c_state.info_box.y+c_state.med_text*1.1), c_state.med_text*.9, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), hover_text[hover_object], (c_state.info_box.x, c_state.info_box.y + c_state.med_text*1.1), c_state.med_text*.9, 0, pr.BLACK)
         else:
             draw_mode_text(c_state, f"{c_state.current_player_name}'s_turn", "")
         return
@@ -373,8 +393,8 @@ def draw_infobox(c_state, hover_object=None):
     elif c_state.mode == "year_of_plenty":
         draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
         x_offset = c_state.screen_width//20
-        size = c_state.med_text-2
-        location = pr.Vector2(c_state.info_box.x+c_state.info_box.width/8, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*6)
+        size = c_state.med_text - 2
+        location = pr.Vector2(c_state.info_box.x + c_state.info_box.width/8, c_state.info_box.y + c_state.info_box.height/2 - c_state.med_text*6)
         for i, (card_type, num_cards) in enumerate(c_state.client_players[c_state.name].hand.items()):
             color = pr.BLACK
             # if current selection_index, draw in white
@@ -387,47 +407,47 @@ def draw_infobox(c_state, hover_object=None):
             if num > 0:
                 selected_txt += f"{num} {card}\n "
         for i, line in enumerate(selected_txt.split("\n")):
-            pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2+c_state.med_text*(i*1.1+1.1)), c_state.med_text, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height/2 + c_state.med_text*(i*1.1 + 1.1)), c_state.med_text, 0, pr.BLACK)
 
 
     elif c_state.mode == "monopoly":
         draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
-        pr.draw_text_ex(pr.gui_get_font(), " Selected resource:", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2+c_state.med_text*2.2), c_state.med_text, 0, pr.BLACK)
-        pr.draw_text_ex(pr.gui_get_font(), f" {c_state.resource_cards[c_state.selection_index]}", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2+c_state.med_text*3.3), c_state.med_text, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), " Selected resource:", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height/2 + c_state.med_text*2.2), c_state.med_text, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), f" {c_state.resource_cards[c_state.selection_index]}", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height/2 + c_state.med_text*3.3), c_state.med_text, 0, pr.BLACK)
 
         size = c_state.med_text-2
 
-        location = pr.Vector2(c_state.info_box.x+c_state.info_box.width/8, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*8)
+        location = pr.Vector2(c_state.info_box.x + c_state.info_box.width/8, c_state.info_box.y + c_state.info_box.height/2 - c_state.med_text*8)
 
         for i, resource in enumerate(c_state.resource_cards):
             color = pr.BLACK
             if i == c_state.selection_index:
                 color = pr.WHITE
-            pr.draw_text_ex(pr.gui_get_font(), resource, (location.x, location.y+size*(i*1.1+1.1)), size, 0, color)
+            pr.draw_text_ex(pr.gui_get_font(), resource, (location.x, location.y + size*(i*1.1 + 1.1)), size, 0, color)
     
     elif hover_object and c_state.mode is None:
-        pr.draw_text_ex(pr.gui_get_font(), hover_text[hover_object], (c_state.info_box.x, c_state.info_box.y+c_state.med_text*1.1), c_state.med_text*.9, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), hover_text[hover_object], (c_state.info_box.x, c_state.info_box.y + c_state.med_text*1.1), c_state.med_text*.9, 0, pr.BLACK)
 
 
 
 
 
 def draw_discard_interface(c_state, player_object):
-    pr.draw_text_ex(pr.gui_get_font(), f" Select {player_object.num_to_discard} cards.", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*3.3), c_state.med_text, 0, pr.BLACK)
-    pr.draw_text_ex(pr.gui_get_font(), f" Cards left: {sum(c_state.selected_cards.values())}.", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*2.2), c_state.med_text, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), f" Select {player_object.num_to_discard} cards.", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height/2 - c_state.med_text*3.3), c_state.med_text, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), f" Cards left: {sum(c_state.selected_cards.values())}.", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height/2 - c_state.med_text*2.2), c_state.med_text, 0, pr.BLACK)
     selected_cards = [f"{num} {kind}" for kind, num in c_state.selected_cards.items() if num > 0]
-    pr.draw_text_ex(pr.gui_get_font(), f" Currently selected: {selected_cards}.", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), f" Currently selected: {selected_cards}.", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height/2 - c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
 
 
 def draw_trade_interface(c_state):
     # draw line cutting box in half
-    pr.draw_line_ex((c_state.info_box.x, c_state.info_box.y+c_state.info_box.height/2), (c_state.info_box.x+c_state.info_box.width, c_state.info_box.y+c_state.info_box.height/2), 1, pr.BLACK)
+    pr.draw_line_ex((c_state.info_box.x, c_state.info_box.y + c_state.info_box.height/2), (c_state.info_box.x + c_state.info_box.width, c_state.info_box.y + c_state.info_box.height/2), 1, pr.BLACK)
 
-    pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (c_state.info_box.x, 4+c_state.info_box.y), c_state.med_text, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (c_state.info_box.x, 4 + c_state.info_box.y), c_state.med_text, 0, pr.BLACK)
     # redraw hand w arrows in info box 
     x_offset = c_state.screen_width//20
     size = c_state.med_text-2
-    location_offer = pr.Vector2(c_state.info_box.x+c_state.info_box.width/8, c_state.info_box.y+c_state.info_box.height/2-c_state.med_text*6)
+    location_offer = pr.Vector2(c_state.info_box.x + c_state.info_box.width/8, c_state.info_box.y + c_state.info_box.height/2 - c_state.med_text*6)
     for i, card_type in enumerate(c_state.resource_cards):
         # not current card index, draw in black
         color = pr.BLACK
@@ -438,9 +458,9 @@ def draw_trade_interface(c_state):
         # draw_discard_cards(c_state.player_trade["offer"], location_offer, card_type, 0, i, x_offset, size, color)
 
 
-    pr.draw_text_ex(pr.gui_get_font(), " Cards to receive", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), " Cards to receive", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height - c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
 
-    location_request = pr.Vector2(c_state.info_box.x+c_state.info_box.width/8, c_state.info_box.y+c_state.info_box.height/2+c_state.med_text*3.3)
+    location_request = pr.Vector2(c_state.info_box.x + c_state.info_box.width/8, c_state.info_box.y + c_state.info_box.height/2 + c_state.med_text*3.3)
 
     for i, card_type in enumerate(c_state.resource_cards):
         color = pr.BLACK
@@ -454,9 +474,9 @@ def draw_trade_interface(c_state):
 
 def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, bank_trade, ratios):
     # draw horizontal line in info_box
-    pr.draw_line_ex((info_box.x, info_box.y+info_box.height/2), (info_box.x+info_box.width, info_box.y+info_box.height/2), 1, pr.BLACK)
-    pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (info_box.x, 4+info_box.y), font_size, 0, pr.BLACK)
-    pr.draw_text_ex(pr.gui_get_font(), " Cards to receive", (info_box.x, info_box.y+info_box.height-font_size*1.1), font_size, 0, pr.BLACK)
+    pr.draw_line_ex((info_box.x, info_box.y + info_box.height/2), (info_box.x + info_box.width, info_box.y + info_box.height/2), 1, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), " Cards to offer", (info_box.x, 4 + info_box.y), font_size, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), " Cards to receive", (info_box.x, info_box.y + info_box.height - font_size*1.1), font_size, 0, pr.BLACK)
 
     for button_object in buttons.values():
         # font was too big, resizing
@@ -465,14 +485,14 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, bank_
         pr.draw_rectangle_rec(button_object.rec, button_object.color)
         pr.draw_rectangle_lines_ex(button_object.rec, 1, pr.BLACK)
         if "request" in button_object.name:
-            pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*font_resize/1.4)//2, button_object.rec.y+14), font_resize, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x + button_object.rec.width//2 - (len(button_object.display)*font_resize/1.4)//2, button_object.rec.y + 14), font_resize, 0, pr.BLACK)
 
 
         elif "offer" in button_object.name:
-            pr.draw_text_ex(pr.gui_get_font(), f"{ratios[button_object.display]}:1", (button_object.rec.x+button_object.rec.width//2-(3*font_resize/1.4)//2, button_object.rec.y+button_object.rec.height*1/6), font_resize, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f"{ratios[button_object.display]}:1", (button_object.rec.x + button_object.rec.width//2 - (3*font_resize/1.4)//2, button_object.rec.y + button_object.rec.height*1/6), font_resize, 0, pr.BLACK)
 
             # draw resource below ratio
-            pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x+button_object.rec.width//2-(len(button_object.display)*font_resize/1.4)//2, button_object.rec.y+button_object.rec.height*2/3), font_resize, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x + button_object.rec.width//2 - (len(button_object.display)*font_resize/1.4)//2, button_object.rec.y + button_object.rec.height*2/3), font_resize, 0, pr.BLACK)
     
     # separate hover / selecting box drawing
     for button_object in buttons.values(): 
@@ -490,8 +510,6 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, bank_
                 draw_button_outline(button_object)
 
 
-
-
 def to_title(s: str) -> str:
     cap = ""
     for word in s.split("_"):
@@ -503,6 +521,7 @@ mode_text = {
     # with font_size c_state.med_text*.9 (~16.9) -- 314.3/16.9 +1 for " " = ~19.6 font width
     # which means multiplier from height -> width (19.59/16.9) = ~1.16
     # TODO calc line breaks on the fly (using above conversions) instead of hardcoding
+    "connect": "",
     "select_color": " Click Start Game when all\n players are ready.",
     "setup": " Players will take turns\n placing their initial\n settlements and roads.",
     "build_road": " Select a location to build\n a road.",
