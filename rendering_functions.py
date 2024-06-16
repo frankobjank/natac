@@ -288,8 +288,8 @@ def draw_infobox(c_state, hover_object=None):
     if not c_state.connected:
         if c_state.mode == "connect":
             draw_mode_text(c_state, "Connect to Server", mode_text[c_state.mode])
-            pr.draw_text_ex(pr.gui_get_font(), " IP address:", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//3 - c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
-            pr.draw_text_ex(pr.gui_get_font(), " Username:", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//1.5 - c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), " IP address (ex: 127.0.0.1):", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//3 - c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), " Username:", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//1.45 - c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
             for button in c_state.info_box_buttons.values():
                 if button.hover or button.hot or button.toggle:
                     pr.draw_rectangle_lines_ex(button.rec, 2, pr.BLACK)
@@ -297,7 +297,7 @@ def draw_infobox(c_state, hover_object=None):
                     pr.draw_rectangle_lines_ex(button.rec, 1, pr.BLACK)
 
                 if button.toggle:
-                    text = button.text_input+"_"
+                    text = button.text_input + "_"
                 else:
                     text = button.text_input
 
@@ -308,7 +308,7 @@ def draw_infobox(c_state, hover_object=None):
         if c_state.mode == "select_color":
             draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
             if c_state.client_players[c_state.name].color == pr.GRAY:
-                pr.draw_text_ex(pr.gui_get_font(), " Available colors:", (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height//3-c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), " Available colors:", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//3 - c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
             for i, color in enumerate(c_state.colors_avl):
                 text_color = pr.BLACK
                 if i == c_state.selection_index:
@@ -489,7 +489,7 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, bank_
             pr.draw_text_ex(pr.gui_get_font(), f"{ratios[button_object.display]}:1", (button_object.rec.x + button_object.rec.width//2 - (3*font_resize/1.4)//2, button_object.rec.y + button_object.rec.height*1/6), font_resize, 0, pr.BLACK)
 
             # draw resource below ratio
-            pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x + button_object.rec.width//2 - (len(button_object.display)*font_resize/1.4)//2, button_object.rec.y + button_object.rec.height*2/3), font_resize, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), button_object.display, (button_object.rec.x + button_object.rec.width//2 - (len(button_object.display)*font_resize/1.4)// 2, button_object.rec.y + button_object.rec.height*2/3), font_resize, 0, pr.BLACK)
     
     # separate hover / selecting box drawing
     for button_object in buttons.values(): 
@@ -518,7 +518,7 @@ mode_text = {
     # with font_size c_state.med_text*.9 (~16.9) -- 314.3/16.9 +1 for " " = ~19.6 font width
     # which means multiplier from height -> width (19.59/16.9) = ~1.16
     # TODO calc line breaks on the fly (using above conversions) instead of hardcoding
-    "connect": " Enter IP address of server and\n your username.",
+    "connect": " Enter IP address of server\n (IPv4) and your username.",
     "select_color": " Click Start Game when all\n players are ready.",
     "setup": " Players will take turns\n placing their initial\n settlements and roads.",
     "build_road": " Select a location to build\n a road.",

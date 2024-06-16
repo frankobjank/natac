@@ -1627,11 +1627,8 @@ class ServerState:
         
         # action
         if client_request["action"] == "add_player":
-            if self.is_server_full(client_request["name"]):
-                return
-            else:
+            if not self.is_server_full(client_request["name"]):
                 self.add_player(client_request["name"], address)
-            return
 
         # check for chat submission from all players before any other actions - should be able to chat at any stage in the game
         elif client_request["action"] == "submit" and client_request["chat"] is not None:
@@ -2499,8 +2496,11 @@ class ClientState:
                 if button.toggle:
                     if user_input == pr.KeyboardKey.KEY_BACKSPACE:
                         button.text_input = button.text_input[:-1]
-                    elif 12 > len(button.text_input) and isinstance(user_input, int) and 126 >= user_input >= 32:
-                        button.text_input += chr(user_input)
+                    elif isinstance(user_input, int) and 126 >= user_input >= 32:
+                        if button.name == "input_name" and 12 > len(button.text_input):
+                            button.text_input += chr(user_input)
+                        elif button.name == "input_IP" and 15 > len(button.text_input) and chr(user_input) in ".0123456789":
+                            button.text_input += chr(user_input)
 
 
         elif self.connected:
@@ -2606,6 +2606,8 @@ class ClientState:
 
         if self.mode == "connect":
             if self.check_submit(user_input):
+                if not all(255 >= int(num) >= 0 for num in self.info_box_buttons["input_IP"].text_input.split(".")):
+                    self.add_to_log(f"Invalid IP address.")
                 self.name = self.info_box_buttons["input_name"].text_input
                 self.server_IP = self.info_box_buttons["input_IP"].text_input
                 return self.client_request_to_dict(action="add_player")
@@ -2725,7 +2727,7 @@ class ClientState:
                 if self.client_players[self.name].num_to_discard == sum(self.selected_cards.values()):
                     return self.client_request_to_dict(action="submit", cards=self.selected_cards)
                 else:
-                    print("need to select more cards")
+                    self.add_to_log(f"You must select {self.client_players[self.name].num_to_discard} cards.")
             
             # end function with no client_request if nothing is submitted
             return None
@@ -3552,13 +3554,11 @@ def run_client(name="", server_IP=local_IP):
 
     while not pr.window_should_close():
         user_input = c_state.get_user_input()
-        # two client updates - before server for updating menus/ local settings and after server response
+        # 3 client updates - local, sending to server, and after server response
         c_state.update_local_client(user_input)
-
         client_request = c_state.build_client_request(user_input)
 
         server_responses = []
-
         while True:
             response = c_state.client_to_server(client_request)
             if response is None:
@@ -3577,7 +3577,6 @@ def run_client(name="", server_IP=local_IP):
 
 
 def run_server(IP_address, debug=False, port=default_port):
-    # initialize socket
     s_state = ServerState(IP_address=IP_address, port=port, combined=False, debug=debug)
     s_state.initialize_game()
     while True:
@@ -3596,26 +3595,22 @@ cmd_line_input = sys.argv[1:]
 
 def parse_cmd_line(cmd_line_input):
     # provide IP as 2nd argument
-    # client: python3 main.py username IP_address (default to local)
-    # server: python3 main.py server IP_address
+    # server: python3 main.py IP_address
     if len(cmd_line_input) > 0:
-        if cmd_line_input[0] == "server":
-            if cmd_line_input[1] == "local":
-                if len(cmd_line_input) > 2:
-                    if cmd_line_input[2] == "-d" or cmd_line_input[2] == "debug":
-                        run_server(local_IP, debug=True) # local default board
-                else:
-                    run_server(local_IP) # local random board
+        if cmd_line_input[0] == "local":
+            if len(cmd_line_input) > 1:
+                if cmd_line_input[1] == "-d" or cmd_line_input[1] == "debug":
+                    # local default board
+                    run_server(local_IP, debug=True)
             else:
-                if len(cmd_line_input) > 2:
-                    run_server(cmd_line_input[1], cmd_line_input[2]) # remote default board
-                else:
-                    run_server(cmd_line_input[1]) # remote random board
+                # local random board
+                run_server(local_IP)
         else:
-            if len(cmd_line_input) == 1:
-                run_client(name=cmd_line_input[0][:12], server_IP=local_IP)
-            elif len(cmd_line_input) == 2:
-                run_client(name=cmd_line_input[0][:12], server_IP=cmd_line_input[1])
+            if len(cmd_line_input) > 2:
+                # remote default board
+                run_server(cmd_line_input[1], cmd_line_input[2])
+            else:
+                run_server(cmd_line_input[1]) # remote random board
     else:
         run_client(name="", server_IP=local_IP)
 
