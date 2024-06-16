@@ -2474,6 +2474,13 @@ class ClientState:
             self.debug = not self.debug
 
         if not self.connected:
+            if user_input == pr.KeyboardKey.KEY_TAB:
+                if self.info_box_buttons["input_name"].toggle == True or all(button.toggle is False for button in self.info_box_buttons.values()):
+                    self.info_box_buttons["input_IP"].toggle = True
+                    self.info_box_buttons["input_name"].toggle = False
+                elif self.info_box_buttons["input_IP"].toggle is True:
+                    self.info_box_buttons["input_IP"].toggle = False
+                    self.info_box_buttons["input_name"].toggle = True
             # toggling input boxes
             for button in self.info_box_buttons.values():
                 if pr.check_collision_point_rec(pr.get_mouse_position(), button.rec):
@@ -3033,6 +3040,7 @@ class ClientState:
         
         elif server_response["kind"] == "confirm":
             if server_response["msg"] == "add_player":
+                pr.set_window_title(f"Natac - {self.name}")
                 self.chat_msg = f"{self.name}: "
             # add other confirmations later
             return
@@ -3498,17 +3506,14 @@ class ClientState:
                     break
 
     def load_assets(self):
-        print("WORKING DIRECTORY"+pr.get_working_directory())
-        relative_path = "/Users/jacobfrank/sources/natac/dist/main/_internal/assets"
-        if pr.change_directory(relative_path):
-            print("changed directory")
+        pr.change_directory("/Users/jacobfrank/sources/natac/dist/main/_internal/assets")
         pr.gui_set_font(pr.load_font("F25_Bank_Printer.ttf"))
         sound_files = {
             "joining_game": "90s-game-ui-2-185095.mp3",
             "trade_offered": "90s-game-ui-3-185096.mp3",
             # "make_selection": "menu-selection-102220.mp3",
             "trade_cancelled": "90s-game-ui-5-185098.mp3",
-            "your_turn": "90s-game-ui-6-185103.mp3",
+            "your_turn": "90s-game-ui-6-185099.mp3",
             "trade_accepted": "90s-game-ui-7-185100.mp3",
             "chat": "90s-game-ui-10-185103.mp3",
             "start_game": "elektron-continuation-with-errors-160923.mp3",
@@ -3532,7 +3537,7 @@ class ClientState:
         pr.init_window(self.default_screen_w, self.default_screen_h, "Natac")
         pr.init_audio_device()
         pr.set_target_fps(60)
-        
+
         self.load_assets()
 
     def close_raylib(self):
@@ -3543,6 +3548,7 @@ class ClientState:
 def run_client(name="", server_IP=local_IP):
     c_state = ClientState(name=name, server_IP=server_IP, port=default_port, combined=False)
     c_state.init_raylib()
+    c_state.info_box_buttons["input_IP"].text_input = server_IP
 
     while not pr.window_should_close():
         user_input = c_state.get_user_input()

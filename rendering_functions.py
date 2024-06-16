@@ -287,7 +287,7 @@ def draw_infobox(c_state, hover_object=None):
     # setup - all players
     if not c_state.connected:
         if c_state.mode == "connect":
-            draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
+            draw_mode_text(c_state, "Connect to Server", mode_text[c_state.mode])
             pr.draw_text_ex(pr.gui_get_font(), " IP address:", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//3 - c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
             pr.draw_text_ex(pr.gui_get_font(), " Username:", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//1.5 - c_state.med_text), c_state.med_text*.9, 0, pr.BLACK)
             for button in c_state.info_box_buttons.values():
@@ -518,7 +518,7 @@ mode_text = {
     # with font_size c_state.med_text*.9 (~16.9) -- 314.3/16.9 +1 for " " = ~19.6 font width
     # which means multiplier from height -> width (19.59/16.9) = ~1.16
     # TODO calc line breaks on the fly (using above conversions) instead of hardcoding
-    "connect": "",
+    "connect": " Enter IP address of server and\n your username.",
     "select_color": " Click Start Game when all\n players are ready.",
     "setup": " Players will take turns\n placing their initial\n settlements and roads.",
     "build_road": " Select a location to build\n a road.",
