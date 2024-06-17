@@ -301,7 +301,7 @@ def draw_infobox(c_state, hover_object=None):
                 else:
                     text = button.text_input
 
-                pr.draw_text_ex(pr.gui_get_font(), text, (c_state.med_text + button.rec.x, button.rec.y + c_state.med_text/3.2), c_state.med_text, 0, pr.BLACK)
+                pr.draw_text_ex(pr.gui_get_font(), text, (c_state.med_text + button.rec.x, button.rec.y + c_state.med_text/1.6), c_state.med_text, 0, pr.BLACK)
         return
 
     elif c_state.setup:

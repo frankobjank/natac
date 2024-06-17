@@ -2099,7 +2099,7 @@ class ClientState:
         self.dice = [] 
         # CLIENT MAY NOT NEED TO RECEIVE TURN NUM AT ALL FROM SERVER
         self.turn_num = -1 # this might be the cause of the bug requiring button pressed before able to roll dice
-        self.mode = None # can be move_robber, build_town, build_road, trade, roll_dice, discard, bank_trade, road_building, year_of_plenty, monopoly, color_selection
+        self.mode = None # can be move_robber, build_town, build_road, trade, roll_dice, discard, bank_trade, road_building, year_of_plenty, monopoly, select_color, connect
         self.setup = True
 
         # selecting via mouse
@@ -2130,6 +2130,9 @@ class ClientState:
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         # selecting with arrow keys
         self.selection_index = 0 # combined player_index and card_index to create generic index
+        # all possible modes: move_robber, steal, build_town, build_road, trade, roll_dice, discard, bank_trade, road_building, year_of_plenty, monopoly, select_color, connect
+        # I want to make each of these modes tab-able, where pressing tab increments the selection_index by 1 and activates .hover attribute for each button. First will implement using mouse to select 
+        self.mode_to_selection_index = {"connect": 2, "select_color": len(self.colors_avl), "trade": 10, "bank_trade": 10, "steal": len(self.to_steal_from), "discard": 5, "year_of_plenty": 5, "monopoly": 5}
 
         self.debug = False
 
@@ -2472,6 +2475,8 @@ class ClientState:
 
         if not self.connected:
             if user_input == pr.KeyboardKey.KEY_TAB:
+                self.selection_index += 1
+
                 if self.info_box_buttons["input_name"].toggle == True or all(button.toggle is False for button in self.info_box_buttons.values()):
                     self.info_box_buttons["input_IP"].toggle = True
                     self.info_box_buttons["input_name"].toggle = False
@@ -3508,7 +3513,8 @@ class ClientState:
                     break
 
     def load_assets(self):
-        pr.change_directory("/Users/jacobfrank/sources/natac/dist/main/_internal/assets")
+        # pr.change_directory("/Users/jacobfrank/sources/natac/dist/main/_internal/assets")
+        pr.change_directory("/Users/jacobfrank/sources/natac/assets")
         pr.gui_set_font(pr.load_font("F25_Bank_Printer.ttf"))
         sound_files = {
             "joining_game": "90s-game-ui-2-185095.mp3",
