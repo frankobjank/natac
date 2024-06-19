@@ -2099,7 +2099,7 @@ class ClientState:
         self.dice = [] 
         # CLIENT MAY NOT NEED TO RECEIVE TURN NUM AT ALL FROM SERVER
         self.turn_num = -1 # this might be the cause of the bug requiring button pressed before able to roll dice
-        self.mode = None # can be move_robber, build_town, build_road, trade, roll_dice, discard, bank_trade, road_building, year_of_plenty, monopoly, select_color, connect
+        self.mode = "connect" # can be move_robber, build_town, build_road, trade, roll_dice, discard, bank_trade, road_building, year_of_plenty, monopoly, select_color, connect, connecting
         self.setup = True
 
         # selecting via mouse
@@ -2190,20 +2190,12 @@ class ClientState:
             toggle=False
             )
 
-        # self.temp_info_box = pr.Rectangle(
-        #     self.screen_width-2*infobox_w-2*offset,
-        #     self.screen_height-infobox_h-15*offset,
-        #     infobox_w,
-        #     infobox_h//3
-        # )
-        
         self.trade_buttons = {}
         for i, resource in enumerate(self.resource_cards):
             self.trade_buttons[f"offer_{resource}"] = Button(pr.Rectangle(self.info_box.x + (i+1)*(self.info_box.width//10) + offset/1.4*i, self.info_box.y + offset, self.info_box.width//6, self.info_box.height/8), f"offer_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
             self.trade_buttons[f"request_{resource}"] = Button(pr.Rectangle(self.info_box.x + (i+1)*(self.info_box.width//10) + offset/1.4*i, self.info_box.y + self.info_box.height - 2.7*offset, self.info_box.width//6, self.info_box.height/8), f"request_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
         
         self.dev_card_buttons = {}
-
 
         # log
         logbox_w = self.screen_width/2.3
@@ -2605,19 +2597,28 @@ class ClientState:
 
         if not self.is_connected():
             self.connected = False
-            self.mode = "connect"
+            if self.mode != "connecting":
+                self.mode = "connect"
         else:
             self.connected = True
 
         if self.mode == "connect":
             if self.check_submit(user_input):
                 if not all(255 >= int(num) >= 0 for num in self.info_box_buttons["input_IP"].text_input.split(".")):
-                    self.add_to_log(f"Invalid IP address.")
+                    self.add_to_log("Invalid IP address.")
+                    return None
                 self.name = self.info_box_buttons["input_name"].text_input
                 self.server_IP = self.info_box_buttons["input_IP"].text_input
+                self.add_to_log("Connecting to server...")
+                self.mode = "connecting"
                 return self.client_request_to_dict(action="add_player")
             else:
                 return None
+        
+        elif self.mode == "connecting":
+            if self.check_cancel(user_input):
+                self.socket.close()
+            return None
         
         # check if chat is submitted -> send to server
         if self.log_buttons["chat"].toggle and self.check_submit(user_input):
@@ -2897,11 +2898,6 @@ class ClientState:
             return None
 
 
-
-
-        # if user_input == pr.KeyboardKey.KEY_C:
-        #     return self.client_request_to_dict(action="end_turn")
-
         # selecting board actions with mouse click
         elif user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
             return self.submit_board_selection()
@@ -3049,7 +3045,7 @@ class ClientState:
             if server_response["msg"] == "add_player":
                 pr.set_window_title(f"Natac - {self.name}")
                 self.chat_msg = f"{self.name}: "
-            # add other confirmations later
+            # add other confirmations here
             return
 
         self.data_verification(server_response)
@@ -3381,7 +3377,7 @@ class ClientState:
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
 
-            if b_object.name != "roll_dice" and b_object.name != "submit":
+            if b_object.name != "roll_dice" and b_object.name != "submit" and b_object.name != "end_turn":
                 b_object.draw_display()
                 if b_object.name == "build_road" or b_object.name == "build_settlement" or b_object.name == "build_city" or b_object.name == "buy_dev_card":
                     rf.draw_building_costs(b_object)
@@ -3393,7 +3389,8 @@ class ClientState:
         # "submit" - acts as start game button
         if self.mode == "connect":
             self.turn_buttons["submit"].draw_display(str_override="Connect")
-
+        elif self.mode == "connecting":
+            self.turn_buttons["submit"].draw_display(str_override="Connecting...")
         elif self.mode == "select_color":
             if self.client_players[self.name].color == pr.GRAY:
                 self.turn_buttons["submit"].draw_display(str_override="select_color")
@@ -3406,22 +3403,28 @@ class ClientState:
         else:
             self.turn_buttons["submit"].draw_display()
 
-        # "roll_dice" -- or decline trade
+        # "roll_dice" -- or cancel / decline trade
         
-        if self.dice == [0, 0]:
+        if self.mode == "connect" or self.setup:
+            self.turn_buttons["roll_dice"].draw_display(str_override=" ")
+        elif self.mode == "connecting":
+            self.turn_buttons["roll_dice"].draw_display(str_override="Cancel")
+        elif self.dice == [0, 0]:
             self.turn_buttons["roll_dice"].draw_display()
-
         elif self.mode == "trade" and self.name != self.current_player_name:
             self.turn_buttons["roll_dice"].draw_display(str_override="decline_trade")
-        
         elif (self.mode == "trade" and self.name == self.current_player_name) or self.mode == "bank_trade":
-            self.turn_buttons["roll_dice"].draw_display(str_override="cancel")
-
+            self.turn_buttons["roll_dice"].draw_display(str_override="Cancel")
         elif len(self.dice) > 0:
             rf.draw_dice(self.dice, self.turn_buttons["roll_dice"].rec)
             # draw line between dice
             pr.draw_line_ex((int(self.turn_buttons["roll_dice"].rec.x + self.turn_buttons["roll_dice"].rec.width//2), int(self.turn_buttons["roll_dice"].rec.y)), (int(self.turn_buttons["roll_dice"].rec.x + self.turn_buttons["roll_dice"].rec.width//2), int(self.turn_buttons["roll_dice"].rec.y + self.turn_buttons["roll_dice"].rec.height)), 2, pr.BLACK)
         
+        # "end_turn" - end turn or blank
+        if not self.connected or self.setup:
+            self.turn_buttons["end_turn"].draw_display(str_override=" ")
+        else:
+            self.turn_buttons["end_turn"].draw_display()
 
 
 
@@ -3513,7 +3516,6 @@ class ClientState:
                     break
 
     def load_assets(self):
-        # pr.change_directory("/Users/jacobfrank/sources/natac/dist/main/_internal/assets")
         pr.change_directory("/Users/jacobfrank/sources/natac/assets")
         pr.gui_set_font(pr.load_font("F25_Bank_Printer.ttf"))
         sound_files = {
@@ -3560,7 +3562,7 @@ def run_client(name="", server_IP=local_IP):
 
     while not pr.window_should_close():
         user_input = c_state.get_user_input()
-        # 3 client updates - local, sending to server, and after server response
+        # 3 client updates - 1. local, 2. sending to server, 3. after server response
         c_state.update_local_client(user_input)
         client_request = c_state.build_client_request(user_input)
 
