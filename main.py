@@ -1580,6 +1580,7 @@ class ServerState:
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex[:2],
             "dice": [self.die1, self.die2],
+            "has_rolled": self.has_rolled,
             "turn_num": self.turn_num,
             "mode": mode,
             "hover": self.hover,
@@ -2097,6 +2098,7 @@ class ClientState:
         # GAMEPLAY
         self.board = {}
         self.dice = [] 
+        self.has_rolled = False
         # CLIENT MAY NOT NEED TO RECEIVE TURN NUM AT ALL FROM SERVER
         self.turn_num = -1 # this might be the cause of the bug requiring button pressed before able to roll dice
         self.mode = "connect" # can be move_robber, build_town, build_road, trade, roll_dice, discard, bank_trade, road_building, year_of_plenty, monopoly, select_color, connect, connecting
@@ -2990,10 +2992,11 @@ class ClientState:
         # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
         # robber_hex : [0, 0]
         # dice : [die1, die2]
+        # has_rolled : bool
         # turn_num : 0
         # current_player : self.current_player
         # hover : bool
-        # mode : None || "move_robber"
+        # mode : None | "move_robber", etc.
         # order : ["red", "white"]
         # victory points
         # hands : [[2], [5], [1], [2, 1, 0, 0, 0]]
@@ -3054,6 +3057,7 @@ class ClientState:
         # DICE/TURNS
         self.setup = server_response["setup"]
         self.dice = server_response["dice"]
+        self.has_rolled = server_response["has_rolled"]
         self.turn_num = server_response["turn_num"]
 
         # MODE/HOVER
@@ -3203,7 +3207,7 @@ class ClientState:
             pr.draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, color)
             # draw yellow outlines around hexes if token matches dice and not robber'd, otherwise outline in black
             # use len(dice) to see if whole game state has been received
-            if (self.dice[0] + self.dice[1]) == tile.token and tile.hex != self.board["robber_hex"]:
+            if (self.dice[0] + self.dice[1]) == tile.token and tile.hex != self.board["robber_hex"] and self.has_rolled:
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 6, pr.YELLOW)
             else:
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 2, pr.BLACK)
@@ -3271,18 +3275,18 @@ class ClientState:
             elif self.current_hex and self.mode == "move_robber":
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
         elif self.debug:
-            # highlight current node if building is possible
+            # highlight current node
             if self.current_hex_3:
                 node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
                 pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
             # could highlight settlement when building city
 
-            # highlight current edge if building is possible
+            # highlight current edge
             elif self.current_hex_2:
                 edge_object = Edge(self.current_hex, self.current_hex_2)
                 pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
 
-            # highlight current hex if moving robber is possible
+            # highlight current hex
             elif self.current_hex:
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
 
@@ -3409,16 +3413,16 @@ class ClientState:
             self.turn_buttons["roll_dice"].draw_display(str_override=" ")
         elif self.mode == "connecting":
             self.turn_buttons["roll_dice"].draw_display(str_override="Cancel")
-        elif self.dice == [0, 0]:
+        elif self.dice == [0, 0] or self.has_rolled is False:
             self.turn_buttons["roll_dice"].draw_display()
         elif self.mode == "trade" and self.name != self.current_player_name:
             self.turn_buttons["roll_dice"].draw_display(str_override="decline_trade")
         elif (self.mode == "trade" and self.name == self.current_player_name) or self.mode == "bank_trade":
             self.turn_buttons["roll_dice"].draw_display(str_override="Cancel")
-        elif len(self.dice) > 0:
-            rf.draw_dice(self.dice, self.turn_buttons["roll_dice"].rec)
-            # draw line between dice
-            pr.draw_line_ex((int(self.turn_buttons["roll_dice"].rec.x + self.turn_buttons["roll_dice"].rec.width//2), int(self.turn_buttons["roll_dice"].rec.y)), (int(self.turn_buttons["roll_dice"].rec.x + self.turn_buttons["roll_dice"].rec.width//2), int(self.turn_buttons["roll_dice"].rec.y + self.turn_buttons["roll_dice"].rec.height)), 2, pr.BLACK)
+        elif len(self.dice) > 0 and self.has_rolled:
+                rf.draw_dice(self.dice, self.turn_buttons["roll_dice"].rec)
+                # draw line between dice
+                pr.draw_line_ex((int(self.turn_buttons["roll_dice"].rec.x + self.turn_buttons["roll_dice"].rec.width//2), int(self.turn_buttons["roll_dice"].rec.y)), (int(self.turn_buttons["roll_dice"].rec.x + self.turn_buttons["roll_dice"].rec.width//2), int(self.turn_buttons["roll_dice"].rec.y + self.turn_buttons["roll_dice"].rec.height)), 2, pr.BLACK)
         
         # "end_turn" - end turn or blank
         if not self.connected or self.setup:
