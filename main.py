@@ -2239,7 +2239,19 @@ class ClientState:
         self.camera.zoom = self.default_zoom
     
     def print_debug(self):
-        pass
+        debug_msgs = [f"Screen mouse at: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
+        if self.current_hex_3:
+            msg1 = f"Current Node: {Node(self.current_hex, self.current_hex_2, self.current_hex_3)}"
+        elif self.current_hex_2:
+            msg1 = f"Current Edge: {Edge(self.current_hex, self.current_hex_2)}"
+        elif self.current_hex:
+            msg1 = f"Current Hex: {obj_to_int(self.current_hex)}"
+        else:
+            msg1 = ""
+
+        debug_msgs = [msg1, f"Current player = {self.current_player_name}", f"Mode: {self.mode}"]
+        for msg in debug_msgs:
+            print(msg)
 
     def resize_client(self):
         pr.toggle_borderless_windowed()
@@ -2586,7 +2598,7 @@ class ClientState:
 
     def build_client_request(self, user_input):
         # tells server and self to print debug
-        if user_input == pr.KeyboardKey.KEY_ZERO:
+        if self.debug and user_input == pr.KeyboardKey.KEY_ZERO:
             self.print_debug()
 
         if not self.is_connected():
@@ -3282,6 +3294,7 @@ class ClientState:
             self.render_board()
             pr.end_mode_2d()
 
+        # this got in the way of new hand placement. adding this to print_debug(), might still be useful to have at some point though
         # if self.debug:
         #     debug_msgs = [f"Screen mouse at: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
         #     if self.current_hex_3:
@@ -3529,7 +3542,7 @@ class ClientState:
 
     def init_raylib(self):
         # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
-        # pr.set_trace_log_level(7) # removes raylib log msgs
+        pr.set_trace_log_level(7) # removes raylib log msgs
         pr.init_window(self.default_screen_w, self.default_screen_h, "Natac")
         pr.init_audio_device()
         pr.set_target_fps(60)
@@ -3606,7 +3619,7 @@ def parse_cmd_line(cmd_line_input):
             if len(cmd_line_input) == 1 and cmd_line_input[0] == "-d":
                     run_client(name="", server_IP=local_IP, debug=True)
 
-            if len(cmd_line_input) > 2:
+            elif len(cmd_line_input) > 2:
                 # remote default board
                 run_server(cmd_line_input[1], cmd_line_input[2])
             else:
