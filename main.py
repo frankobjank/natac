@@ -704,13 +704,12 @@ class Player:
 
 
 class ServerState:
-    def __init__(self, IP_address, port, combined=False, debug=True):
+    def __init__(self, IP_address, port, debug=True):
         # NETWORKING
         self.msg_number_recv = 0
-        self.combined = combined
-        if not self.combined:
-            self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-            self.socket.bind((IP_address, port))
+
+        self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        self.socket.bind((IP_address, port))
 
         # BOARD
         self.board = None
@@ -1892,23 +1891,18 @@ class ServerState:
         self.check_for_win()
 
         
-    def server_to_client(self, encoded_client_request=None, combined=False):
+    def server_to_client(self):
         msg_recv = ""
-        if not combined:
-            # use socket to receive msg
-            msg_recv, address = self.socket.recvfrom(buffer_size)
-            self.msg_number_recv += 1
-        else:
-            # or just pass in variable
-            msg_recv = encoded_client_request
+        
+        # use socket to receive msg
+        msg_recv, address = self.socket.recvfrom(buffer_size)
+        self.msg_number_recv += 1
 
         # update server if msg_recv is not 0b'' (empty)
         if len(msg_recv) > 2:
             packet_recv = json.loads(msg_recv) # loads directly from bytes
             self.update_server(packet_recv, address)
             
-
-        if not combined:
             # use socket to respond
             for p_name, p_object in self.players.items():
                 # print(f"current_time = {time.time()}, last_updated = {p_object.last_updated}")
@@ -1916,9 +1910,9 @@ class ServerState:
                 self.socket.sendto(to_json(self.package_state(p_name)).encode(), p_object.address)
                 p_object.last_updated = time.time()
 
-        else:
-            # or just return
-            return to_json(self.package_state("combined")).encode()
+        # if combined:
+        #     # or just return
+        #     return to_json(self.package_state("combined")).encode()
 
 
 
@@ -2047,12 +2041,13 @@ class ClientPlayer:
 
 # TODO double input bug server is receiving 2 inputs on double input error so problem lies in client creating and sending msg
 class ClientState:
-    def __init__(self, name, server_IP, port, combined=False):
+    def __init__(self, name, server_IP, port, debug=False):
         print("starting client")
         # Networking
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_IP = server_IP
         self.port = port
+        self.debug = debug
         self.connected = False
         self.num_msgs_sent = 0 # for debug
         self.num_msgs_recv = 0 # for debug
@@ -2060,7 +2055,6 @@ class ClientState:
         self.time_last_recv = 0 # time.time()
         self.name = name # username (name that will be associated with Player)
         self.colors_avl = []
-        self.combined = combined # combined client and server vs separate client and server, use for debug
         self.previous_packet = {}
         self.sounds = {}
 
@@ -2135,8 +2129,6 @@ class ClientState:
         # all possible modes: move_robber, steal, build_town, build_road, trade, roll_dice, discard, bank_trade, road_building, year_of_plenty, monopoly, select_color, connect
         # I want to make each of these modes tab-able, where pressing tab increments the selection_index by 1 and activates .hover attribute for each button. First will implement using mouse to select 
         self.mode_to_selection_index = {"connect": 2, "select_color": len(self.colors_avl), "trade": 10, "bank_trade": 10, "steal": len(self.to_steal_from), "discard": 5, "year_of_plenty": 5, "monopoly": 5}
-
-        self.debug = False
 
         # offset from right side of screen for buttons,  info_box, and logbox
         offset = self.screen_height/27.5 # 27.7 with height = 750
@@ -2609,6 +2601,8 @@ class ClientState:
                 if not all(255 >= int(num) >= 0 for num in self.info_box_buttons["input_IP"].text_input.split(".")):
                     self.add_to_log("Invalid IP address.")
                     return None
+                if not self.debug and len(self.info_box_buttons["input_name"].text_input) == 0:
+                    self.add_to_log("Please enter a name.")
                 self.name = self.info_box_buttons["input_name"].text_input
                 self.server_IP = self.info_box_buttons["input_IP"].text_input
                 self.add_to_log("Connecting to server...")
@@ -2905,30 +2899,23 @@ class ClientState:
             return self.submit_board_selection()
 
 
-        if self.combined:
-            self.name = self.current_player_name
-
-    def client_to_server(self, client_request, combined=False):
+    def client_to_server(self, client_request):
         msg_to_send = json.dumps(client_request).encode()
         
-        if not combined:
-            # send pulse b'null' every once a second to force server response
-            if msg_to_send != b'null' or time.time() - self.time_last_sent > buffer_time:
-                self.num_msgs_sent += 1
-                self.socket.sendto(msg_to_send, (self.server_IP, self.port))
-                self.time_last_sent = time.time()
-                
-            # receive message from server
-            try:
-                msg_recv, address = self.socket.recvfrom(buffer_size, socket.MSG_DONTWAIT)
-                self.num_msgs_recv += 1
-                self.time_last_recv = time.time()
-            except BlockingIOError:
-                return None
-            return msg_recv
-
-        else:
-            return msg_to_send
+        # send pulse b'null' every once a second to force server response
+        if msg_to_send != b'null' or time.time() - self.time_last_sent > buffer_time:
+            self.num_msgs_sent += 1
+            self.socket.sendto(msg_to_send, (self.server_IP, self.port))
+            self.time_last_sent = time.time()
+            
+        # receive message from server
+        try:
+            msg_recv, address = self.socket.recvfrom(buffer_size, socket.MSG_DONTWAIT)
+            self.num_msgs_recv += 1
+            self.time_last_recv = time.time()
+        except BlockingIOError:
+            return None
+        return msg_recv
 
     def add_card(self):
         # add card
@@ -3086,13 +3073,8 @@ class ClientState:
             self.player_order = server_response["player_order"]
             self.current_player_name = server_response["current_player"]
 
-            # initialize all players at once for combined
-            if self.combined and len(self.client_players) == 0:
-                self.client_initialize_dummy_players()
-
-            # or add players as they connect to server
-            # eventually will need to reorder players after real order has been determined
-            elif len(self.player_order) > len(self.client_players):
+            # add players as they connect to server - will need to reorder players after real order has been determined
+            if len(self.player_order) > len(self.client_players):
                 for i, player in enumerate(self.player_order):
                     if not player in self.client_players.keys():
                         self.client_initialize_player(name=player, order=i)
@@ -3300,20 +3282,20 @@ class ClientState:
             self.render_board()
             pr.end_mode_2d()
 
-        if self.debug:
-            debug_msgs = [f"Screen mouse at: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
-            if self.current_hex_3:
-                msg1 = f"Current Node: {Node(self.current_hex, self.current_hex_2, self.current_hex_3)}"
-            elif self.current_hex_2:
-                msg1 = f"Current Edge: {Edge(self.current_hex, self.current_hex_2)}"
-            elif self.current_hex:
-                msg1 = f"Current Hex: {obj_to_int(self.current_hex)}"
-            else:
-                msg1 = ""
+        # if self.debug:
+        #     debug_msgs = [f"Screen mouse at: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
+        #     if self.current_hex_3:
+        #         msg1 = f"Current Node: {Node(self.current_hex, self.current_hex_2, self.current_hex_3)}"
+        #     elif self.current_hex_2:
+        #         msg1 = f"Current Edge: {Edge(self.current_hex, self.current_hex_2)}"
+        #     elif self.current_hex:
+        #         msg1 = f"Current Hex: {obj_to_int(self.current_hex)}"
+        #     else:
+        #         msg1 = ""
 
-            debug_msgs = [msg1, f"Current player = {self.current_player_name}", f"Mode: {self.mode}"]
-            for i, msg in enumerate(reversed(debug_msgs)):
-                pr.draw_text_ex(pr.gui_get_font(), msg, pr.Vector2(5, self.screen_height-(i+1)*self.med_text*1.5), self.med_text, 0, pr.BLACK)
+        #     debug_msgs = [msg1, f"Current player = {self.current_player_name}", f"Mode: {self.mode}"]
+        #     for i, msg in enumerate(reversed(debug_msgs)):
+        #         pr.draw_text_ex(pr.gui_get_font(), msg, pr.Vector2(5, self.screen_height-(i+1)*self.med_text*1.5), self.med_text, 0, pr.BLACK)
 
         if self.is_connected() is True:
             connect_color = pr.GREEN
@@ -3559,11 +3541,12 @@ class ClientState:
         pr.close_audio_device()
         pr.close_window()
 
-def run_client(name="", server_IP=local_IP):
-    c_state = ClientState(name=name, server_IP=server_IP, port=default_port, combined=False)
+def run_client(name="", server_IP=local_IP, debug=False):
+    c_state = ClientState(name=name, server_IP=server_IP, port=default_port, debug=debug)
     c_state.init_raylib()
     c_state.info_box_buttons["input_IP"].text_input = server_IP
-    c_state.info_box_buttons["input_name"].text_input = name
+    if c_state.debug:
+        c_state.info_box_buttons["input_name"].text_input = "debug"
 
     while not pr.window_should_close():
         user_input = c_state.get_user_input()
@@ -3590,7 +3573,7 @@ def run_client(name="", server_IP=local_IP):
 
 
 def run_server(IP_address, debug=False, port=default_port):
-    s_state = ServerState(IP_address=IP_address, port=port, combined=False, debug=debug)
+    s_state = ServerState(IP_address=IP_address, port=port, debug=debug)
     s_state.initialize_game()
     while True:
         # receives msg, updates s_state, then sends message
@@ -3620,6 +3603,9 @@ def parse_cmd_line(cmd_line_input):
                 # local random board
                 run_server(local_IP)
         else:
+            if len(cmd_line_input) == 1 and cmd_line_input[0] == "-d":
+                    run_client(name="", server_IP=local_IP, debug=True)
+
             if len(cmd_line_input) > 2:
                 # remote default board
                 run_server(cmd_line_input[1], cmd_line_input[2])
