@@ -1768,6 +1768,7 @@ class ServerState:
             
             elif client_request["action"] == "cancel":
                 self.mode = None
+                self.send_to_player(client_request["name"], "reset", "bank_trade")
 
         elif self.mode == "steal":
             if client_request["action"] == "submit" and client_request["selected_player"] is not None:
@@ -1797,24 +1798,24 @@ class ServerState:
 
         if client_request["mode"] is not None:
             if self.mode == client_request["mode"]:
-                self.send_to_player(self.current_player_name, "reset", {"new_mode": None})
+                self.send_to_player(self.current_player_name, "reset", "all")
                 self.mode = None
             # this should be redundant - a dev_card mode should not make it this far -- ---- missing a return at the end of the dev_card_mode statement
-            elif self.mode not in self.dev_card_modes:
-                if client_request["mode"] == "build_road":
-                    if not self.cost_check("road"):
-                        self.mode = None
-                        return
-                elif client_request["mode"] == "build_settlement":
-                    if not self.cost_check("settlement"):
-                        self.mode = None
-                        return
-                elif client_request["mode"] == "build_city":
-                    if not self.cost_check("city"):
-                        self.mode = None
-                        return
-                self.send_to_player(self.current_player_name, "reset", {"new_mode": self.mode})
-                self.mode = client_request["mode"]
+            # elif self.mode not in self.dev_card_modes:
+            if client_request["mode"] == "build_road":
+                if not self.cost_check("road"):
+                    self.mode = None
+                    return
+            elif client_request["mode"] == "build_settlement":
+                if not self.cost_check("settlement"):
+                    self.mode = None
+                    return
+            elif client_request["mode"] == "build_city":
+                if not self.cost_check("city"):
+                    self.mode = None
+                    return
+            self.send_to_player(self.current_player_name, "reset", "all")
+            self.mode = client_request["mode"]
         
 
         # PROCESS client_request["action"] ONLY FROM CURRENT PLAYER
@@ -2775,10 +2776,13 @@ class ClientState:
                         continue
                     b_object.hover = True
                     if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                        if b_object.mode:
+                        if b_object.action:
+                            return self.client_request_to_dict(action=b_object.name)
+                        elif b_object.mode:
                             # special rules for trade, include a 'cancel' msg to server if toggled
-                            if b_object.name == "trade":
+                            if b_object.name == "trade" or b_object.name == "bank_trade":
                                 if self.mode != "trade":
+                                    self.reset_selections()
                                     return self.client_request_to_dict(mode=b_object.name)
                                 if self.mode == "trade":
                                     # cancel trade, send cancel msg to server if trade has been submitted
@@ -2791,8 +2795,6 @@ class ClientState:
 
                             elif b_object.name != "trade":
                                 return self.client_request_to_dict(mode=b_object.name, action="cancel")
-                        elif b_object.action:
-                            return self.client_request_to_dict(action=b_object.name)
                 else:
                     b_object.hover = False
 
@@ -2815,14 +2817,17 @@ class ClientState:
                 return self.client_request_to_dict(action="submit", trade_offer=self.player_trade)
             elif self.check_cancel(user_input):
                 return self.client_request_to_dict(action="cancel")
+            
             # no further input if current offer is submitted
-
             if len(self.player_trade["trade_with"]) > 0:
                 return None
+            
+            # move selection index
             if user_input == pr.KeyboardKey.KEY_UP and self.selection_index > 0:
                 self.selection_index -= 1
             elif user_input == pr.KeyboardKey.KEY_DOWN and self.selection_index < 9:
                 self.selection_index += 1
+            
             # add to trade_offer
             if 4 >= self.selection_index:
                 if user_input == pr.KeyboardKey.KEY_RIGHT and self.client_players[self.name].hand[self.resource_cards[self.selection_index]] > self.player_trade["offer"][self.resource_cards[self.selection_index]]:
