@@ -8,3 +8,4 @@ natac.code-workspace
 TODO.md
 .DS_Store
 assets/.DS_Store
+*.spec

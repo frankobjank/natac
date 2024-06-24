@@ -237,7 +237,13 @@ def draw_player_info(c_state, player_object):
             card_type_display = card_type
             while 5 > len(card_type_display):
                 card_type_display += " "
-            pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (location.x+x_offset, location.y-size+(i*size)), size, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (location.x + x_offset, location.y - size + i*size), size, 0, pr.BLACK)
+
+            resource_rec = pr.Rectangle(int(location.x + x_offset - 1.1*size), int(location.y - size + i*size), size, size)
+            pr.draw_rectangle_rec(resource_rec, game_color_dict[resource_to_terrain[card_type]])
+            pr.draw_rectangle_lines_ex(resource_rec, 2, pr.BLACK)
+
+
 
     score_display = f"Score: {player_object.victory_points}"
     dev_display = f"Dev: {player_object.dev_cards_size}"

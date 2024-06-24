@@ -672,7 +672,7 @@ class Player:
         # 7 card starting hand for debug
         # self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 0}
         self.num_to_discard = 0
-        self.dev_cards = {"knight": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
+        self.dev_cards = {"knight": 1, "road_building": 1,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
         self.visible_knights = 0 # can use to count largest army
         self.num_cities = 0
         self.num_settlements = 0 # for counting victory points
@@ -3563,6 +3563,7 @@ def run_client(name="", server_IP=local_IP):
     c_state = ClientState(name=name, server_IP=server_IP, port=default_port, combined=False)
     c_state.init_raylib()
     c_state.info_box_buttons["input_IP"].text_input = server_IP
+    c_state.info_box_buttons["input_name"].text_input = name
 
     while not pr.window_should_close():
         user_input = c_state.get_user_input()
@@ -3606,6 +3607,7 @@ def run_server(IP_address, debug=False, port=default_port):
 cmd_line_input = sys.argv[1:]
 
 def parse_cmd_line(cmd_line_input):
+    # could add these tags: -c = client, -s = server, -d = debug, -n = name, -i = IP
     # provide IP as 2nd argument
     # server: python3 main.py IP_address
     if len(cmd_line_input) > 0:
