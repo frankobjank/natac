@@ -672,7 +672,7 @@ class Player:
         # 7 card starting hand for debug
         # self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 0}
         self.num_to_discard = 0
-        self.dev_cards = {"knight": 1, "road_building": 1,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
+        self.dev_cards = {"knight": 1, "road_building": 1,  "year_of_plenty": 1, "monopoly": 1, "victory_point": 4}
         self.visible_knights = 0 # can use to count largest army
         self.num_cities = 0
         self.num_settlements = 0 # for counting victory points
@@ -3173,11 +3173,11 @@ class ClientState:
                         dev_card_offset = 0
                         for position, number in enumerate(server_response["dev_cards"][order]):
                             self.client_players[name].dev_cards[self.dev_card_order[position]] = number
-                            button_division = 17
+                            button_division = 18
                             button_w = self.screen_width//button_division
                             if number > 0:
                                 self.dev_card_buttons[self.dev_card_order[position]] = Button(
-                                    pr.Rectangle(self.screen_width/2.8 - (dev_card_offset+1.2)*button_w, 
+                                    pr.Rectangle(self.screen_width*0.05 + (dev_card_offset + 1.2)*button_w, 
                                         self.screen_height*.9, 
                                         button_w, 
                                         self.client_players[name].rec.height

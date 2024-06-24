@@ -225,24 +225,21 @@ def draw_building_costs(button):
 
 # includes dev_cards for other players, not dev card buttons for self
 def draw_player_info(c_state, player_object):
-    x_offset = c_state.screen_width//20
-    # size = c_state.screen_height//50
     size = c_state.med_text-2
 
     if c_state.name == player_object.name:
         # draw hand for self
-        location = pr.Vector2(c_state.screen_width/3, c_state.screen_height-c_state.screen_height/10)
+        location = pr.Vector2(player_object.rec.x + c_state.screen_width*.02, c_state.screen_height - c_state.screen_height/10)
         for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
             # put card_type into new var to bring all resource names to 5 chars
             card_type_display = card_type
             while 5 > len(card_type_display):
                 card_type_display += " "
-            pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (location.x + x_offset, location.y - size + i*size), size, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (location.x, location.y - size + i*size), size, 0, pr.BLACK)
 
-            resource_rec = pr.Rectangle(int(location.x + x_offset - 1.1*size), int(location.y - size + i*size), size, size)
+            resource_rec = pr.Rectangle(int(location.x - 1.1*size), int(location.y - size + i*size), size, size)
             pr.draw_rectangle_rec(resource_rec, game_color_dict[resource_to_terrain[card_type]])
             pr.draw_rectangle_lines_ex(resource_rec, 2, pr.BLACK)
-
 
 
     score_display = f"Score: {player_object.victory_points}"
@@ -254,10 +251,12 @@ def draw_player_info(c_state, player_object):
     if player_object.visible_knights > 0:
         dev_display += f"\nKnights: {player_object.visible_knights}"
 
-    pr.draw_text_ex(pr.gui_get_font(), score_display, (player_object.rec.x+x_offset, player_object.rec.y), size, 0, pr.BLACK)
-    pr.draw_text_ex(pr.gui_get_font(), f"Hand: {player_object.hand_size}", (player_object.rec.x+x_offset, player_object.rec.y+size), size, 0, pr.BLACK)
+    x_offset = c_state.screen_width//20
+    
+    pr.draw_text_ex(pr.gui_get_font(), score_display, (player_object.rec.x + x_offset, player_object.rec.y), size, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), f"Hand: {player_object.hand_size}", (player_object.rec.x + x_offset, player_object.rec.y + size), size, 0, pr.BLACK)
     # dev cards plus knights, if they exist
-    pr.draw_text_ex(pr.gui_get_font(), dev_display, (player_object.rec.x+x_offset, player_object.rec.y+size*2), size, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), dev_display, (player_object.rec.x + x_offset, player_object.rec.y + size*2), size, 0, pr.BLACK)
 
 def get_outer_rec(rec, offset):
     return pr.Rectangle(rec.x-offset, rec.y-offset, rec.width+2*offset, rec.height+2*offset)
