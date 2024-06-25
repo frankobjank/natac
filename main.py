@@ -150,7 +150,7 @@ class Edge:
         if setup:
             if s_state.players[s_state.current_player_name].setup_settlement is not None:
                 if not set(self.hexes).issubset(set(s_state.players[s_state.current_player_name].setup_settlement.hexes)):
-                    s_state.send_to_player(s_state.current_player_name, "log", "You must choose a location adjacent to the settlement you just placed.")
+                    s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You must choose a location adjacent to the settlement you just placed.")
                     return False
                 elif set(self.hexes).issubset(set(s_state.players[s_state.current_player_name].setup_settlement.hexes)):
                     s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
@@ -160,7 +160,7 @@ class Edge:
         owned_roads = [edge for edge in s_state.board.edges if edge.player == s_state.current_player_name]
         if len(owned_roads) >= 15:
             if verbose:
-                s_state.send_to_player(s_state.current_player_name, "log", "You ran out of roads (max 15).")
+                s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You ran out of roads (max 15).")
                 print("no available roads")
             return False
         
@@ -168,17 +168,17 @@ class Edge:
         if self.player is not None:
             if self.player == s_state.players[s_state.current_player_name]:
                 if verbose:
-                    s_state.send_to_player(s_state.current_player_name, "log", "This location is already owned by you.")
+                    s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "This location is already owned by you.")
             else:
                 if verbose:
-                    s_state.send_to_player(s_state.current_player_name, "log", "This location is owned by another player.")
+                    s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "This location is owned by another player.")
                     print("This location is already owned")
             return False
 
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes:
             if verbose:
-                s_state.send_to_player(s_state.current_player_name, "log", "You can't build in the ocean.")
+                s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You can't build in the ocean.")
                 print("can't build in ocean")
             return False
         
@@ -190,7 +190,7 @@ class Edge:
                     s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
                     print("building next to settlement")
                     # -1 since this is before road gets added to board
-                    s_state.send_to_player(self.current_player_name, "log", f"You have {15-1-len(owned_roads)} total roads remaining.")
+                    s_state.send_to_player(self.players[self.current_player_name].address, "log", f"You have {15-1-len(owned_roads)} total roads remaining.")
                 return True
         
         
@@ -204,7 +204,7 @@ class Edge:
 
         if len(origin_edges) == 0: # non-contiguous
             if verbose:
-                s_state.send_to_player(s_state.current_player_name, "log", "You must build adjacent to one of your roads or settlements.")
+                s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You must build adjacent to one of your roads or settlements.")
                 print("non-contiguous")
             return False
         # origin shows what direction road is going
@@ -234,14 +234,14 @@ class Edge:
                 
             if blocked_count == len(origin_edges):
                 if verbose:
-                    s_state.send_to_player(s_state.current_player_name, "log", "You cannot build there. All routes are blocked.")
+                    s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You cannot build there. All routes are blocked.")
                     print("all routes blocked")
                 return False
         
         if verbose:
             s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
             # -1 since this is before road gets added to board
-            s_state.send_to_player(s_state.current_player_name, "log", f"You have {15-1-len(owned_roads)} total roads remaining.")
+            s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {15-1-len(owned_roads)} total roads remaining.")
 
             print("no conflicts")
         return True
@@ -304,28 +304,28 @@ class Node:
 
         # check num_settlements
         if s_state.players[s_state.current_player_name].num_settlements >= 5:
-            s_state.send_to_player(s_state.current_player_name, "log", "You have no available settlements (max 5).")            
+            s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You have no available settlements (max 5).")            
             print("no available settlements")
             return False
 
         # check if player owns node
         if self.player is not None:
             if self.player == s_state.players[s_state.current_player_name]:
-                s_state.send_to_player(s_state.current_player_name, "log", "You already own this location.")
+                s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You already own this location.")
             else:
-                s_state.send_to_player(s_state.current_player_name, "log", f"{self.player} already owns this location.")
+                s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"{self.player} already owns this location.")
             print("location already owned")
             return False
         
         # check if town is None - is redundant because self.player already checks for this
         if self.town is not None:
-            s_state.send_to_player(s_state.current_player_name, "log", "This location must be empty.")
+            s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "This location must be empty.")
             return False
 
         
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes and self.hexes[2] in s_state.board.ocean_hexes:
-            s_state.send_to_player(s_state.current_player_name, "log", "You cannot build in the ocean.")
+            s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You cannot build in the ocean.")
             print("can't build in ocean")
             return False
         
@@ -333,11 +333,11 @@ class Node:
         adj_nodes = self.get_adj_nodes_from_node(s_state.board.nodes)
         for node in adj_nodes:
             if node.town == "settlement":
-                s_state.send_to_player(s_state.current_player_name, "log", "Too close to another settlement.")
+                s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "Too close to another settlement.")
                 print("too close to settlement")
                 return False
             elif node.town == "city":
-                s_state.send_to_player(s_state.current_player_name, "log", "Too close to a city.")
+                s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "Too close to a city.")
                 print("too close to city")
                 return False
 
@@ -345,35 +345,35 @@ class Node:
             adj_edges = self.get_adj_edges(s_state.board.edges)
             # is node adjacent to at least 1 same-colored road
             if all(edge.player != s_state.current_player_name for edge in adj_edges):
-                s_state.send_to_player(s_state.current_player_name, "log", "You have no adjacent roads.")
+                s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You have no adjacent roads.")
                 print("no adjacent roads")
                 return False
                         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a settlement.")
         
         # -1 since this is before road gets added to board
-        s_state.send_to_player(s_state.current_player_name, "log", f"You have {5-1-s_state.players[s_state.current_player_name].num_settlements} settlements remaining.")
+        s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {5-1-s_state.players[s_state.current_player_name].num_settlements} settlements remaining.")
         print("no conflicts, building settlement")
         return True
     
     def build_check_city(self, s_state):
         if self.town != "settlement":
-            s_state.send_to_player(s_state.current_player_name, "log", "This location must be a settlement.")
+            s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "This location must be a settlement.")
             return False
         
         if self.player != s_state.current_player_name:
-            s_state.send_to_player(s_state.current_player_name, "log", f"{self.player} already owns this location.")
+            s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"{self.player} already owns this location.")
             print("owned by someone else")
             return False
 
         if s_state.players[s_state.current_player_name].num_cities >= 4:
-            s_state.send_to_player(s_state.current_player_name, "log", "You have no more available cities (max 4).")
+            s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You have no more available cities (max 4).")
             print("no available cities")
             return False
         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a city.")
         # -1 since this is before road gets added to board
-        s_state.send_to_player(s_state.current_player_name, "log", f"You have {4-1-s_state.players[s_state.current_player_name].num_cities} cities remaining.")
+        s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {4-1-s_state.players[s_state.current_player_name].num_cities} cities remaining.")
         print("no conflicts, building city")
         return True
 
@@ -672,7 +672,7 @@ class Player:
         # 7 card starting hand for debug
         # self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 0}
         self.num_to_discard = 0
-        self.dev_cards = {"knight": 1, "road_building": 1,  "year_of_plenty": 1, "monopoly": 1, "victory_point": 4}
+        self.dev_cards = {"knight": 3, "road_building": 1,  "year_of_plenty": 1, "monopoly": 1, "victory_point": 4}
         self.visible_knights = 0 # can use to count largest army
         self.num_cities = 0
         self.num_settlements = 0 # for counting victory points
@@ -801,9 +801,8 @@ class ServerState:
             for r in player_object.hand.keys():
                 player_object.hand[r] = 1
 
-    def is_server_full(self, name, max_players=4):
-        if len(self.player_order) >= max_players or (name not in self.player_order and not self.setup):
-            print("Server cannot accept any more players")
+    def is_server_full(self, max_players=4):
+        if len(self.player_order) >= max_players:
             return True
         else:
             return False
@@ -812,9 +811,9 @@ class ServerState:
         for p_object in self.players.values():
             self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), p_object.address)
     
-    def send_to_player(self, name: str, kind: str, msg: str):
+    def send_to_player(self, address: str, kind: str, msg: str):
         if isinstance(msg, str):
-            self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), self.players[name].address)
+            self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), address)
             
 
     # adding players to server. order in terms of arrival, will rearrange later
@@ -829,15 +828,26 @@ class ServerState:
                 return
 
         elif not name in self.players:
+            if self.is_server_full():
+                print("Server is full.")
+                self.send_to_player(address, "reset", "connecting")
+                self.send_to_player(address, "log", "Server is full.")
+                return
+            elif not self.setup:
+                print("Game has started. Cannot add players mid-game.")
+                self.send_to_player(address, "reset", "connecting")
+                self.send_to_player(address, "log", "Game has started. Cannot add players mid-game.")
+                return
             order = len(self.player_order)
             self.players[name] = Player(name, order, address)
             self.player_order.append(name)
             if self.debug:
                 self.board.set_demo_settlements(self, name)
+                self.players[name].color = self.colors_avl.pop()
             self.send_broadcast("log", f"Adding {name} to game.")
         
-        self.send_to_player(name, "log", "Welcome to natac.")
-        self.send_to_player(name, "confirm", "add_player")
+        self.send_to_player(self.players[name].address, "log", "Welcome to natac.")
+        self.send_to_player(self.players[name].address, "add_player", name)
         self.socket.sendto(to_json(self.package_state(name, include_board=True)).encode(), address)
 
     def randomize_player_order(self):
@@ -1120,7 +1130,7 @@ class ServerState:
 
     def play_dev_card(self, kind):
         if self.dev_card_played:
-            self.send_to_player(self.current_player_name, "log", "You can only play one dev card per turn.")
+            self.send_to_player(self.players[self.current_player_name].address, "log", "You can only play one dev card per turn.")
             return
         self.send_broadcast("log", f"{self.current_player_name} played a {rf.to_title(kind)} card.")
         self.dev_card_played = True
@@ -1132,11 +1142,11 @@ class ServerState:
 
         elif kind == "road_building":
             if not self.can_build_road():
-                self.send_to_player(self.current_player_name, "log", "No valid road placements.")
+                self.send_to_player(self.players[self.current_player_name].address, "log", "No valid road placements.")
                 self.mode = None
                 return
             self.mode = "road_building"
-            self.send_to_player(self.current_player_name, "log", "Entering Road Building Mode.")
+            self.send_to_player(self.players[self.current_player_name].address, "log", "Entering Road Building Mode.")
 
         elif kind == "year_of_plenty":
             self.mode = "year_of_plenty" # mode that prompts current_player to pick two resources
@@ -1178,12 +1188,12 @@ class ServerState:
                     location_edge.player = self.current_player_name
                     self.players[self.current_player_name].num_roads += 1
                     self.road_building_counter += 1
-                    self.send_to_player(self.current_player_name, "log", f"Road placed, you have {2-self.road_building_counter} left.")
+                    self.send_to_player(self.players[self.current_player_name].address, "log", f"Road placed, you have {2-self.road_building_counter} left.")
                     self.calc_longest_road()
                     
 
             if self.road_building_counter == 2 or not self.can_build_road:
-                self.send_to_player(self.current_player_name, "log", f"Exiting Road Building Mode.")
+                self.send_to_player(self.players[self.current_player_name].address, "log", f"Exiting Road Building Mode.")
 
                 self.mode = None
                 self.road_building_counter = 0
@@ -1191,10 +1201,10 @@ class ServerState:
                 
         elif self.mode == "year_of_plenty" and action == "submit" and cards is not None:
             if sum(cards.values()) != 2:
-                self.send_to_player(self.current_player_name, "log", "You must request two cards.")
+                self.send_to_player(self.players[self.current_player_name].address, "log", "You must request two cards.")
                 return
             self.mode = None
-            self.send_to_player(self.current_player_name, "reset", "year_of_plenty")
+            self.send_to_player(self.players[self.current_player_name].address, "reset", "year_of_plenty")
             cards_recv = []
             for card_type in self.resource_cards:
                 if cards[card_type] > 0:
@@ -1202,9 +1212,9 @@ class ServerState:
                     cards_recv.append(card_type)
             
             if len(cards_recv) == 1:
-                self.send_to_player(self.current_player_name, "log", f"You receive 2 {cards_recv[0]}.")
+                self.send_to_player(self.players[self.current_player_name].address, "log", f"You receive 2 {cards_recv[0]}.")
             elif len(cards_recv) == 2:
-                self.send_to_player(self.current_player_name, "log", f"You receive 1 {cards_recv[0]} and 1 {cards_recv[1]}.")
+                self.send_to_player(self.players[self.current_player_name].address, "log", f"You receive 1 {cards_recv[0]} and 1 {cards_recv[1]}.")
             
 
         elif self.mode == "monopoly" and action == "submit" and resource is not None:
@@ -1217,7 +1227,7 @@ class ServerState:
             self.send_broadcast("log", f"{self.current_player_name} stole {collected} {resource} from all players.")
             self.mode = None
             # lets client know action was accepted - client resets vars
-            self.send_to_player(self.current_player_name, "reset", "monopoly")
+            self.send_to_player(self.players[self.current_player_name].address, "reset", "monopoly")
 
         if self.mode is None and not self.has_rolled:
             self.mode = "roll_dice"
@@ -1248,7 +1258,7 @@ class ServerState:
     def buy_dev_card(self):
         # add random dev card to hand
         if len(self.dev_card_deck) == 0:
-            self.send_to_player(self.current_player_name, "log", "No dev cards remaining.")
+            self.send_to_player(self.players[self.current_player_name].address, "log", "No dev cards remaining.")
             return
         card = self.dev_card_deck.pop()
         self.send_broadcast("log", f"{self.current_player_name} bought a development card.")
@@ -1274,7 +1284,7 @@ class ServerState:
         hand = self.players[self.current_player_name].hand
         if all(hand[resource] >= cost[resource] for resource in cost.keys()):
             return True
-        self.send_to_player(self.current_player_name, "log", f"Insufficient resources for {item}.")
+        self.send_to_player(self.players[self.current_player_name].address, "log", f"Insufficient resources for {item}.")
         return False
         # still_needed = []
         
@@ -1286,12 +1296,12 @@ class ServerState:
         # if len(still_needed) == 0:
         #     return True
 
-        # self.send_to_player(self.current_player_name, "log", f"Not enough {', '.join(still_needed)} for {item}")
+        # self.send_to_player(self.players[self.current_player_name].address, "log", f"Not enough {', '.join(still_needed)} for {item}")
     
 
     def move_robber(self, location_hex):
         if location_hex == self.board.robber_hex or location_hex not in self.board.land_hexes:
-            self.send_to_player(self.current_player_name, "log", "Invalid location for robber.")
+            self.send_to_player(self.players[self.current_player_name].address, "log", "Invalid location for robber.")
             return
 
         self.board.robber_hex = location_hex
@@ -1340,7 +1350,7 @@ class ServerState:
         self.players[from_player].hand[chosen_card] -= 1
         self.players[to_player].hand[chosen_card] += 1
         self.send_broadcast("log", f"{to_player} stole a card from {from_player}.")
-        self.send_to_player(to_player, "log", f"Received {chosen_card} from {from_player}.")
+        self.send_to_player(self.players[to_player].address, "log", f"Received {chosen_card} from {from_player}.")
         
         # reset mode and steal list
         if self.has_rolled:
@@ -1463,9 +1473,9 @@ class ServerState:
             
             for p_name in self.players.keys():
                 if p_name == self.current_player_name:
-                    self.send_to_player(self.current_player_name, "log", f"Congratulations, you won!")
+                    self.send_to_player(self.players[self.current_player_name].address, "log", f"Congratulations, you won!")
                 else:
-                    self.send_to_player(p_name, "log", f"{self.current_player_name} won!")
+                    self.send_to_player(self.players[p_name].address, "log", f"{self.current_player_name} won!")
             
             self.game_over = True
 
@@ -1627,8 +1637,12 @@ class ServerState:
         
         # action
         if client_request["action"] == "add_player":
-            if not self.is_server_full(client_request["name"]):
-                self.add_player(client_request["name"], address)
+            self.add_player(client_request["selected_player"], address)
+        
+        elif client_request["action"] == "debug_add_player" and self.debug:
+            for i in range(4):
+                self.add_player(client_request["selected_player"]+str(i), address=address)
+            return
 
         # check for chat submission from all players before any other actions - should be able to chat at any stage in the game
         elif client_request["action"] == "submit" and client_request["chat"] is not None:
@@ -1643,17 +1657,17 @@ class ServerState:
             if client_request["color"] in self.colors_avl:
                 self.players[client_request["name"]].color = client_request["color"]
                 self.colors_avl.remove(client_request["color"])
-                self.send_to_player(client_request["name"], "reset", "color_selection")
+                self.send_to_player(self.players[client_request["name"]].address, "reset", "color_selection")
             elif self.players[client_request["name"]] == "gray" and not client_request["color"] in self.colors_avl:
-                self.send_to_player(client_request["name"], "log", f"{client_request['color']} is not available, choose another.")
+                self.send_to_player(self.players[client_request["name"]].address, "log", f"{client_request['color']} is not available, choose another.")
             return
         
         elif client_request["action"] == "start_game":
             if not all(player_object.color != "gray" for player_object in self.players.values()):
-                self.send_to_player(client_request["name"], "log", "Not all players have chosen colors.")
+                self.send_to_player(self.players[client_request["name"]].address, "log", "Not all players have chosen colors.")
                 return
             if not self.debug and 2 > len(self.players):
-                self.send_to_player(client_request["name"], "log", "Must have at least 2 players to start a game.")
+                self.send_to_player(self.players[client_request["name"]].address, "log", "Must have at least 2 players to start a game.")
                 return
             self.start_game()
             return
@@ -1661,7 +1675,7 @@ class ServerState:
         # receive input from non-current player for discard_cards and trade
         elif client_request["action"] == "submit" and self.mode == "discard" and client_request["cards"] is not None:
             if sum(client_request["cards"].values()) == self.players[client_request["name"]].num_to_discard:
-                self.send_to_player(client_request["name"], "reset", "discard")
+                self.send_to_player(self.players[client_request["name"]].address, "reset", "discard")
                 self.players[client_request["name"]].num_to_discard = 0
                 for card_type in self.resource_cards:
                     if client_request["cards"][card_type] > 0:
@@ -1678,12 +1692,12 @@ class ServerState:
                 if all(self.players[client_request["name"]].hand[resource] >= self.player_trade["request"][resource] for resource in self.resource_cards):
                     self.complete_trade(self.current_player_name, client_request["name"])
                 else:
-                    self.send_to_player(client_request["name"], "log", "Insufficient resources for completing trade.")
+                    self.send_to_player(self.players[client_request["name"]].address, "log", "Insufficient resources for completing trade.")
                 return
             elif client_request["action"] == "cancel":
                 self.players_declined.add(client_request["name"])
-                self.send_to_player(self.current_player_name, "log", f"{client_request['name']} declined trade.")
-                self.send_to_player(client_request["name"], "log", "You declined the trade.")
+                self.send_to_player(self.players[self.current_player_name].address, "log", f"{client_request['name']} declined trade.")
+                self.send_to_player(self.players[client_request["name"]].address, "log", "You declined the trade.")
                 if len(self.players_declined) == len(self.player_order)-1:
                     self.reset_trade_vars()
                     self.send_broadcast("log", "All players declined. Cancelling trade.")
@@ -1748,7 +1762,7 @@ class ServerState:
                 return
             elif client_request["action"] == "cancel":
                 self.mode = None
-                self.send_to_player(client_request["name"], "reset", "trade")
+                self.send_to_player(self.players[client_request["name"]].address, "reset", "trade")
                 if len(self.player_trade["trade_with"]) > 0:
                     self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
                     self.send_broadcast("log", "Trade offer cancelled.")
@@ -1763,12 +1777,12 @@ class ServerState:
                     self.players[client_request["name"]].hand[offer] += offer_num
                     self.players[client_request["name"]].hand[request] += request_num
                     
-                    self.send_to_player(client_request["name"], "reset", "bank_trade")
+                    self.send_to_player(self.players[client_request["name"]].address, "reset", "bank_trade")
                     self.send_broadcast("log", f"{client_request['name']} traded in {-offer_num} {offer} for {request_num} {request}.")
             
             elif client_request["action"] == "cancel":
                 self.mode = None
-                self.send_to_player(client_request["name"], "reset", "bank_trade")
+                self.send_to_player(self.players[client_request["name"]].address, "reset", "bank_trade")
 
         elif self.mode == "steal":
             if client_request["action"] == "submit" and client_request["selected_player"] is not None:
@@ -1778,7 +1792,7 @@ class ServerState:
         # don't allow other actions while move_robber or discard_cards is active
         elif self.mode == "move_robber":
             if client_request["action"] != "move_robber" and client_request["action"] is not None:
-                self.send_to_player(client_request["name"], "log", "You must move the robber first.")
+                self.send_to_player(self.players[client_request["name"]].address, "log", "You must move the robber first.")
                 return
             # move robber
             if client_request["location"]["hex_a"] is not None:
@@ -1787,7 +1801,7 @@ class ServerState:
 
         elif self.mode == "discard":
             if client_request["action"] is not None:
-                self.send_to_player(client_request["name"], "log", "All players must finish discarding first.")
+                self.send_to_player(self.players[client_request["name"]].address, "log", "All players must finish discarding first.")
             return                
 
         # force resolution of dev card before processing more mode changes, actions
@@ -1798,7 +1812,7 @@ class ServerState:
 
         if client_request["mode"] is not None:
             if self.mode == client_request["mode"]:
-                self.send_to_player(self.current_player_name, "reset", "all")
+                self.send_to_player(self.players[self.current_player_name].address, "reset", "all")
                 self.mode = None
             # this should be redundant - a dev_card mode should not make it this far -- ---- missing a return at the end of the dev_card_mode statement
             # elif self.mode not in self.dev_card_modes:
@@ -1814,7 +1828,7 @@ class ServerState:
                 if not self.cost_check("city"):
                     self.mode = None
                     return
-            self.send_to_player(self.current_player_name, "reset", "all")
+            self.send_to_player(self.players[self.current_player_name].address, "reset", "all")
             self.mode = client_request["mode"]
         
 
@@ -1831,7 +1845,7 @@ class ServerState:
 
         elif client_request["action"] == "play_dev_card":
             if not client_request["cards"] in self.dev_cards_avl:
-                self.send_to_player(self.current_player_name, "log", "You cannot play a dev card you got this turn.")
+                self.send_to_player(self.players[self.current_player_name].address, "log", "You cannot play a dev card you got this turn.")
                 return
             self.play_dev_card(client_request["cards"])
 
@@ -2042,7 +2056,7 @@ class ClientPlayer:
 
 # TODO double input bug server is receiving 2 inputs on double input error so problem lies in client creating and sending msg
 class ClientState:
-    def __init__(self, name, server_IP, port, debug=False):
+    def __init__(self, server_IP, port, debug=False):
         print("starting client")
         # Networking
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -2054,7 +2068,7 @@ class ClientState:
         self.num_msgs_recv = 0 # for debug
         self.time_last_sent = 0 # time.time()
         self.time_last_recv = 0 # time.time()
-        self.name = name # username (name that will be associated with Player)
+        self.name = "" # username (name that will be associated with Player)
         self.colors_avl = []
         self.previous_packet = {}
         self.sounds = {}
@@ -2235,7 +2249,7 @@ class ClientState:
         self.default_zoom = 0.9
         self.camera = pr.Camera2D()
         self.camera.target = pr.Vector2(0, 0)
-        self.camera.offset = pr.Vector2(self.screen_width/2.7, self.screen_height/2)
+        self.camera.offset = pr.Vector2(self.screen_width/2.6, self.screen_height/2.45)
         self.camera.rotation = 0.0
         self.camera.zoom = self.default_zoom
     
@@ -2616,11 +2630,13 @@ class ClientState:
                     return None
                 if not self.debug and len(self.info_box_buttons["input_name"].text_input) == 0:
                     self.add_to_log("Please enter a name.")
-                self.name = self.info_box_buttons["input_name"].text_input
+                name = self.info_box_buttons["input_name"].text_input
                 self.server_IP = self.info_box_buttons["input_IP"].text_input
                 self.add_to_log("Connecting to server...")
                 self.mode = "connecting"
-                return self.client_request_to_dict(action="add_player")
+                if self.debug:
+                    return self.client_request_to_dict(action="debug_add_player", player=name)
+                return self.client_request_to_dict(action="add_player", player=name)
             else:
                 return None
         
@@ -2686,15 +2702,14 @@ class ClientState:
         # start of turn
         # check for dev card hover apart from other buttons - also before roll_dice check
         for b_object in self.dev_card_buttons.values():
-            if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
+            if b_object.name != "victory_point" and pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
                 b_object.hover = True
             else:
                 b_object.hover = False
         # 2nd loop for selecting card
         for b_object in self.dev_card_buttons.values():
-            if b_object.name != "victory_point":
-                if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                    return self.client_request_to_dict(action="play_dev_card", cards=b_object.name)
+            if b_object.name != "victory_point" and pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec) and user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                return self.client_request_to_dict(action="play_dev_card", cards=b_object.name)
 
         # dice
         if self.mode == "roll_dice":
@@ -2762,41 +2777,39 @@ class ClientState:
         
         
         # buttons - check for hover, then for mouse click
-        for b_object in self.turn_buttons.values():
-            if self.mode == "move_robber":
-                break
-            # if not current player, no hover or selecting buttons
-            if self.name != self.current_player_name:
-                b_object.hover = False
-            
-            elif self.name == self.current_player_name:
-                if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
-                    # special rules for "roll_dice" and "submit"; handle separately
-                    if b_object.name == "roll_dice" or b_object.name == "submit":
-                        continue
-                    b_object.hover = True
-                    if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
-                        if b_object.action:
-                            return self.client_request_to_dict(action=b_object.name)
-                        elif b_object.mode:
-                            # special rules for trade, include a 'cancel' msg to server if toggled
-                            if b_object.name == "trade" or b_object.name == "bank_trade":
-                                if self.mode != "trade":
-                                    self.reset_selections()
-                                    return self.client_request_to_dict(mode=b_object.name)
-                                if self.mode == "trade":
-                                    # cancel trade, send cancel msg to server if trade has been submitted
-                                    if len(self.player_trade["trade_with"]) > 0:
-                                        return self.client_request_to_dict(mode=b_object.name, action="cancel")
-                                    # if not submitted yet, trade is reset for client
-                                    else:
+        if self.mode != "move_robber":
+            for b_object in self.turn_buttons.values():
+                # if not current player, no hover or selecting buttons
+                if self.name != self.current_player_name:
+                    b_object.hover = False
+                elif self.name == self.current_player_name:
+                    if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
+                        # special rules for "roll_dice" and "submit"; handle separately
+                        if b_object.name == "roll_dice" or b_object.name == "submit":
+                            continue
+                        b_object.hover = True
+                        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                            if b_object.action:
+                                return self.client_request_to_dict(action=b_object.name)
+                            elif b_object.mode:
+                                # special rules for trade, include a 'cancel' msg to server if toggled
+                                if b_object.name == "trade" or b_object.name == "bank_trade":
+                                    if self.mode != "trade":
                                         self.reset_selections()
                                         return self.client_request_to_dict(mode=b_object.name)
+                                    if self.mode == "trade":
+                                        # cancel trade, send cancel msg to server if trade has been submitted
+                                        if len(self.player_trade["trade_with"]) > 0:
+                                            return self.client_request_to_dict(mode=b_object.name, action="cancel")
+                                        # if not submitted yet, trade is reset for client
+                                        else:
+                                            self.reset_selections()
+                                            return self.client_request_to_dict(mode=b_object.name)
 
-                            elif b_object.name != "trade":
-                                return self.client_request_to_dict(mode=b_object.name, action="cancel")
-                else:
-                    b_object.hover = False
+                                elif b_object.name != "trade":
+                                    return self.client_request_to_dict(mode=b_object.name, action="cancel")
+                    else:
+                        b_object.hover = False
 
 
         # anything below only applies to current player
@@ -2985,7 +2998,7 @@ class ClientState:
     # unpack server response and update state
     def update_client(self, encoded_server_response):
         # name : self.name
-        # kind : log, game state, confirm
+        # kind : log, game state, add_player
         # ocean_hexes : [[0, -3], [1, -3],
         # ports_ordered :["three", None, "wheat", None, 
         # port_corners : [(5, 0), None,
@@ -3042,17 +3055,21 @@ class ClientState:
             return
         
         elif server_response["kind"] == "reset":
+            print("hello")
             if server_response["msg"] == "setup_complete":
                 self.setup = False
+                return
+            elif server_response["msg"] == "connecting":
+                print("hello")
+                self.mode = "connect"
                 return
             self.reset_selections()
             return
         
-        elif server_response["kind"] == "confirm":
-            if server_response["msg"] == "add_player":
-                pr.set_window_title(f"Natac - {self.name}")
-                self.chat_msg = f"{self.name}: "
-            # add other confirmations here
+        elif server_response["kind"] == "add_player":
+            self.name = server_response["msg"]
+            pr.set_window_title(f"Natac - {self.name}")
+            self.chat_msg = f"{self.name}: "
             return
 
         self.data_verification(server_response)
@@ -3172,13 +3189,13 @@ class ClientState:
                         dev_card_offset = 0
                         for position, number in enumerate(server_response["dev_cards"][order]):
                             self.client_players[name].dev_cards[self.dev_card_order[position]] = number
-                            button_division = 18
-                            button_w = self.screen_width//button_division
+                            button_division = 14
                             if number > 0:
                                 self.dev_card_buttons[self.dev_card_order[position]] = Button(
-                                    pr.Rectangle(self.screen_width*0.05 + (dev_card_offset + 1.2)*button_w, 
-                                        self.screen_height*.9, 
-                                        button_w, 
+                                    pr.Rectangle(
+                                        self.screen_width*0.025, 
+                                        self.screen_height*.8 - (dev_card_offset*1.1)*self.client_players[name].rec.height, 
+                                        self.screen_width//button_division, 
                                         self.client_players[name].rec.height
                                         ), 
                                     self.dev_card_order[position], 
@@ -3381,7 +3398,7 @@ class ClientState:
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
 
-            if b_object.name != "roll_dice" and b_object.name != "submit" and b_object.name != "end_turn":
+            if b_object.name != "roll_dice" and b_object.name != "submit":
                 b_object.draw_display()
                 if b_object.name == "build_road" or b_object.name == "build_settlement" or b_object.name == "build_city" or b_object.name == "buy_dev_card":
                     rf.draw_building_costs(b_object)
@@ -3463,18 +3480,18 @@ class ClientState:
 
 
         score_font = self.med_text - 2 # (self.small_text + self.med_text)/2
-        if len(self.player_order) > 0 and not self.setup:
+        if len(self.player_order) > 0:
             if len(self.longest_road) > 0:
                 name = self.longest_road
             elif len(self.longest_road) == 0:
                 name = "Unassigned"
-            pr.draw_text_ex(pr.gui_get_font(), f"Longest Road:\n {name}", (self.client_players[self.name].rec.x, score_font + 4*score_font*(len(self.player_order)+1) + score_font), score_font, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f"Longest Road:\n {name}", (self.client_players[self.name].rec.x, 3*score_font + 4*score_font*(len(self.player_order)+1)), score_font, 0, pr.BLACK)
 
             if len(self.largest_army) > 0:
                 name = self.largest_army
             elif len(self.largest_army) == 0:
                 name = "Unassigned"
-            pr.draw_text_ex(pr.gui_get_font(), f"Largest Army:\n {name}", (self.client_players[self.name].rec.x, score_font + 4*score_font*(len(self.player_order)+1)+3*score_font), score_font, 0, pr.BLACK)
+            pr.draw_text_ex(pr.gui_get_font(), f"Largest Army:\n {name}", (self.client_players[self.name].rec.x, 5*score_font + 4*score_font*(len(self.player_order)+1)), score_font, 0, pr.BLACK)
         
         pr.end_drawing()
 
@@ -3559,8 +3576,8 @@ class ClientState:
         pr.close_audio_device()
         pr.close_window()
 
-def run_client(name="", server_IP=local_IP, debug=False):
-    c_state = ClientState(name=name, server_IP=server_IP, port=default_port, debug=debug)
+def run_client(server_IP=local_IP, debug=False):
+    c_state = ClientState(server_IP=server_IP, port=default_port, debug=debug)
     c_state.init_raylib()
     c_state.info_box_buttons["input_IP"].text_input = server_IP
     if c_state.debug:
@@ -3622,7 +3639,7 @@ def parse_cmd_line(cmd_line_input):
                 run_server(local_IP)
         else:
             if len(cmd_line_input) == 1 and cmd_line_input[0] == "-d":
-                    run_client(name="", server_IP=local_IP, debug=True)
+                    run_client(server_IP=local_IP, debug=True)
 
             elif len(cmd_line_input) > 2:
                 # remote default board
@@ -3630,6 +3647,6 @@ def parse_cmd_line(cmd_line_input):
             else:
                 run_server(cmd_line_input[1]) # remote random board
     else:
-        run_client(name="", server_IP=local_IP)
+        run_client(server_IP=local_IP)
 
 parse_cmd_line(cmd_line_input)
