@@ -21,7 +21,7 @@ import time
 
     # find sound for each resource, like metal clank for ore, baah for sheep. use chimes/vibes for selecting
 
-
+# could put these into a server class that could be used by server or client
 local_IP = '127.0.0.1'
 default_port = 12345
 buffer_size = 10000
@@ -808,10 +808,16 @@ class ServerState:
             return False
     
     def send_broadcast(self, kind: str, msg: str):
+        if kind == "log":
+            for m in msg.split("\n"):
+                print(m)
         for p_object in self.players.values():
             self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), p_object.address)
     
     def send_to_player(self, address: str, kind: str, msg: str):
+        if kind == "log":
+            for m in msg.split("\n"):
+                print(m)
         if isinstance(msg, str):
             self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), address)
             
@@ -823,27 +829,29 @@ class ServerState:
             if self.players[name].address != address:
                 self.players[name].address = address
                 self.send_broadcast("log", f"{name} is reconnecting.")
+                print(f"{name} is reconnecting")
             else:
                 print("player already added; redundant call")
                 return
 
         elif not name in self.players:
             if self.is_server_full():
-                print("Server is full.")
+                msg = f"{name} cannot be added. Server is full."
                 self.send_to_player(address, "reset", "connecting")
-                self.send_to_player(address, "log", "Server is full.")
+                self.send_to_player(address, "log", msg)
                 return
             elif not self.setup:
-                print("Game has started. Cannot add players mid-game.")
+                msg = f"{name} cannot be added. Cannot add players mid-game."
+                print(msg)
                 self.send_to_player(address, "reset", "connecting")
-                self.send_to_player(address, "log", "Game has started. Cannot add players mid-game.")
+                self.send_to_player(address, "log", msg)
                 return
             order = len(self.player_order)
             self.players[name] = Player(name, order, address)
             self.player_order.append(name)
             if self.debug:
                 self.board.set_demo_settlements(self, name)
-                self.players[name].color = self.colors_avl.pop()
+                # self.players[name].color = self.colors_avl.pop()
             self.send_broadcast("log", f"Adding {name} to game.")
         
         self.send_to_player(self.players[name].address, "log", "Welcome to natac.")
@@ -1298,7 +1306,6 @@ class ServerState:
 
         # self.send_to_player(self.players[self.current_player_name].address, "log", f"Not enough {', '.join(still_needed)} for {item}")
     
-
     def move_robber(self, location_hex):
         if location_hex == self.board.robber_hex or location_hex not in self.board.land_hexes:
             self.send_to_player(self.players[self.current_player_name].address, "log", "Invalid location for robber.")
@@ -1333,7 +1340,6 @@ class ServerState:
         elif not self.has_rolled:
             self.mode = "roll_dice"
 
-
     def steal_card(self, from_player: str, to_player: str):
         random_card_index = random.randint(0, sum(self.players[from_player].hand.values())-1)
         chosen_card = None
@@ -1359,8 +1365,6 @@ class ServerState:
             self.mode == "roll_dice"
         self.to_steal_from = []
         
-        
-
     def complete_trade(self, player1, player2):
         # player1 = current_player (- player_trade["offer"], + player_trade["request"])
         # player2 = non-current_player (+ player_trade["offer"], - player_trade["request"])
@@ -1405,7 +1409,6 @@ class ServerState:
                             self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
                             if node.town == "city":
                                 self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
-
 
     def perform_roll(self, cheat=""):
         # cheat
@@ -1735,7 +1738,7 @@ class ServerState:
 
 
         # set mode to "roll_dice" may be redundant since there is another check for dice roll after playing dev card/completing action
-        if (self.mode not in self.dev_card_modes) and self.mode != "move_robber" and not self.has_rolled:
+        if self.mode not in self.dev_card_modes and self.mode != "move_robber" and not self.has_rolled:
             self.mode = "roll_dice"
 
         # force roll_dice before doing anything except play_dev_card
@@ -1931,9 +1934,6 @@ class ServerState:
 
 
 
-
-
-
 class Button:
     def __init__(self, rec: pr.Rectangle, name: str, color: pr.Color=pr.RAYWHITE, resource: str|None=None, mode: bool=False, action: bool=False):
         self.rec = rec
@@ -2068,6 +2068,8 @@ class ClientState:
         self.num_msgs_recv = 0 # for debug
         self.time_last_sent = 0 # time.time()
         self.time_last_recv = 0 # time.time()
+        self.timeout_counter = 0
+
         self.name = "" # username (name that will be associated with Player)
         self.colors_avl = []
         self.previous_packet = {}
@@ -2149,16 +2151,15 @@ class ClientState:
         offset = self.screen_height/27.5 # 27.7 with height = 750
 
         # buttons
-        self.turn_buttons = {}
-        self.log_buttons = {}
-        self.info_box_buttons = {}
-        self.client_buttons = {}
-        # self.client_buttons["mute"] = ClientButton() # add mute button
+        self.turn_buttons = {} # build_road, build_settlement
+        self.log_buttons = {} # scrollbar, thumb, msg
+        self.info_box_buttons = {} # connect
+        self.dynamic_buttons = {} # submit, roll_dice, end_turn
         button_division = 17
         button_w = self.screen_width//button_division
         button_h = self.screen_height//button_division
 
-        # buttons in order of right -> left
+        # turn_buttons in order of right -> left
         b_names = ["buy_dev_card", "build_city", "build_settlement", "build_road", "trade", "bank_trade"]
         for i, b_name in enumerate(b_names):
             # separate because buy dev card is action, not mode
@@ -2170,12 +2171,11 @@ class ClientState:
                 action = None
             self.turn_buttons[b_name] = Button(pr.Rectangle(self.screen_width - (i+1)*(button_w + offset), offset/4, button_w + offset/2, 1.1*button_h), b_name, mode=mode, action=action)
 
-        # action_button_names = ["end_turn", "submit", "roll_dice"]
-        self.turn_buttons["end_turn"] = Button(
+        self.dynamic_buttons["end_turn"] = Button(
             pr.Rectangle(self.screen_width - 2.8*(2.45*button_w), self.screen_height - 6.5*button_h, 2*button_w, 1.5*button_h), "end_turn", action=True)
-        self.turn_buttons["submit"] = Button(
+        self.dynamic_buttons["submit"] = Button(
             pr.Rectangle(self.screen_width - 1.9*(2.45*button_w), self.screen_height - 6.5*button_h, 2*button_w, 1.5*button_h), "submit", color=rf.game_color_dict["submit"], action=True)
-        self.turn_buttons["roll_dice"] = Button(
+        self.dynamic_buttons["roll_dice"] = Button(
             pr.Rectangle(self.screen_width - (2.45*button_w), self.screen_height - 6.5*button_h, 2*button_w, 1.5*button_h), "roll_dice", action=True)
 
         # info_box
@@ -2279,14 +2279,6 @@ class ClientState:
             # print("board does not exist")
             return False
 
-    # checks if client has recv msg within the last 10 seconds
-    def is_connected(self) -> bool:
-        if 10 > time.time() - self.time_last_recv:
-            return True
-        else:
-            # print(f"Client {self.name} not connected to server")
-            return False
-
     def select_color(self, user_input):
         # check if still within bounds if color has been selected
         if self.selection_index > len(self.colors_avl)-1:
@@ -2360,6 +2352,7 @@ class ClientState:
         for order, name in enumerate(self.player_order):
             self.client_initialize_player(name, order)
 
+    # GAMEPLAY SUPPORT FUNCTIONS
     def submit_board_selection(self):
         # checking board selections for building town, road, moving robber
         if self.current_hex_3 and self.mode == "build_settlement":
@@ -2394,14 +2387,14 @@ class ClientState:
         return None
 
     def check_submit(self, user_input):
-        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.turn_buttons["submit"].rec):
+        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.dynamic_buttons["submit"].rec):
             return True
         elif user_input == pr.KeyboardKey.KEY_ENTER:
             return True
         return False
 
     def check_cancel(self, user_input):
-        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.turn_buttons["roll_dice"].rec):
+        if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.dynamic_buttons["roll_dice"].rec):
             return True
         return False
 
@@ -2616,35 +2609,36 @@ class ClientState:
         if self.debug and user_input == pr.KeyboardKey.KEY_ZERO:
             self.print_debug()
 
-        if not self.is_connected():
-            self.connected = False
-            if self.mode != "connecting":
-                self.mode = "connect"
-        else:
-            self.connected = True
-
-        if self.mode == "connect":
-            if self.check_submit(user_input):
-                if not all(255 >= int(num) >= 0 for num in self.info_box_buttons["input_IP"].text_input.split(".")):
-                    self.add_to_log("Invalid IP address.")
+        if not self.connected:
+            if self.mode == "connect":
+                if self.check_submit(user_input):
+                    if not all(255 >= int(num) >= 0 for num in self.info_box_buttons["input_IP"].text_input.split(".")):
+                        self.add_to_log("Invalid IP address.")
+                        return None
+                    if len(self.info_box_buttons["input_name"].text_input) == 0:
+                        self.add_to_log("Please enter a name.")
+                    name = self.info_box_buttons["input_name"].text_input
+                    self.server_IP = self.info_box_buttons["input_IP"].text_input
+                    self.add_to_log("Connecting to server...")
+                    self.mode = "connecting"
+                    self.timeout_counter = time.time()
+                    # if self.debug:
+                        # return self.client_request_to_dict(action="debug_add_player", player=name)
+                    return self.client_request_to_dict(action="add_player", player=name)
+                else:
                     return None
-                if not self.debug and len(self.info_box_buttons["input_name"].text_input) == 0:
-                    self.add_to_log("Please enter a name.")
-                name = self.info_box_buttons["input_name"].text_input
-                self.server_IP = self.info_box_buttons["input_IP"].text_input
-                self.add_to_log("Connecting to server...")
-                self.mode = "connecting"
-                if self.debug:
-                    return self.client_request_to_dict(action="debug_add_player", player=name)
-                return self.client_request_to_dict(action="add_player", player=name)
-            else:
+        
+            elif self.mode == "connecting":
+                if time.time() - self.timeout_counter > 3:
+                    self.add_to_log("Connection timed out, please check network connection.")
+                    self.mode = "connect"
                 return None
-        
-        elif self.mode == "connecting":
-            if self.check_cancel(user_input):
-                self.socket.close()
-            return None
-        
+
+        elif self.connected:
+            # 10 second timeout until disconnect
+            if time.time() - self.time_last_recv > 10:
+                self.connected = False
+
         # check if chat is submitted -> send to server
         if self.log_buttons["chat"].toggle and self.check_submit(user_input):
             return self.client_request_to_dict(action="submit", chat=self.chat_msg)
@@ -2652,15 +2646,16 @@ class ClientState:
 
 
         if self.mode == "select_color":
-            if self.name in self.client_players.keys():
-                if self.client_players[self.name].color == pr.GRAY:
-                    return self.select_color(user_input)
+            if self.name in self.client_players.keys() and self.client_players[self.name].color == pr.GRAY:
+                return self.select_color(user_input)
                 
-            if self.check_submit(user_input):
-                if all(player_object.color != pr.GRAY for player_object in self.client_players.values()):
-                    return self.client_request_to_dict(action="start_game")
+            if self.check_submit(user_input) and all(player_object.color != pr.GRAY for player_object in self.client_players.values()):
+                return self.client_request_to_dict(action="start_game")
+            
+            return None
 
         if not self.does_board_exist():
+            print("missing board")
             return self.client_request_to_dict(action="request_board")
 
 
@@ -2699,8 +2694,7 @@ class ClientState:
             if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                 return self.submit_board_selection()
 
-        # start of turn
-        # check for dev card hover apart from other buttons - also before roll_dice check
+        # start of turn - check for dev card hover apart from other buttons - also before roll_dice check
         for b_object in self.dev_card_buttons.values():
             if b_object.name != "victory_point" and pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
                 b_object.hover = True
@@ -2715,7 +2709,7 @@ class ClientState:
         if self.mode == "roll_dice":
             # make all buttons.hover False for non-current player
             if self.name != self.current_player_name:
-                self.turn_buttons["roll_dice"].hover = False
+                self.dynamic_buttons["roll_dice"].hover = False
                 return None
             # selecting action using keyboard
             if user_input == pr.KeyboardKey.KEY_TAB:
@@ -2724,12 +2718,12 @@ class ClientState:
             if self.debug and user_input == pr.KeyboardKey.KEY_SEVEN:
                 return self.client_request_to_dict(action="ROLL7")
             # selecting with mouse
-            if pr.check_collision_point_rec(pr.get_mouse_position(), self.turn_buttons["roll_dice"].rec):
-                self.turn_buttons["roll_dice"].hover = True
+            if pr.check_collision_point_rec(pr.get_mouse_position(), self.dynamic_buttons["roll_dice"].rec):
+                self.dynamic_buttons["roll_dice"].hover = True
                 if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                     return self.client_request_to_dict(action="roll_dice")
             else:
-                self.turn_buttons["roll_dice"].hover = False
+                self.dynamic_buttons["roll_dice"].hover = False
             # end if no other input
             return None
         
@@ -2778,15 +2772,13 @@ class ClientState:
         
         # buttons - check for hover, then for mouse click
         if self.mode != "move_robber":
+            # TODO I think I could move this below the check for current_player_name, would need regression testing
             for b_object in self.turn_buttons.values():
                 # if not current player, no hover or selecting buttons
                 if self.name != self.current_player_name:
                     b_object.hover = False
                 elif self.name == self.current_player_name:
                     if pr.check_collision_point_rec(pr.get_mouse_position(), b_object.rec):
-                        # special rules for "roll_dice" and "submit"; handle separately
-                        if b_object.name == "roll_dice" or b_object.name == "submit":
-                            continue
                         b_object.hover = True
                         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
                             if b_object.action:
@@ -2811,10 +2803,24 @@ class ClientState:
                     else:
                         b_object.hover = False
 
+        if self.mode != "roll_dice":
+            self.dynamic_buttons["roll_dice"].hover = False
+        
 
         # anything below only applies to current player
         if self.name != self.current_player_name:
+            self.dynamic_buttons["end_turn"].hover = False
             return None
+        
+        # check for end_turn after moving end_turn from turn_buttons to dynamic_buttons
+        # "dice_roll" and "submit" checked separately
+        if pr.check_collision_point_rec(pr.get_mouse_position(), self.dynamic_buttons["end_turn"].rec):
+            self.dynamic_buttons["end_turn"].hover = True
+            if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT:
+                return self.client_request_to_dict(action="end_turn")
+        else:
+            self.dynamic_buttons["end_turn"].hover = False
+
 
         # adapted from "discard" mode actions, maybe will make an arrow keys for incrementing menu function
         if self.mode == "steal":
@@ -2937,7 +2943,7 @@ class ClientState:
             self.num_msgs_sent += 1
             self.socket.sendto(msg_to_send, (self.server_IP, self.port))
             self.time_last_sent = time.time()
-            
+
         # receive message from server
         try:
             msg_recv, address = self.socket.recvfrom(buffer_size, socket.MSG_DONTWAIT)
@@ -3022,7 +3028,7 @@ class ClientState:
         # to_steal_from : []
         # ports : []
         # trade : [] [[0, 0, 1, 1, 0], [1, 1, 0, 0, 0], "player_name_string"]
-        # setup
+        # setup : bool
         # num_roads : []
         # num_settlements : []
         # num_cities : []
@@ -3055,21 +3061,21 @@ class ClientState:
             return
         
         elif server_response["kind"] == "reset":
-            print("hello")
             if server_response["msg"] == "setup_complete":
                 self.setup = False
                 return
             elif server_response["msg"] == "connecting":
-                print("hello")
                 self.mode = "connect"
                 return
             self.reset_selections()
             return
         
+        # connecting to server and setting self.name is under "add_player"
         elif server_response["kind"] == "add_player":
             self.name = server_response["msg"]
             pr.set_window_title(f"Natac - {self.name}")
             self.chat_msg = f"{self.name}: "
+            self.connected = True
             return
 
         self.data_verification(server_response)
@@ -3332,7 +3338,7 @@ class ClientState:
         #     for i, msg in enumerate(reversed(debug_msgs)):
         #         pr.draw_text_ex(pr.gui_get_font(), msg, pr.Vector2(5, self.screen_height-(i+1)*self.med_text*1.5), self.med_text, 0, pr.BLACK)
 
-        if self.is_connected() is True:
+        if self.connected:
             connect_color = pr.GREEN
         else:
             connect_color = pr.RED
@@ -3397,55 +3403,57 @@ class ClientState:
         for b_object in self.turn_buttons.values():
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
-
-            if b_object.name != "roll_dice" and b_object.name != "submit":
-                b_object.draw_display()
-                if b_object.name == "build_road" or b_object.name == "build_settlement" or b_object.name == "build_city" or b_object.name == "buy_dev_card":
-                    rf.draw_building_costs(b_object)
+            b_object.draw_display()
+            if b_object.name == "build_road" or b_object.name == "build_settlement" or b_object.name == "build_city" or b_object.name == "buy_dev_card":
+                rf.draw_building_costs(b_object)
             
-            # hover - self.hover needed because state must determine if action will be allowed
+            if b_object.hover:
+                rf.draw_button_outline(b_object)
+
+        for b_object in self.dynamic_buttons.values():
+            pr.draw_rectangle_rec(b_object.rec, b_object.color)
+            pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
+            
             if b_object.hover:
                 rf.draw_button_outline(b_object)
         
         # "submit" - acts as start game button
         if self.mode == "connect":
-            self.turn_buttons["submit"].draw_display(str_override="Connect")
+            self.dynamic_buttons["submit"].draw_display(str_override="Connect")
         elif self.mode == "connecting":
-            self.turn_buttons["submit"].draw_display(str_override="Connecting...")
+            self.dynamic_buttons["submit"].draw_display(str_override="Connecting...")
         elif self.mode == "select_color":
             if self.client_players[self.name].color == pr.GRAY:
-                self.turn_buttons["submit"].draw_display(str_override="select_color")
+                self.dynamic_buttons["submit"].draw_display(str_override="select_color")
             else:
-                self.turn_buttons["submit"].draw_display(str_override="start_game")
+                self.dynamic_buttons["submit"].draw_display(str_override="start_game")
         elif self.mode == "trade" and self.name != self.current_player_name:
-            self.turn_buttons["submit"].draw_display(str_override="accept_trade")
+            self.dynamic_buttons["submit"].draw_display(str_override="accept_trade")
         elif self.mode == "trade" and self.name == self.current_player_name:
-            self.turn_buttons["submit"].draw_display(str_override="offer_trade")
+            self.dynamic_buttons["submit"].draw_display(str_override="offer_trade")
         else:
-            self.turn_buttons["submit"].draw_display()
+            self.dynamic_buttons["submit"].draw_display()
 
         # "roll_dice" -- or cancel / decline trade
         
-        if self.mode == "connect" or self.setup:
-            self.turn_buttons["roll_dice"].draw_display(str_override=" ")
-        elif self.mode == "connecting":
-            self.turn_buttons["roll_dice"].draw_display(str_override="Cancel")
+        if self.mode == "connect" or self.mode == "connecting" or self.setup:
+            self.dynamic_buttons["roll_dice"].draw_display(str_override=" ")
         elif self.dice == [0, 0] or self.has_rolled is False:
-            self.turn_buttons["roll_dice"].draw_display()
+            self.dynamic_buttons["roll_dice"].draw_display()
         elif self.mode == "trade" and self.name != self.current_player_name:
-            self.turn_buttons["roll_dice"].draw_display(str_override="decline_trade")
+            self.dynamic_buttons["roll_dice"].draw_display(str_override="decline_trade")
         elif (self.mode == "trade" and self.name == self.current_player_name) or self.mode == "bank_trade":
-            self.turn_buttons["roll_dice"].draw_display(str_override="Cancel")
+            self.dynamic_buttons["roll_dice"].draw_display(str_override="Cancel")
         elif len(self.dice) > 0 and self.has_rolled:
-                rf.draw_dice(self.dice, self.turn_buttons["roll_dice"].rec)
+                rf.draw_dice(self.dice, self.dynamic_buttons["roll_dice"].rec)
                 # draw line between dice
-                pr.draw_line_ex((int(self.turn_buttons["roll_dice"].rec.x + self.turn_buttons["roll_dice"].rec.width//2), int(self.turn_buttons["roll_dice"].rec.y)), (int(self.turn_buttons["roll_dice"].rec.x + self.turn_buttons["roll_dice"].rec.width//2), int(self.turn_buttons["roll_dice"].rec.y + self.turn_buttons["roll_dice"].rec.height)), 2, pr.BLACK)
+                pr.draw_line_ex((int(self.dynamic_buttons["roll_dice"].rec.x + self.dynamic_buttons["roll_dice"].rec.width//2), int(self.dynamic_buttons["roll_dice"].rec.y)), (int(self.dynamic_buttons["roll_dice"].rec.x + self.dynamic_buttons["roll_dice"].rec.width//2), int(self.dynamic_buttons["roll_dice"].rec.y + self.dynamic_buttons["roll_dice"].rec.height)), 2, pr.BLACK)
         
         # "end_turn" - end turn or blank
         if not self.connected or self.setup:
-            self.turn_buttons["end_turn"].draw_display(str_override=" ")
+            self.dynamic_buttons["end_turn"].draw_display(str_override=" ")
         else:
-            self.turn_buttons["end_turn"].draw_display()
+            self.dynamic_buttons["end_turn"].draw_display()
 
 
 
