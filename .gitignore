@@ -1,11 +1,8 @@
-dist/
-build/
-main.spec
 .venv/
 .vscode/
-__pycache__
+__pycache__/
 natac.code-workspace
 TODO.md
+specs/
 .DS_Store
 assets/.DS_Store
-*.spec
