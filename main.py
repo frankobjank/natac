@@ -27,6 +27,7 @@ default_port = 12345
 buffer_size = 10000
 buffer_time = .5
 
+
 def to_json(obj):
     return json.dumps(obj, default=lambda o: o.__dict__)
 
@@ -40,8 +41,10 @@ Point = namedtuple("Point", ["x", "y"])
 LandTile = namedtuple("LandTile", ["hex", "terrain", "token"])
 OceanTile = namedtuple("OceanTile", ["hex", "port", "port_corners"])
 
+
 def vector2_round(vector2):
     return pr.Vector2(int(vector2.x), int(vector2.y))
+
 
 def point_round(point):
     return hh.Point(int(point.x), int(point.y))
@@ -49,16 +52,12 @@ def point_round(point):
 
 # raylib functions without raylib for server
 def radius_check_v(pt1: Point, pt2: Point, radius: int) -> bool:
-    if math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius:
-        return True
-    else:
-        return False
+    return math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius
     
+
 def radius_check_two_circles(center1: Point, radius1: int, center2: Point, radius2: int)->bool:
-    if math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2):
-        return True
-    else:
-        return False
+    return math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2)
+
 
 def sort_hexes(hexes) -> list:
     return sorted(hexes, key=attrgetter("q", "r", "s"))
@@ -85,23 +84,26 @@ building_costs = {
 }
 
 
-
 class Edge:
     def __init__(self, hex_a, hex_b):
         assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
         self.hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
         self.player = None
-    
+   
+
     def __repr__(self):
         # return f"Edge('hexes': {self.hexes}, 'player': {self.player})"
         return obj_to_int(self)
-    
+   
+
     def get_edge_points_set(self) -> set:
         return hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1])
 
+
     def get_edge_points(self) -> list:
         return list(hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1]))
-    
+
+
     # using points
     def get_adj_nodes(self, nodes) -> list:
         edge_points = self.get_edge_points()
@@ -112,6 +114,7 @@ class Edge:
                     adj_nodes.append(node)
         return adj_nodes
     
+
     # using hexes/radii instead of points
     def get_adj_nodes_using_hexes(self, hexes, state) -> list:
         adj_hexes = []
@@ -130,6 +133,7 @@ class Edge:
                     adj_nodes.append(node)
         return adj_nodes
     
+
     def get_adj_node_edges(self, nodes, edges) -> list:
         adj_nodes = self.get_adj_nodes(nodes)
         if len(adj_nodes) < 2:
@@ -248,6 +252,7 @@ class Edge:
         
         # contiguous - connected to either settlement or road
         # can't cross another player's road or settlement
+
 
 class Node:
     def __init__(self, hex_a, hex_b, hex_c):
@@ -377,6 +382,7 @@ class Node:
         print("no conflicts, building city")
         return True
 
+
 def obj_to_int(hex_edge_node):
     name=""
     if isinstance(hex_edge_node, hh.Hex):
@@ -387,6 +393,7 @@ def obj_to_int(hex_edge_node):
                 i += 3
                 name += str(i)
     return name
+
 
 class Board:
     def __init__(self):
@@ -702,7 +709,6 @@ class Player:
         return victory_points
 
 
-
 class ServerState:
     def __init__(self, IP_address, port, debug=True):
         # NETWORKING
@@ -753,6 +759,7 @@ class ServerState:
 
         self.debug = debug
 
+
     def shuffle_dev_cards(self):
         # adds cards to self.dev_card_deck
         dev_card_counts = {"knight": 14, "road_building": 2, "year_of_plenty": 2, "monopoly": 2, "victory_point": 5}
@@ -766,7 +773,8 @@ class ServerState:
         # reset seed since the new calls here were throwing off the test rolls
         if self.debug:
             random.seed(4)
-    
+   
+
     def initialize_game(self):
         self.board = Board()
         if self.debug:
@@ -801,11 +809,10 @@ class ServerState:
             for r in player_object.hand.keys():
                 player_object.hand[r] = 1
 
+
     def is_server_full(self, max_players=4):
-        if len(self.player_order) >= max_players:
-            return True
-        else:
-            return False
+        return len(self.player_order) >= max_players
+    
     
     def send_broadcast(self, kind: str, msg: str):
         if kind == "log":
@@ -813,7 +820,8 @@ class ServerState:
                 print(m)
         for p_object in self.players.values():
             self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), p_object.address)
-    
+
+
     def send_to_player(self, address: str, kind: str, msg: str):
         if kind == "log":
             for m in msg.split("\n"):
@@ -858,6 +866,7 @@ class ServerState:
         self.send_to_player(self.players[name].address, "add_player", name)
         self.socket.sendto(to_json(self.package_state(name, include_board=True)).encode(), address)
 
+
     def randomize_player_order(self):
         player_names = [name for name in self.players.keys()]
         for i in range(len(player_names)):
@@ -884,7 +893,8 @@ class ServerState:
         if self.turn_num == 0 and len(self.player_order) > 0:
             self.current_player_name = self.player_order[0]
         self.mode = "build_settlement"
-        
+
+
     def setup_town_road(self, location, action):
         # taken from end of update_server() and modified
         if all(hex is None for hex in location.values()):
@@ -969,7 +979,8 @@ class ServerState:
             if pot_node not in visited_nodes:
                 next_node = pot_node
         return next_node
-    
+
+
     def get_next_edge(self, visited_edges, current_node, nodes_to_edges):
         # nodes_to_edges = {324142: [3241, 3242], 313241: [3241], 323342: [3242, 3233], 233233: [3233], 142324: [1423], 131423: [1423]}
         # edges_to_nodes = {3241: [324142, 313241], 3242: [323342, 324142], 3233: [323342, 233233], 1423: [142324, 131423]}
@@ -1125,6 +1136,7 @@ class ServerState:
         elif len(self.largest_army) > 0 and self.players[self.current_player_name].visible_knights > self.players[self.largest_army].visible_knights:
             self.largest_army = self.current_player_name
 
+
     def can_build_road(self) -> bool:
         # used in road_building to check if building a road is possible
         # TODO general rules question - can you exit early if you only want one road?
@@ -1135,6 +1147,7 @@ class ServerState:
                 if adj.build_check_road(self, verbose=False):
                     return True
         return False
+
 
     def play_dev_card(self, kind):
         if self.dev_card_played:
@@ -1163,6 +1176,7 @@ class ServerState:
             self.mode = "monopoly" # get all cards of one type 
 
         self.players[self.current_player_name].dev_cards[kind] -= 1
+
 
     def dev_card_mode(self, location, action, cards, resource):
         # location = client_request["location"]
@@ -1240,6 +1254,7 @@ class ServerState:
         if self.mode is None and not self.has_rolled:
             self.mode = "roll_dice"
 
+
     # build functions
     def build_settlement(self, location_node):
         self.mode = None # immediately switch off build mode
@@ -1250,6 +1265,7 @@ class ServerState:
             self.players[location_node.player].ports.append(location_node.port)
         self.pay_for("settlement")
 
+
     def build_city(self, location_node):
         self.mode = None # immediately switch off build mode
         location_node.town = "city"
@@ -1257,11 +1273,13 @@ class ServerState:
         self.players[location_node.player].num_cities += 1
         self.pay_for("city")
 
+
     def build_road(self, location_edge):
         self.mode = None # immediately switch off build mode
         location_edge.player = self.current_player_name
         self.players[location_edge.player].num_roads += 1
         self.pay_for("road")
+
 
     def buy_dev_card(self):
         # add random dev card to hand
@@ -1281,11 +1299,13 @@ class ServerState:
         
         if card == "victory_point":
             self.check_for_win()
-        
+
+
     def pay_for(self, item):
         for resource, count in building_costs[item].items():
             self.players[self.current_player_name].hand[resource] -= count
-    
+
+
     def cost_check(self, item):
         # global constant building_costs
         cost = building_costs[item]
@@ -1305,7 +1325,8 @@ class ServerState:
         #     return True
 
         # self.send_to_player(self.players[self.current_player_name].address, "log", f"Not enough {', '.join(still_needed)} for {item}")
-    
+
+
     def move_robber(self, location_hex):
         if location_hex == self.board.robber_hex or location_hex not in self.board.land_hexes:
             self.send_to_player(self.players[self.current_player_name].address, "log", "Invalid location for robber.")
@@ -1340,6 +1361,7 @@ class ServerState:
         elif not self.has_rolled:
             self.mode = "roll_dice"
 
+
     def steal_card(self, from_player: str, to_player: str):
         random_card_index = random.randint(0, sum(self.players[from_player].hand.values())-1)
         chosen_card = None
@@ -1364,7 +1386,8 @@ class ServerState:
         elif not self.has_rolled:
             self.mode == "roll_dice"
         self.to_steal_from = []
-        
+
+
     def complete_trade(self, player1, player2):
         # player1 = current_player (- player_trade["offer"], + player_trade["request"])
         # player2 = non-current_player (+ player_trade["offer"], - player_trade["request"])
@@ -1389,6 +1412,7 @@ class ServerState:
         self.send_broadcast("log", f"{player2} received {p2_recv[:-2]}.")
         self.mode = None
 
+
     def distribute_resources(self):
         token_indices = [i for i, token in enumerate(self.board.tokens) if token == (self.die1 + self.die2)]
 
@@ -1409,6 +1433,7 @@ class ServerState:
                             self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
                             if node.town == "city":
                                 self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
+
 
     def perform_roll(self, cheat=""):
         # cheat
@@ -1437,6 +1462,7 @@ class ServerState:
             if self.mode != "discard":
                 self.mode = "move_robber"
                 self.send_broadcast("log", f"{self.current_player_name} must move the robber.")
+
 
     def reset_trade_vars(self):
         self.players_declined = set()
@@ -1492,6 +1518,7 @@ class ServerState:
             "terrains": self.board.terrains, # ordered from left-right, top-down
             "tokens": self.board.tokens # shares order with land_hexes and terrains
         }
+
 
     def package_state(self, recipient, include_board = False) -> dict:
         town_nodes = []
@@ -1623,6 +1650,7 @@ class ServerState:
         # elif include_board:
         return combined
 
+
     def update_server(self, client_request, address) -> None:
 
         # client_request["name"] = player name
@@ -1708,11 +1736,6 @@ class ServerState:
                     self.mode = None
                 return
 
-        # elif client_request["action"] == "randomize_board" and 0 >= self.turn_num:
-        #     This currently breaks the game (lol)
-        #     self.send_broadcast("log", "Re-rolling board")
-        #     self.board.initialize_board()
-
         # cheats
         elif client_request["action"] == "ITSOVER9000":
             self.ITSOVER9000 = True
@@ -1728,12 +1751,13 @@ class ServerState:
         # CODE BELOW ONLY APPLIES TO CURRENT PLAYER
 
         if self.setup:
-            if self.debug:
-                for i, player in enumerate(self.player_order):
-                    self.board.set_demo_settlements(player_object=self.players[player], order=i)
-                self.setup = False
+            if not self.debug:
+                self.setup_town_road(client_request["location"], client_request["action"])
                 return
-            self.setup_town_road(client_request["location"], client_request["action"])
+            # else, if debug:
+            for i, player in enumerate(self.player_order):
+                self.board.set_demo_settlements(player_object=self.players[player], order=i)
+            self.setup = False
             return
 
 
@@ -1933,7 +1957,6 @@ class ServerState:
         #     return to_json(self.package_state("combined")).encode()
 
 
-
 class Button:
     def __init__(self, rec: pr.Rectangle, name: str, color: pr.Color=pr.RAYWHITE, resource: str|None=None, mode: bool=False, action: bool=False):
         self.rec = rec
@@ -1990,6 +2013,7 @@ class Button:
         for i, line in enumerate(display.split("\n")):
             pr.draw_text_ex(pr.gui_get_font(), " "+line, (self.rec.x, self.rec.y+(i+.5)*font_size), font_size, 0, pr.BLACK)
 
+
 class ClientButton:
     def __init__(self, rec: pr.Rectangle, name: str, toggle: bool|None=None):
         self.rec = rec
@@ -2002,10 +2026,12 @@ class ClientButton:
     def __repr__(self):
         return f"Button({self.name})"
 
+
 # potentially put log in its own class containing rec, buttons, messages
 class LogBox:
     pass
-    
+
+
 class Menu:
     def __init__(self, c_state, name, link: Button, *button_names):
         self.button_names = button_names
@@ -2053,6 +2079,7 @@ class ClientPlayer:
     
     def __repr__(self) -> str:
         return f"Player: {self.name}, color: {self.color}, order: {self.order}"
+
 
 # TODO double input bug server is receiving 2 inputs on double input error so problem lies in client creating and sending msg
 class ClientState:
@@ -2252,7 +2279,8 @@ class ClientState:
         self.camera.offset = pr.Vector2(self.screen_width/2.6, self.screen_height/2.45)
         self.camera.rotation = 0.0
         self.camera.zoom = self.default_zoom
-    
+
+
     def print_debug(self):
         debug_msgs = [f"Screen mouse at: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
         if self.current_hex_3:
@@ -2268,16 +2296,18 @@ class ClientState:
         for msg in debug_msgs:
             print(msg)
 
+
     def resize_client(self):
         pr.toggle_borderless_windowed()
+
 
     # INITIALIZING CLIENT FUNCTIONS   
     def does_board_exist(self) -> bool:
         if len(self.board) > 0:
             return True
-        else:
-            # print("board does not exist")
-            return False
+        # else len(board) = 0
+        return False
+
 
     def select_color(self, user_input):
         # check if still within bounds if color has been selected
@@ -2290,12 +2320,14 @@ class ClientState:
 
         if self.check_submit(user_input):
             return self.client_request_to_dict(action="submit", color=self.colors_avl[self.selection_index])
-        
+
+
     def data_verification(self, packet):
         lens_for_verification = {"ocean_hexes": 18, "ports_ordered": 18, "port_corners": 18, "land_hexes": 19, "terrains": 19, "tokens": 19}
 
         for key, length in lens_for_verification.items():
             assert len(packet[key]) == length, f"incorrect number of {key}, actual number = {len(packet[key])}"
+
 
     def construct_client_board(self, server_response):
         # BOARD
@@ -2342,15 +2374,18 @@ class ClientState:
         q, r = server_response["robber_hex"]
         self.board["robber_hex"] = hh.set_hex(q, r, -q-r)
 
+
     def client_initialize_player(self, name, order):
         rec_size = self.screen_width / 25
         rec_y = (order*2+.5)*rec_size
         self.client_players[name] = ClientPlayer(name, order=order, rec=pr.Rectangle(rec_size/4, rec_y, rec_size, rec_size))
 
+
     def client_initialize_dummy_players(self):
         # define player recs based on player_order that comes in from server
         for order, name in enumerate(self.player_order):
             self.client_initialize_player(name, order)
+
 
     # GAMEPLAY SUPPORT FUNCTIONS
     def submit_board_selection(self):
@@ -2366,6 +2401,7 @@ class ClientState:
 
         elif self.current_hex and self.mode == "move_robber":
             return self.client_request_to_dict(action="move_robber")
+
 
     def client_steal(self, user_input):
         # TODO keys sometimes move selection in 'wrong' direction because display_order different from player_order - I think this is fixed
@@ -2386,6 +2422,7 @@ class ClientState:
         # end function with no client_request if nothing is submitted; this may be unnecessary return statement
         return None
 
+
     def check_submit(self, user_input):
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.dynamic_buttons["submit"].rec):
             return True
@@ -2393,10 +2430,12 @@ class ClientState:
             return True
         return False
 
+
     def check_cancel(self, user_input):
         if user_input == pr.MouseButton.MOUSE_BUTTON_LEFT and pr.check_collision_point_rec(pr.get_mouse_position(), self.dynamic_buttons["roll_dice"].rec):
             return True
         return False
+
 
     def client_request_to_dict(self, mode=None, action=None, cards=None, resource=None, player=None, trade_offer=None, color=None, chat=None) -> dict:
         # could get rid of some of these variables by having a "kind" variable describing the client request. kind = location|mode|action|cards|resource|selected_player|trade_offer|color|chat
@@ -2413,6 +2452,7 @@ class ClientState:
         client_request["chat"] = chat
         
         return client_request
+
 
     # GAME LOOP FUNCTIONS
     def get_user_input(self):# -> float|int|None
@@ -2472,7 +2512,8 @@ class ClientState:
         # # 9 for ITSOVER9000
         # elif pr.is_key_pressed(pr.KeyboardKey.KEY_NINE):
         #     return pr.KeyboardKey.KEY_NINE
-        
+
+
     # three client updates - two before server (updating local settings, building request) & one after server response
     def update_local_client(self, user_input):
         # toggling debug
@@ -2604,6 +2645,7 @@ class ClientState:
             elif self.log_offset > 0:
                 self.log_offset = 0
 
+
     def build_client_request(self, user_input):
         # tells server and self to print debug
         if self.debug and user_input == pr.KeyboardKey.KEY_ZERO:
@@ -2664,13 +2706,6 @@ class ClientState:
         self.current_hex_2 = None
         self.current_hex_3 = None
         
-        # have this option before starting game
-        # if user_input == pr.KeyboardKey.KEY_R:
-        #     print("RAINBOWROAD")
-        #     return self.client_request_to_dict(action="randomize_board")
-
-
-
         # defining current_hex, current_edge, current_node
         # check radius for current hex
         for hex in self.board["all_hexes"]:
@@ -2953,10 +2988,12 @@ class ClientState:
             return None
         return msg_recv
 
+
     def add_card(self):
         # add card
         # resize and reorder the hand
         pass
+
 
     def reset_selections(self):
         self.bank_trade = {"offer": [], "request": []}
@@ -2964,10 +3001,12 @@ class ClientState:
         self.selected_cards = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
         self.selection_index = 0
 
+
     def add_to_log(self, msg):
         self.log_msgs_raw.append(msg)
         # make max_len dynamic according to width of log_box and font_size. default is 40
         self.log_msgs_formatted += self.calc_line_breaks(msg, max_len=40)
+
 
     def calc_line_breaks(self, msg, max_len) -> list:
         # max_len = 40 by default
@@ -2995,11 +3034,14 @@ class ClientState:
 
         return formatted
 
+
     def get_log_slice(self):
+        # more log msgs that can fit on the screen
         if self.log_offset != 0:
             return self.log_msgs_formatted[self.log_offset-self.log_lines:self.log_offset]
-        else:
-            return self.log_msgs_formatted[-self.log_lines:]
+        # else all log msgs can fit
+        return self.log_msgs_formatted[-self.log_lines:]
+
 
     # unpack server response and update state
     def update_client(self, encoded_server_response):
@@ -3279,6 +3321,7 @@ class ClientState:
         robber_hex_center = vector2_round(hh.hex_to_pixel(pointy, self.board["robber_hex"]))
         rf.draw_robber(robber_hex_center, alpha)
 
+
     def render_mouse_hover(self):
         # self.hover could prob be replaced with other logic about current player, mode
         # highlight current node if building is possible
@@ -3312,32 +3355,19 @@ class ClientState:
             elif self.current_hex:
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
 
+
     def render_client(self):
 
         pr.begin_drawing()
         pr.clear_background(pr.BLUE)
 
+        # draw board (hexes)
         if self.does_board_exist() and self.mode != "select_color":
             pr.begin_mode_2d(self.camera)
             self.render_board()
             pr.end_mode_2d()
 
-        # this got in the way of new hand placement. adding this to print_debug(), might still be useful to have at some point though
-        # if self.debug:
-        #     debug_msgs = [f"Screen mouse at: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
-        #     if self.current_hex_3:
-        #         msg1 = f"Current Node: {Node(self.current_hex, self.current_hex_2, self.current_hex_3)}"
-        #     elif self.current_hex_2:
-        #         msg1 = f"Current Edge: {Edge(self.current_hex, self.current_hex_2)}"
-        #     elif self.current_hex:
-        #         msg1 = f"Current Hex: {obj_to_int(self.current_hex)}"
-        #     else:
-        #         msg1 = ""
-
-        #     debug_msgs = [msg1, f"Current player = {self.current_player_name}", f"Mode: {self.mode}"]
-        #     for i, msg in enumerate(reversed(debug_msgs)):
-        #         pr.draw_text_ex(pr.gui_get_font(), msg, pr.Vector2(5, self.screen_height-(i+1)*self.med_text*1.5), self.med_text, 0, pr.BLACK)
-
+        # add colored dot to signify connection status
         if self.connected:
             connect_color = pr.GREEN
         else:
@@ -3503,6 +3533,7 @@ class ClientState:
         
         pr.end_drawing()
 
+
     def check_sounds(self, msg: str, mentions: list=[]) -> None:
         # meant for all
         sound_keywords = {
@@ -3511,18 +3542,7 @@ class ClientState:
             "object_placed": ["built a road.", "built a settlement.", "built a city.", "moved the robber."],
             "trade_offered": ["is offering a trade."], 
             "trade_cancelled": ["Trade offer cancelled."],
-            "play_dev_card": ["played a Monopoly card.", "played a Knight card.", "played a Year Of Plenty card.", "played a Road Building card."],
-            
-            # self
-            # "your_turn": ["It is now"],
-            # "robber_hit": ["stole a card from"],
-            # "trade_accepted": ["accepted the trade."],
-            # "win": ["Congratulations"],
-            
-            # others
-            # "joining_game": ["is reconnecting.", "to game."],
-            # "start_game": ["Starting game!"],
-            # "chat": ["chat"]
+            "play_dev_card": ["played a Monopoly card.", "played a Knight card.", "played a Year Of Plenty card.", "played a Road Building card."],     
         }
 
         if len(mentions) > 0:
@@ -3543,6 +3563,7 @@ class ClientState:
                 if words in msg:
                     pr.play_sound(self.sounds[sound])
                     break
+
 
     def load_assets(self):
         pr.change_directory("/Users/jacobfrank/sources/natac/assets")
@@ -3565,10 +3586,12 @@ class ClientState:
         for name, file in sound_files.items():
             self.sounds[name] = pr.load_sound(file)
 
+
     def unload_assets(self):
         pr.unload_font(pr.gui_get_font())
         for sound in self.sounds.values():
             pr.unload_sound(sound)
+
 
     def init_raylib(self):
         # pr.set_config_flags(pr.ConfigFlags.FLAG_MSAA_4X_HINT) # anti-aliasing
@@ -3579,10 +3602,12 @@ class ClientState:
 
         self.load_assets()
 
+
     def close_raylib(self):
         self.unload_assets()
         pr.close_audio_device()
         pr.close_window()
+
 
 def run_client(server_IP=local_IP, debug=False):
     c_state = ClientState(server_IP=server_IP, port=default_port, debug=debug)
@@ -3633,28 +3658,41 @@ def run_server(IP_address, debug=False, port=default_port):
 cmd_line_input = sys.argv[1:]
 
 def parse_cmd_line(cmd_line_input):
-    # could add these tags: -c = client, -s = server, -d = debug, -n = name, -i = IP
-    # provide IP as 2nd argument
-    # server: python3 main.py IP_address
+    # could add these tags: -c = client, -s = server, -n = name, -i = IP
+
+    # parsing cmd_line_input
     if len(cmd_line_input) > 0:
+
+        # local = alias for "127.0.0.1"
         if cmd_line_input[0] == "local":
+
             if len(cmd_line_input) > 1:
                 if cmd_line_input[1] == "-d" or cmd_line_input[1] == "debug":
-                    # local default board
+                    # start local debug server
                     run_server(local_IP, debug=True)
             else:
-                # local random board
+                # start local server
                 run_server(local_IP)
         else:
+            # starts debug client
             if len(cmd_line_input) == 1 and cmd_line_input[0] == "-d":
                     run_client(server_IP=local_IP, debug=True)
 
+            # starts remote debug server
             elif len(cmd_line_input) > 2:
-                # remote default board
                 run_server(cmd_line_input[1], cmd_line_input[2])
+            
+            # starts remote server
             else:
-                run_server(cmd_line_input[1]) # remote random board
+                run_server(cmd_line_input[1])
     else:
         run_client(server_IP=local_IP)
 
+
+# tag -d or debug sets debug to True
+
+# client: python3 main.py [-d]
+# server: python3 main.py IP_ADDRESS [-d]
+
+# runs client or server depending on cmd line args
 parse_cmd_line(cmd_line_input)

@@ -34,11 +34,13 @@ pip install -r requirements.txt
 To start a server, include the IP address (IPv4) you want to use.
 
 ```sh
-python3 main.py IP_ADDRESS
+python3 main.py IP_ADDRESS [-d]
+# Optional -d tag to start server in Debug mode
 ```
 
-And to run the client:
+To run the client:
 
 ```sh
-python3 main.py
+python3 main.py [-d]
+# Optional -d tag to start client in Debug mode
 ```
