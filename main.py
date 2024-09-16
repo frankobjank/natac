@@ -3280,25 +3280,33 @@ class ClientState:
                 elif self.name == name:
                     # only update if incoming dev_cards is different from current dev_cards
                     if self.client_players[name].dev_cards_size != sum(server_response["dev_cards"][order]):
+                        
+                        # update dev card count
                         self.client_players[name].dev_cards_size = sum(server_response["dev_cards"][order])
+
                         # create dev card buttons
                         dev_card_offset = 0
                         for position, number in enumerate(server_response["dev_cards"][order]):
                             self.client_players[name].dev_cards[self.dev_card_order[position]] = number
                             button_division = 14
                             if number > 0:
+
+                                # horizantal line at bottom center
                                 self.dev_card_buttons[self.dev_card_order[position]] = Button(
                                     pr.Rectangle(
-                                        self.screen_width*0.025, 
-                                        self.screen_height*.8 - (dev_card_offset*1.1)*self.client_players[name].rec.height, 
+                                        self.screen_width//2.25 - (dev_card_offset*1.1) * self.screen_width//button_division, 
+                                        self.screen_height * 0.9, 
                                         self.screen_width//button_division, 
                                         self.client_players[name].rec.height
-                                        ), 
+                                    ),
+                                    
                                     self.dev_card_order[position], 
                                     action=True
-                                    )
+                                )
 
                                 dev_card_offset += 1
+                            
+                            # remove card if 0
                             elif number == 0:
                                 try:
                                     del self.dev_card_buttons[self.dev_card_order[position]]
@@ -3383,6 +3391,7 @@ class ClientState:
                 node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
                 
                 # find if node is occupied
+                # linear search, could turn nodes/edges into dict for easier lookup
                 for node in self.board["town_nodes"]:
                     if node_object.hexes[0] == node.hexes[0] and node_object.hexes[1] == node.hexes[1] and node_object.hexes[2] == node.hexes[2] and node.town is not None:
                         if node.town == "settlement":
