@@ -105,13 +105,16 @@ def draw_robber(hex_center, alpha):
     # draw head
     pr.draw_circle(int(hex_center.x), int(hex_center.y-radiusV), radiusH-2, robber_color)
 
+
 def draw_road(edge_endpoints, color):
     # draw black outline
     pr.draw_line_ex(edge_endpoints[0], edge_endpoints[1], 10, pr.BLACK)
     # draw road in player color
     pr.draw_line_ex(edge_endpoints[0], edge_endpoints[1], 6, color)
 
-def draw_settlement(node_point, color):
+
+def draw_settlement(node_point, color: pr.Color=None, outline_only=False):
+    # set dimensions
     width = 25
     height = 18
     node_x = node_point[0]
@@ -120,16 +123,26 @@ def draw_settlement(node_point, color):
     tri_top = (node_x, node_y-7*height//6)
     tri_lt = (node_x-width//2, node_y-height//2)
     stmt_rec = pr.Rectangle(node_x-width//2, node_y-height//2, width-1, height)
+    
+    if outline_only:
+        outline = 7
+    else:
+        outline = 3
+
     # draw outline
-    outline = 3
     pr.draw_rectangle_rec(pr.Rectangle(stmt_rec.x-outline, stmt_rec.y, stmt_rec.width+(outline*2), stmt_rec.height+outline-1), pr.BLACK)
     pr.draw_triangle((tri_lt[0]-outline, tri_lt[1]), (tri_rt[0]+outline, tri_rt[1]), (tri_top[0], tri_top[1]-outline), pr.BLACK)
+    
+    if outline_only:
+        return
+    
     # draw settlement
     pr.draw_rectangle_rec(stmt_rec, color)
     pr.draw_triangle(tri_lt, tri_rt, tri_top, color)
 
-def draw_city(node_point, color):
-    # settlement on top of city
+
+def draw_city(node_point, color: pr.Color=None, outline_only=False):
+    # setting dimensions - settlement on top of city
     city_st_width = 18
     city_st_height = 13
     city_offset = 5
@@ -141,23 +154,34 @@ def draw_city(node_point, color):
     city_tri_top = (city_st_x, city_st_y-7*city_st_height//6)
     city_tri_lt = (city_st_x-city_st_width//2, city_st_y-city_st_height//2)
     city_stmt_rec = pr.Rectangle(city_st_x-city_st_width//2, city_st_y-city_st_height//2, city_st_width, city_st_height)
-    # city base
+
+    # setting dimensions - city base
     city_base_width = city_st_width * 2
     city_base_height = 20
     city_base_rec = pr.Rectangle(node_x-city_base_width//2, node_y, city_base_width, city_base_height)
 
+    if outline_only:
+        outline = 7
+    else:
+        outline = 3
+
     # draw city settlement outline
-    outline = 3
     pr.draw_rectangle_rec(pr.Rectangle(city_stmt_rec.x-outline, city_stmt_rec.y, city_stmt_rec.width+(outline*2), city_stmt_rec.height+outline-1), pr.BLACK)
     pr.draw_triangle((city_tri_lt[0]-outline, city_tri_lt[1]), (city_tri_rt[0]+outline, city_tri_rt[1]), (city_tri_top[0], city_tri_top[1]-outline), pr.BLACK)
+
     # draw city base outline
     pr.draw_rectangle_rec(pr.Rectangle(city_base_rec.x-outline, city_base_rec.y-outline, city_base_rec.width+(outline*2), city_base_rec.height+(outline*2)), pr.BLACK)
+
+    if outline_only:
+        return
 
     # draw city settlement
     pr.draw_rectangle_rec(city_stmt_rec, color)
     pr.draw_triangle(city_tri_lt, city_tri_rt, city_tri_top, color)
+
     # draw city base
     pr.draw_rectangle_rec(city_base_rec, color)
+
 
 def draw_dice(dice, button_rec: pr.Rectangle):
     # 1 = center
@@ -202,6 +226,7 @@ def draw_discard_cards(selected_cards, location: pr.Vector2, card_type: str, num
     pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards - selected_cards[card_type]}", (location.x+x_offset, location.y-size+(i*size)), size, 0, color)
     if selected_cards[card_type] > 0:
         pr.draw_text_ex(pr.gui_get_font(), f"-> {selected_cards[card_type]}", (location.x+x_offset+(size*6), location.y-size+(i*size)), size, 0, color)
+
 
 def draw_added_cards(mode, selected_cards, location: pr.Vector2, card_type: str, num_cards: int, i: int, x_offset: int, size: int, color: pr.Color):
     card_type_display = card_type
@@ -258,13 +283,16 @@ def draw_player_info(c_state, player_object):
     # dev cards plus knights, if they exist
     pr.draw_text_ex(pr.gui_get_font(), dev_display, (player_object.rec.x + x_offset, player_object.rec.y + size*2), size, 0, pr.BLACK)
 
+
 def get_outer_rec(rec, offset):
     return pr.Rectangle(rec.x-offset, rec.y-offset, rec.width+2*offset, rec.height+2*offset)
+
 
 def draw_button_outline(button_object):
     outer_offset = 2
     outer_rec = pr.Rectangle(button_object.rec.x-outer_offset, button_object.rec.y-outer_offset, button_object.rec.width+2*outer_offset, button_object.rec.height+2*outer_offset)
     pr.draw_rectangle_lines_ex(outer_rec, 5, pr.BLACK)
+
 
 def draw_mode_text(c_state, title, text):
     pr.draw_text_ex(pr.gui_get_font(), " "+to_title(title), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
@@ -514,6 +542,7 @@ def to_title(s: str) -> str:
     for word in s.split("_"):
         cap += word.capitalize() + " "
     return cap[:-1]
+
 
 mode_text = {
     # modes - can fit 30 chars (med_text) with info_box x = self.screen_width/3.5 (~314.3)

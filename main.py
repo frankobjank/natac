@@ -194,7 +194,7 @@ class Edge:
                     s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
                     print("building next to settlement")
                     # -1 since this is before road gets added to board
-                    s_state.send_to_player(self.players[self.current_player_name].address, "log", f"You have {15-1-len(owned_roads)} total roads remaining.")
+                    s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {15-1-len(owned_roads)} total roads remaining.")
                 return True
         
         
@@ -485,7 +485,15 @@ class Board:
             "forest", "mountain", "field", "pasture",
             "hill", "field", "pasture"
         ]
-        tokens = [10, 2, 9, 12, 6, 4, 10, 9, 11, None, 3, 8, 8, 3, 4, 5, 5, 6, 11]
+        
+        tokens = [
+            10, 2, 9, 
+            12, 6, 4, 10, 
+            9, 11, None, 3, 8, 
+            8, 3, 4, 5, 
+            5, 6, 11
+        ]
+        
         ports_ordered = [
             "three", None, "wheat", None, 
             None, "ore",
@@ -495,7 +503,17 @@ class Board:
             None, "sheep", 
             "three", None, "three", None
         ]
-        ports_to_nodes = ["three", "three", "wheat", "wheat", "ore", "ore", "wood", "wood", "three", "three", "brick", "brick", "sheep", "sheep", "three", "three", "three", "three"]
+        
+        ports_to_nodes = [
+            "three", "three", "wheat", "wheat", 
+            "ore", "ore", 
+            "wood", "wood", 
+            "three", "three", 
+            "brick", "brick", 
+            "sheep", "sheep", 
+            "three", "three", "three", "three"
+        ]
+        
         return terrains, tokens, ports_ordered, ports_to_nodes
 
 
@@ -676,15 +694,14 @@ class Player:
         self.order = order
         self.color = "gray"
         self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        # 7 card starting hand for debug
-        # self.hand = {"ore": 1, "wheat": 1, "sheep": 1, "wood": 1, "brick": 0}
         self.num_to_discard = 0
-        self.dev_cards = {"knight": 3, "road_building": 1,  "year_of_plenty": 1, "monopoly": 1, "victory_point": 4}
+        self.dev_cards = {"knight": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
         self.visible_knights = 0 # can use to count largest army
         self.num_cities = 0
         self.num_settlements = 0 # for counting victory points
         self.num_roads = 0 # use for setup
         self.ports = []
+
         # for setup
         self.setup_settlement = None
 
@@ -722,7 +739,6 @@ class ServerState:
         self.hover = False # perform checks on server and pass back to client for rendering
 
         self.resource_cards = ["ore", "wheat", "sheep", "wood", "brick"]
-        # self.dev_card_order = ["knight", "road_building", "year_of_plenty", "monopoly", "victory_point"]
 
         self.dev_card_deck = []
         self.dev_card_played = False # True after a card is played. Only one can be played per turn
@@ -737,8 +753,8 @@ class ServerState:
         self.colors_avl = ["red", "white", "orange", "blue"] # for picking colors in beginning of game
         self.current_player_name = "" # name only
         self.player_order = [] # list of player_names in order of their turns
-        self.to_steal_from = []
-        self.road_building_counter = 0
+        self.to_steal_from = [] # list of player_names
+        self.road_building_counter = 0 # for road_building dev card
         
         self.longest_road = ""
         self.largest_army = ""
@@ -747,11 +763,14 @@ class ServerState:
         self.die1 = 0
         self.die2 = 0
         self.turn_num = 0
-        self.has_rolled = False # use this instead of turn_num to determine if mode should be dice_roll
+        self.has_rolled = False
         self.dice_rolls = 0
-        self.mode = "select_color" # start with adding players instead of None?
+        self.mode = "select_color"
 
+        # game states
         self.setup = True
+        # could potentially check if len(self.current_player_name) > 0 instead of has_started
+        # self.has_started = False
         self.game_over = False
 
         # cheat
@@ -830,8 +849,7 @@ class ServerState:
             self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), address)
             
 
-    # adding players to server. order in terms of arrival, will rearrange later
-    # placeholder name (order?) will have to be used when giving ability to select username in-game
+    # adding players to server. 
     def add_player(self, name, address):
         if name in self.players:
             if self.players[name].address != address:
@@ -842,28 +860,43 @@ class ServerState:
                 print("player already added; redundant call")
                 return
 
+        # order in terms of arrival. will reorder when game starts
         elif not name in self.players:
+            # check if server is full
             if self.is_server_full():
                 msg = f"{name} cannot be added. Server is full."
                 self.send_to_player(address, "reset", "connecting")
                 self.send_to_player(address, "log", msg)
                 return
-            elif not self.setup:
+            
+            # check if game has started; current_player_name is set when game is started
+            elif len(self.current_player_name) > 0:
                 msg = f"{name} cannot be added. Cannot add players mid-game."
                 print(msg)
                 self.send_to_player(address, "reset", "connecting")
                 self.send_to_player(address, "log", msg)
                 return
+            
+            # server is not full and game has not started
             order = len(self.player_order)
+            # placeholder name (order) will have to be used since username is selected in-game
             self.players[name] = Player(name, order, address)
             self.player_order.append(name)
             if self.debug:
                 self.board.set_demo_settlements(self, name)
+                # starting hand for debug
+                self.players[name].hand = {"ore": 4, "wheat": 4, "sheep": 4, "wood": 4, "brick": 4}
+                self.players[name].dev_cards = {"knight": 3, "road_building": 1,  "year_of_plenty": 1, "monopoly": 1, "victory_point": 4}
                 # self.players[name].color = self.colors_avl.pop()
             self.send_broadcast("log", f"Adding {name} to game.")
         
+        # Welcome msg
         self.send_to_player(self.players[name].address, "log", "Welcome to natac.")
+        
+        # Send new player info to client
         self.send_to_player(self.players[name].address, "add_player", name)
+        
+        # Send state
         self.socket.sendto(to_json(self.package_state(name, include_board=True)).encode(), address)
 
 
@@ -893,6 +926,7 @@ class ServerState:
         if self.turn_num == 0 and len(self.player_order) > 0:
             self.current_player_name = self.player_order[0]
         self.mode = "build_settlement"
+        self.has_started = True
 
 
     def setup_town_road(self, location, action):
@@ -1469,7 +1503,6 @@ class ServerState:
         if self.mode == "trade":
             self.player_trade = {"offer": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "request": {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}, "trade_with": ""}
             self.send_broadcast("reset", "trade")
-
 
 
     def end_turn(self):
@@ -2353,21 +2386,36 @@ class ClientState:
             tile = LandTile(hex, server_response["terrains"][i], server_response["tokens"][i])
             self.board["land_tiles"].append(tile)
     
-        # town_nodes : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None},
+        # town_nodes from server : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None}
         self.board["town_nodes"] = []
         for node in server_response["town_nodes"]:
+            # expand hexes
             node_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in node["hexes"]]
+
+            # create node
             node_object = Node(node_hexes[0], node_hexes[1], node_hexes[2])
+            
+            # assign attributes
             node_object.player = node["player"]
             node_object.town = node["town"]
             node_object.port = node["port"]
+            
+            # append to list of node objects
             self.board["town_nodes"].append(node_object)
-        # road_edges : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'},
+
+        # road_edges from server : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'}
         self.board["road_edges"] = []
         for edge in server_response["road_edges"]:
+            # expand hexes
             edge_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in edge["hexes"]]
+            
+            # create edge
             edge_object = Edge(edge_hexes[0], edge_hexes[1])
+            
+            # assign player
             edge_object.player = edge["player"]
+            
+            # append to list of edge objects
             self.board["road_edges"].append(edge_object)
         
         # robber_hex : [0, 0]
@@ -3301,9 +3349,9 @@ class ClientState:
                         midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
                         pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
-
+        # render mouse hover BEFORE rendering settlements/ cities/ roads
         self.render_mouse_hover()
-        
+
         # draw roads, settlements, cities
         for edge in self.board["road_edges"]:
             rf.draw_road(edge.get_edge_points(), self.client_players[edge.player].color)
@@ -3313,12 +3361,14 @@ class ClientState:
                 rf.draw_settlement(node.get_node_point(), self.client_players[node.player].color)
             elif node.town == "city":
                 rf.draw_city(node.get_node_point(), self.client_players[node.player].color)
-
-        # draw robber; gray-out to see number if mouse hover
+        
+        # set alpha for robber in case of mouse hover
         alpha = 255
         if self.current_hex == self.board["robber_hex"]:
             alpha = 50
         robber_hex_center = vector2_round(hh.hex_to_pixel(pointy, self.board["robber_hex"]))
+        
+        # draw robber
         rf.draw_robber(robber_hex_center, alpha)
 
 
@@ -3326,25 +3376,40 @@ class ClientState:
         # self.hover could prob be replaced with other logic about current player, mode
         # highlight current node if building is possible
         if not self.debug:
-            if self.current_hex_3 and self.mode == "build_settlement":
+
+            # highlight node for building settlement or city
+            if self.current_hex_3 and (self.mode == "build_settlement" or self.mode == "build_city"):
+                # create node object
                 node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
-                pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
-            # could highlight settlement when building city
+                
+                # find if node is occupied
+                for node in self.board["town_nodes"]:
+                    if node_object.hexes[0] == node.hexes[0] and node_object.hexes[1] == node.hexes[1] and node_object.hexes[2] == node.hexes[2] and node.town is not None:
+                        if node.town == "settlement":
+                            rf.draw_settlement(node_object.get_node_point(), color=None, outline_only=True)
+                        elif node.town == "city":
+                            rf.draw_city(node_object.get_node_point(), color=None, outline_only=True)
+                # node.town = None; else for the FOR loop
+                else:
+                # draw circle 
+                    pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
 
             # highlight current edge if building is possible
             elif self.current_hex_2 and (self.mode == "build_road" or self.mode == "road_building"):
                 edge_object = Edge(self.current_hex, self.current_hex_2)
+                # draw line from edge_point[0] to edge_point[1]
                 pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
 
             # highlight current hex if moving robber is possible
             elif self.current_hex and self.mode == "move_robber":
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
+
         elif self.debug:
+
             # highlight current node
             if self.current_hex_3:
                 node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
                 pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
-            # could highlight settlement when building city
 
             # highlight current edge
             elif self.current_hex_2:
@@ -3429,7 +3494,7 @@ class ClientState:
         pr.draw_text_ex(pr.gui_get_font(), current_chat, (self.med_text + self.log_buttons["chat"].rec.x, self.log_buttons["chat"].rec.y + self.med_text/3.2), self.med_text, 0, pr.BLACK)
         
             
-
+        # action/ mode buttons
         for b_object in self.turn_buttons.values():
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
@@ -3440,6 +3505,7 @@ class ClientState:
             if b_object.hover:
                 rf.draw_button_outline(b_object)
 
+        # dynamic buttons (roll_dice, submit, end_turn)
         for b_object in self.dynamic_buttons.values():
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
@@ -3499,7 +3565,7 @@ class ClientState:
                 rf.draw_player_info(self, player_object)
     
 
-            # hightlight current player
+            # highlight current player
             if player_name == self.current_player_name:
                 pr.draw_rectangle_lines_ex(player_object.rec, 4, pr.BLACK)
 
