@@ -250,29 +250,48 @@ def draw_building_costs(button):
 
 # includes dev_cards for other players, not dev card buttons for self
 def draw_player_info(c_state, player_object):
-    size = c_state.med_text-2
+    size = c_state.med_text - 2
 
+    # draw hand for self
     if c_state.name == player_object.name:
-        # draw hand for self
-        location = pr.Vector2(player_object.rec.x + c_state.screen_width*.02, c_state.screen_height - c_state.screen_height/10)
+        # location for self hand
+        location = pr.Vector2(player_object.rec.x + c_state.screen_width//2.45, c_state.screen_height - c_state.screen_height/9)
+
+        # draw rectangle in line with logbox
+        # logbox_w = self.screen_width/2.3
+        # logbox_h = self.screen_height/4
+        # self.log_box = pr.Rectangle(
+            # self.screen_width - logbox_w - offset, 
+            # self.screen_height - logbox_h - offset*.5,
+            # logbox_w,
+            # logbox_h)
+
+        # pr.draw_rectangle_lines_ex()
+        
         for i, (card_type, num_cards) in enumerate(player_object.hand.items()):
+
             # put card_type into new var to bring all resource names to 5 chars
             card_type_display = card_type
             while 5 > len(card_type_display):
                 card_type_display += " "
+
+            # draw resource: number
             pr.draw_text_ex(pr.gui_get_font(), f"{card_type_display}: {num_cards}", (location.x, location.y - size + i*size), size, 0, pr.BLACK)
 
+            # draw color rec per resource
             resource_rec = pr.Rectangle(int(location.x - 1.1*size), int(location.y - size + i*size), size, size)
             pr.draw_rectangle_rec(resource_rec, game_color_dict[resource_to_terrain[card_type]])
             pr.draw_rectangle_lines_ex(resource_rec, 2, pr.BLACK)
 
-
+    # scores for everyone
     score_display = f"Score: {player_object.victory_points}"
     dev_display = f"Dev: {player_object.dev_cards_size}"
 
     # draw hidden VPs for self
     if player_object.dev_cards["victory_point"] > 0:
-        score_display += f" +({player_object.dev_cards['victory_point']})"
+        score_display += f" ({player_object.dev_cards['victory_point'] + player_object.victory_points})"
+    
+    # draw visible knights
     if player_object.visible_knights > 0:
         dev_display += f"\nKnights: {player_object.visible_knights}"
 
@@ -309,8 +328,6 @@ def draw_mode_text(c_state, title, text):
         
         pr.draw_text_ex(pr.gui_get_font(), remaining, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height//2), c_state.med_text*.9, 0, pr.BLACK)
             
-
-
 
 def draw_infobox(c_state, hover_object=None):
     # draw info_box
@@ -456,16 +473,14 @@ def draw_infobox(c_state, hover_object=None):
         pr.draw_text_ex(pr.gui_get_font(), hover_text[hover_object], (c_state.info_box.x, c_state.info_box.y + c_state.med_text*1.1), c_state.med_text*.9, 0, pr.BLACK)
 
 
-
-
-
+# discard
 def draw_discard_interface(c_state, player_object):
     pr.draw_text_ex(pr.gui_get_font(), f" Select {player_object.num_to_discard} cards.", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height/2 - c_state.med_text*3.3), c_state.med_text, 0, pr.BLACK)
     pr.draw_text_ex(pr.gui_get_font(), f" Cards left: {sum(c_state.selected_cards.values())}.", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height/2 - c_state.med_text*2.2), c_state.med_text, 0, pr.BLACK)
     selected_cards = [f"{num} {kind}" for kind, num in c_state.selected_cards.items() if num > 0]
     pr.draw_text_ex(pr.gui_get_font(), f" Currently selected: {selected_cards}.", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height/2 - c_state.med_text*1.1), c_state.med_text, 0, pr.BLACK)
 
-
+# trade
 def draw_trade_interface(c_state):
     # draw line cutting box in half
     pr.draw_line_ex((c_state.info_box.x, c_state.info_box.y + c_state.info_box.height/2), (c_state.info_box.x + c_state.info_box.width, c_state.info_box.y + c_state.info_box.height/2), 1, pr.BLACK)
@@ -496,9 +511,7 @@ def draw_trade_interface(c_state):
             color = pr.WHITE
         draw_added_cards(c_state.mode, c_state.player_trade["request"], location_request, card_type, 0, i, x_offset, size, color)
 
-
-
-
+# banktrade
 def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, bank_trade, ratios):
     # draw horizontal line in info_box
     pr.draw_line_ex((info_box.x, info_box.y + info_box.height/2), (info_box.x + info_box.width, info_box.y + info_box.height/2), 1, pr.BLACK)
@@ -537,6 +550,7 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, bank_
                 draw_button_outline(button_object)
 
 
+# to titlecase
 def to_title(s: str) -> str:
     cap = ""
     for word in s.split("_"):

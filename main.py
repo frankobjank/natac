@@ -3289,14 +3289,23 @@ class ClientState:
                         for position, number in enumerate(server_response["dev_cards"][order]):
                             self.client_players[name].dev_cards[self.dev_card_order[position]] = number
                             button_division = 14
+
+
+                            # if dev card exists
                             if number > 0:
+
+                                # make VP smaller since it doesn't have to be a button
+                                if self.dev_card_order[position] == "victory_point":
+                                    dev_card_width = self.screen_width // button_division
+                                else:
+                                    dev_card_width = self.screen_width // button_division
 
                                 # horizantal line at bottom center
                                 self.dev_card_buttons[self.dev_card_order[position]] = Button(
                                     pr.Rectangle(
-                                        self.screen_width//2.25 - (dev_card_offset*1.1) * self.screen_width//button_division, 
+                                        self.screen_width//3.3 - (dev_card_offset*1.1) * dev_card_width, 
                                         self.screen_height * 0.9, 
-                                        self.screen_width//button_division, 
+                                        dev_card_width, 
                                         self.client_players[name].rec.height
                                     ),
                                     
@@ -3450,15 +3459,21 @@ class ClientState:
 
         hover_object = None
 
-        # display dev_card in info_box
+        # display dev_card buttons
         for b_object in self.dev_card_buttons.values():
             pr.draw_rectangle_rec(b_object.rec, b_object.color)
             pr.draw_rectangle_lines_ex(b_object.rec, 1, pr.BLACK)
-
-            b_object.draw_display()
-            # num of dev cards above button
-            if self.client_players[self.name].dev_cards[b_object.name] > 1:
-                pr.draw_text_ex(pr.gui_get_font(), f"x{self.client_players[self.name].dev_cards[b_object.name]}", (b_object.rec.x+self.med_text, b_object.rec.y - self.med_text/1.5), self.med_text/1.5, 0, pr.BLACK)
+            
+            # special rules for vp display
+            if b_object.name == "victory_point":
+                b_object.draw_display(str_override=f"VP\n+{self.client_players[self.name].dev_cards[b_object.name]}")
+            
+            # draw all non-VP buttons
+            else:
+                b_object.draw_display()
+                # num of dev cards above button
+                if self.client_players[self.name].dev_cards[b_object.name] > 1:
+                    pr.draw_text_ex(pr.gui_get_font(), f"x{self.client_players[self.name].dev_cards[b_object.name]}", (b_object.rec.x+self.med_text, b_object.rec.y - self.med_text/1.5), self.med_text/1.5, 0, pr.BLACK)
 
         # 2nd for loop drawing hover
         for b_object in self.dev_card_buttons.values():
@@ -3591,7 +3606,7 @@ class ClientState:
                     if i == self.selection_index:
                         pr.draw_rectangle_lines_ex(rf.get_outer_rec(self.client_players[player_name].rec, 7), 4, pr.GREEN)
 
-
+        # draw longest road/ largest army
         score_font = self.med_text - 2 # (self.small_text + self.med_text)/2
         if len(self.player_order) > 0:
             if len(self.longest_road) > 0:
