@@ -1,4 +1,14 @@
+# Python Standard Library
+from collections import namedtuple
+import json
+import socket
+import sys
+import time
+
+# External Libraries
 import pyray as pr
+
+# Local Python Files
 import hex_helper as hh
 import rendering_functions as rf
 import shared as sh
@@ -13,8 +23,6 @@ import shared as sh
 
     # find sound for each resource, like metal clank for ore, baah for sheep. use chimes/vibes for selecting
 
-# LandTile is shared while OceanTile is Client only
-OceanTile = sh.namedtuple("OceanTile", ["hex", "port", "port_corners"])
 
 
 def vector2_round(vector2):
@@ -151,15 +159,15 @@ class ClientState:
     def __init__(self, server_IP, port, debug=False):
         print("starting client")
         # Networking
-        self.socket = sh.socket.socket(sh.socket.AF_INET, sh.socket.SOCK_DGRAM)
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_IP = server_IP
         self.port = port
         self.debug = debug
         self.connected = False
         self.num_msgs_sent = 0 # for debug
         self.num_msgs_recv = 0 # for debug
-        self.time_last_sent = 0 # sh.time.time()
-        self.time_last_recv = 0 # sh.time.time()
+        self.time_last_sent = 0 # time.time()
+        self.time_last_recv = 0 # time.time()
         self.timeout_counter = 0
 
         self.name = "" # username (name that will be associated with Player)
@@ -409,7 +417,7 @@ class ClientState:
         # create OceanTile namedtuple with hex, port
         self.board["ocean_tiles"] = []
         for i, hex in enumerate(self.board["ocean_hexes"]):
-            tile = OceanTile(hex, server_response["ports_ordered"][i], server_response["port_corners"][i])
+            tile = sh.OceanTile(hex, server_response["ports_ordered"][i], server_response["port_corners"][i])
             self.board["ocean_tiles"].append(tile)
 
         # create LandTile namedtuple with hex, terrain, token
@@ -743,7 +751,7 @@ class ClientState:
                     self.server_IP = self.info_box_buttons["input_IP"].text_input
                     self.add_to_log("Connecting to server...")
                     self.mode = "connecting"
-                    self.timeout_counter = sh.time.time()
+                    self.timeout_counter = time.time()
                     # if self.debug:
                         # return self.client_request_to_dict(action="debug_add_player", player=name)
                     return self.client_request_to_dict(action="add_player", player=name)
@@ -751,14 +759,14 @@ class ClientState:
                     return None
         
             elif self.mode == "connecting":
-                if sh.time.time() - self.timeout_counter > 3:
+                if time.time() - self.timeout_counter > 3:
                     self.add_to_log("Connection timed out, please check network connection.")
                     self.mode = "connect"
                 return None
 
         elif self.connected:
             # 10 second timeout until disconnect
-            if sh.time.time() - self.time_last_recv > 10:
+            if time.time() - self.time_last_recv > 10:
                 self.connected = False
 
         # check if chat is submitted -> send to server
@@ -789,22 +797,19 @@ class ClientState:
         # defining current_hex, current_edge, current_node
         # check radius for current hex
         for hex in self.board["all_hexes"]:
-            # replacing radius_check_v with raylib function
-            if pr.check_collision_point_circle(self.world_position, hh.hex_to_pixel(sh.pointy, hex), 60):
+            if sh.radius_check_v(self.world_position, hh.hex_to_pixel(sh.pointy, hex), 60):
                 self.current_hex = hex
                 break
         # 2nd loop for edges - current_hex_2
         for hex in self.board["all_hexes"]:
             if self.current_hex != hex:
-                # replacing radius_check_v with raylib function
-                if pr.check_collision_point_circle(self.world_position, hh.hex_to_pixel(sh.pointy, hex), 60):
+                if sh.radius_check_v(self.world_position, hh.hex_to_pixel(sh.pointy, hex), 60):
                     self.current_hex_2 = hex
                     break
         # 3rd loop for nodes - current_hex_3
         for hex in self.board["all_hexes"]:
             if self.current_hex != hex and self.current_hex_2 != hex:
-                # replacing radius_check_v with raylib function
-                if pr.check_collision_point_circle(self.world_position, hh.hex_to_pixel(sh.pointy, hex), 60):
+                if sh.radius_check_v(self.world_position, hh.hex_to_pixel(sh.pointy, hex), 60):
                     self.current_hex_3 = hex
                     break
 
@@ -1054,19 +1059,19 @@ class ClientState:
 
 
     def client_to_server(self, client_request):
-        msg_to_send = sh.json.dumps(client_request).encode()
+        msg_to_send = json.dumps(client_request).encode()
         
         # send pulse b'null' every once a second to force server response
-        if msg_to_send != b'null' or sh.time.time() - self.time_last_sent > sh.buffer_time:
+        if msg_to_send != b'null' or time.time() - self.time_last_sent > sh.buffer_time:
             self.num_msgs_sent += 1
             self.socket.sendto(msg_to_send, (self.server_IP, self.port))
-            self.time_last_sent = sh.time.time()
+            self.time_last_sent = time.time()
 
         # receive message from server
         try:
-            msg_recv, address = self.socket.recvfrom(sh.buffer_size, sh.socket.MSG_DONTWAIT)
+            msg_recv, address = self.socket.recvfrom(sh.buffer_size, socket.MSG_DONTWAIT)
             self.num_msgs_recv += 1
-            self.time_last_recv = sh.time.time()
+            self.time_last_recv = time.time()
         except BlockingIOError:
             return None
         return msg_recv
@@ -1157,7 +1162,7 @@ class ClientState:
         # num_roads : []
         # num_settlements : []
         # num_cities : []
-        server_response = sh.json.loads(encoded_server_response)
+        server_response = json.loads(encoded_server_response)
 
         # split kind of response by what kind of message is received, "log", "reset", etc
         try:
@@ -1767,7 +1772,7 @@ def run_client(server_IP=sh.local_IP, debug=False):
 
 
 # sys.argv = list of args passed thru command line
-cmd_line_input = sh.sys.argv[1:]
+cmd_line_input = sys.argv[1:]
 
 def parse_cmd_line(cmd_line_input):
 

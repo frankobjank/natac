@@ -1,11 +1,12 @@
-import socket
-import json
-import sys
-import time
+# Python Standard Library
 from collections import namedtuple
+import json
+import math
 from operator import attrgetter
+import time
+
+# Local Python Files
 import hex_helper as hh
-import rendering_functions as rf
 
 
 local_IP = '127.0.0.1'
@@ -26,8 +27,11 @@ def to_title(s: str) -> str:
     return cap[:-1]
 
 
-# LandTile is shared, OceanTile is client
+# LandTile used in both client and server
 LandTile = namedtuple("LandTile", ["hex", "terrain", "token"])
+
+# Currently OceanTile is Client only, but it thematically belongs here
+OceanTile = namedtuple("OceanTile", ["hex", "port", "port_corners"])
 
 
 def sort_hexes(hexes) -> list:
@@ -53,6 +57,18 @@ building_costs = {
     "city": {"ore": 3, "wheat": 2},
     "dev_card": {"ore": 1, "wheat": 1, "sheep": 1}
 }
+
+
+# Raylib functions I replaced with my own for use on server side:
+    # check_collision_circles -> radius_check_two_circles()
+    # check_collision_point_circle -> radius_check_v()
+
+def radius_check_v(pt1: hh.Point, pt2: hh.Point, radius: int) -> bool:
+    return math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius
+    
+
+def radius_check_two_circles(center1: hh.Point, radius1: int, center2: hh.Point, radius2: int)->bool:
+    return math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2)
 
 
 class Edge:

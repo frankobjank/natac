@@ -1,21 +1,13 @@
+# Python Standard Library
+import json
 import random
-import math
+import socket
+import sys
+import time
+
+# Local Python Files
 import hex_helper as hh
 import shared as sh
-
-
-# Raylib functions I replaced with my own for use on server side:
-    # check_collision_circles -> radius_check_two_circles()
-    # check_collision_point_circle -> radius_check_v()
-
-def radius_check_v(pt1: hh.Point, pt2: hh.Point, radius: int) -> bool:
-    return math.sqrt(((pt2.x-pt1.x)**2) + ((pt2.y-pt1.y)**2)) <= radius
-    
-
-def radius_check_two_circles(center1: hh.Point, radius1: int, center2: hh.Point, radius2: int)->bool:
-    return math.sqrt(((center2.x-center1.x)**2) + ((center2.y-center1.y)**2)) <= (radius1 + radius2)
-
-
 
 
 class Board:
@@ -231,16 +223,16 @@ class Board:
             ]
 
         # triple 'for' loop to fill s_state.edges and s_state.nodes lists
-        # replaced raylib func with my own for radius check
         all_hexes = self.land_hexes + self.ocean_hexes
+        # first two loops create Edges
         for i in range(len(all_hexes)):
             for j in range(i+1, len(all_hexes)):
-                # first two loops create Edges
-                if radius_check_two_circles(hh.hex_to_pixel(sh.pointy, all_hexes[i]), 60, hh.hex_to_pixel(sh.pointy, all_hexes[j]), 60):
+                # replaced raylib func with my own for radius check
+                if sh.radius_check_two_circles(hh.hex_to_pixel(sh.pointy, all_hexes[i]), 60, hh.hex_to_pixel(sh.pointy, all_hexes[j]), 60):
                     self.edges.append(sh.Edge(all_hexes[i], all_hexes[j]))
                     # third loop creates Nodes
                     for k in range(j+1, len(all_hexes)):
-                        if radius_check_two_circles(hh.hex_to_pixel(sh.pointy, all_hexes[i]), 60, hh.hex_to_pixel(sh.pointy, all_hexes[k]), 60):
+                        if sh.radius_check_two_circles(hh.hex_to_pixel(sh.pointy, all_hexes[i]), 60, hh.hex_to_pixel(sh.pointy, all_hexes[k]), 60):
                             self.nodes.append(sh.Node(all_hexes[i], all_hexes[j], all_hexes[k]))
 
 
@@ -331,8 +323,8 @@ class Player:
         # networking
         self.address = address
         self.has_board = False
-        self.time_joined = sh.time.time()
-        self.last_updated = sh.time.time()
+        self.time_joined = time.time()
+        self.last_updated = time.time()
         # potentially add timeout to know when to disconnect a player
 
     def __repr__(self):
@@ -354,7 +346,7 @@ class ServerState:
         # NETWORKING
         self.msg_number_recv = 0
 
-        self.socket = sh.socket.socket(family=sh.socket.AF_INET, type=sh.socket.SOCK_DGRAM)
+        self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         self.socket.bind((IP_address, port))
 
         # BOARD
@@ -1269,7 +1261,7 @@ class ServerState:
         packet = {
             "name": recipient,
             "kind": "state",
-            # "time": sh.time.time(),
+            # "time": time.time(),
             "town_nodes": town_nodes,
             "road_edges": road_edges,
             "robber_hex": self.board.robber_hex[:2],
@@ -1597,15 +1589,15 @@ class ServerState:
 
         # update server if msg_recv is not 0b'' (empty)
         if len(msg_recv) > 2:
-            packet_recv = sh.json.loads(msg_recv) # loads directly from bytes
+            packet_recv = json.loads(msg_recv) # loads directly from bytes
             self.update_server(packet_recv, address)
             
             # use socket to respond
             for p_name, p_object in self.players.items():
-                # print(f"current_time = {sh.time.time()}, last_updated = {p_object.last_updated}")
-                # if sh.time.time() - p_object.last_updated > buffer_time:
+                # print(f"current_time = {time.time()}, last_updated = {p_object.last_updated}")
+                # if time.time() - p_object.last_updated > buffer_time:
                 self.socket.sendto(sh.to_json(self.package_state(p_name)).encode(), p_object.address)
-                p_object.last_updated = sh.time.time()
+                p_object.last_updated = time.time()
 
         # if combined:
         #     # or just return
@@ -1627,7 +1619,7 @@ def run_server(IP_address, debug=False, port=sh.default_port):
 
 
 # sys.argv = list of args passed thru command line
-cmd_line_input = sh.sys.argv[1:]
+cmd_line_input = sys.argv[1:]
 
 def parse_cmd_line(cmd_line_input):
 
