@@ -210,24 +210,24 @@ class Board:
         ]
         
         port_node_hexes = [
-            sort_hexes((hh.set_hex(-1, -2, 3), hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2))),
-            sort_hexes((hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2), hh.set_hex(1, -3, 2))),
-            sort_hexes((hh.set_hex(1, -3, 2), hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1))),
-            sort_hexes((hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1), hh.set_hex(2, -2, 0))),
-            sort_hexes((hh.set_hex(2, -2, 0), hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1))),
-            sort_hexes((hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1), hh.set_hex(3, -1, -2))),
-            sort_hexes((hh.set_hex(-2, -1, 3), hh.set_hex(-1, -2, 3), hh.set_hex(-1, -1, 2))),
-            sort_hexes((hh.set_hex(-2, -1, 3), hh.set_hex(-2, 0, 2), hh.set_hex(-1, -1, 2))),
-            sort_hexes((hh.set_hex(2, 0, -2), hh.set_hex(3, -1, -2), hh.set_hex(3, 0, -3))),
-            sort_hexes((hh.set_hex(2, 0, -2), hh.set_hex(2, 1, -3), hh.set_hex(3, 0, -3))),
-            sort_hexes((hh.set_hex(-3, 1, 2), hh.set_hex(-2, 0, 2), hh.set_hex(-2, 1, 1))),
-            sort_hexes((hh.set_hex(-3, 1, 2), hh.set_hex(-3, 2, 1), hh.set_hex(-2, 1, 1))),
-            sort_hexes((hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3), hh.set_hex(2, 1, -3))),
-            sort_hexes((hh.set_hex(0, 2, -2), hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3))),
-            sort_hexes((hh.set_hex(-3, 2, 1), hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0))),
-            sort_hexes((hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0), hh.set_hex(-2, 3, -1))),
-            sort_hexes((hh.set_hex(-2, 3, -1), hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2))),
-            sort_hexes((hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2), hh.set_hex(0, 2, -2)))
+            sh.sort_hexes((hh.set_hex(-1, -2, 3), hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2))),
+            sh.sort_hexes((hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2), hh.set_hex(1, -3, 2))),
+            sh.sort_hexes((hh.set_hex(1, -3, 2), hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1))),
+            sh.sort_hexes((hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1), hh.set_hex(2, -2, 0))),
+            sh.sort_hexes((hh.set_hex(2, -2, 0), hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1))),
+            sh.sort_hexes((hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1), hh.set_hex(3, -1, -2))),
+            sh.sort_hexes((hh.set_hex(-2, -1, 3), hh.set_hex(-1, -2, 3), hh.set_hex(-1, -1, 2))),
+            sh.sort_hexes((hh.set_hex(-2, -1, 3), hh.set_hex(-2, 0, 2), hh.set_hex(-1, -1, 2))),
+            sh.sort_hexes((hh.set_hex(2, 0, -2), hh.set_hex(3, -1, -2), hh.set_hex(3, 0, -3))),
+            sh.sort_hexes((hh.set_hex(2, 0, -2), hh.set_hex(2, 1, -3), hh.set_hex(3, 0, -3))),
+            sh.sort_hexes((hh.set_hex(-3, 1, 2), hh.set_hex(-2, 0, 2), hh.set_hex(-2, 1, 1))),
+            sh.sort_hexes((hh.set_hex(-3, 1, 2), hh.set_hex(-3, 2, 1), hh.set_hex(-2, 1, 1))),
+            sh.sort_hexes((hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3), hh.set_hex(2, 1, -3))),
+            sh.sort_hexes((hh.set_hex(0, 2, -2), hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3))),
+            sh.sort_hexes((hh.set_hex(-3, 2, 1), hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0))),
+            sh.sort_hexes((hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0), hh.set_hex(-2, 3, -1))),
+            sh.sort_hexes((hh.set_hex(-2, 3, -1), hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2))),
+            sh.sort_hexes((hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2), hh.set_hex(0, 2, -2)))
             ]
 
         # triple 'for' loop to fill s_state.edges and s_state.nodes lists
@@ -236,12 +236,12 @@ class Board:
         for i in range(len(all_hexes)):
             for j in range(i+1, len(all_hexes)):
                 # first two loops create Edges
-                if radius_check_two_circles(hh.hex_to_pixel(pointy, all_hexes[i]), 60, hh.hex_to_pixel(pointy, all_hexes[j]), 60):
-                    self.edges.append(Edge(all_hexes[i], all_hexes[j]))
+                if radius_check_two_circles(hh.hex_to_pixel(sh.pointy, all_hexes[i]), 60, hh.hex_to_pixel(sh.pointy, all_hexes[j]), 60):
+                    self.edges.append(sh.Edge(all_hexes[i], all_hexes[j]))
                     # third loop creates Nodes
                     for k in range(j+1, len(all_hexes)):
-                        if radius_check_two_circles(hh.hex_to_pixel(pointy, all_hexes[i]), 60, hh.hex_to_pixel(pointy, all_hexes[k]), 60):
-                            self.nodes.append(Node(all_hexes[i], all_hexes[j], all_hexes[k]))
+                        if radius_check_two_circles(hh.hex_to_pixel(sh.pointy, all_hexes[i]), 60, hh.hex_to_pixel(sh.pointy, all_hexes[k]), 60):
+                            self.nodes.append(sh.Node(all_hexes[i], all_hexes[j], all_hexes[k]))
 
 
         # start robber in desert
@@ -255,12 +255,12 @@ class Board:
                 if port_node_hexes[i] == node.hexes:
                     node.port = ports_to_nodes[i]
         
-        self.int_to_edge = {obj_to_int(edge): edge for edge in self.edges}
-        self.int_to_node = {obj_to_int(node): node for node in self.nodes}
+        self.int_to_edge = {sh.obj_to_int(edge): edge for edge in self.edges}
+        self.int_to_node = {sh.obj_to_int(node): node for node in self.nodes}
 
 
     def assign_demo_settlements(self, player_object, spec_nodes, spec_edges):
-        hex_to_resource = {self.land_hexes[i]: terrain_to_resource[self.terrains[i]] for i in range(len(self.land_hexes))}
+        hex_to_resource = {self.land_hexes[i]: sh.terrain_to_resource[self.terrains[i]] for i in range(len(self.land_hexes))}
 
         for node in self.nodes:
             for red_node in spec_nodes:
@@ -284,20 +284,20 @@ class Board:
 
         # for demo, initiate default roads and settlements
         # Red - p1
-        red_nodes = [Node(hh.Hex(0, -2, 2), hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Node(hh.Hex(-2, 0, 2), hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
-        red_edges = [Edge(hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), Edge(hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
+        red_nodes = [sh.Node(hh.Hex(0, -2, 2), hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), sh.Node(hh.Hex(-2, 0, 2), hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
+        red_edges = [sh.Edge(hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), sh.Edge(hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
 
         # White - p2
-        white_nodes = [Node(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1), hh.Hex(q=0, r=-1, s=1)), Node(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=1, r=1, s=-2), hh.Hex(q=2, r=0, s=-2))]
-        white_edges = [Edge(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=2, r=0, s=-2)), Edge(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1))]
+        white_nodes = [sh.Node(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1), hh.Hex(q=0, r=-1, s=1)), sh.Node(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=1, r=1, s=-2), hh.Hex(q=2, r=0, s=-2))]
+        white_edges = [sh.Edge(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=2, r=0, s=-2)), sh.Edge(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1))]
 
         # Orange - p3
-        orange_nodes = [Node(hh.Hex(q=-1, r=1, s=0), hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1)), Node(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0), hh.Hex(q=2, r=-1, s=-1))]
-        orange_edges=[Edge(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0)), Edge(hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1))]
+        orange_nodes = [sh.Node(hh.Hex(q=-1, r=1, s=0), hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1)), sh.Node(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0), hh.Hex(q=2, r=-1, s=-1))]
+        orange_edges=[sh.Edge(hh.Hex(q=1, r=-1, s=0), hh.Hex(q=2, r=-2, s=0)), sh.Edge(hh.Hex(q=-1, r=2, s=-1), hh.Hex(q=0, r=1, s=-1))]
 
         # Blue - p4
-        blue_nodes = [Node(hh.Hex(-2, 1, 1), hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Node(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2), hh.Hex(0, 2, -2))]
-        blue_edges = [Edge(hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), Edge(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2))]
+        blue_nodes = [sh.Node(hh.Hex(-2, 1, 1), hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), sh.Node(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2), hh.Hex(0, 2, -2))]
+        blue_edges = [sh.Edge(hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), sh.Edge(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2))]
 
 
         if order == 0:
@@ -461,7 +461,7 @@ class ServerState:
             for m in msg.split("\n"):
                 print(m)
         for p_object in self.players.values():
-            self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), p_object.address)
+            self.socket.sendto(sh.to_json({"kind": kind, "msg": msg}).encode(), p_object.address)
 
 
     def send_to_player(self, address: str, kind: str, msg: str):
@@ -469,7 +469,7 @@ class ServerState:
             for m in msg.split("\n"):
                 print(m)
         if isinstance(msg, str):
-            self.socket.sendto(to_json({"kind": kind, "msg": msg}).encode(), address)
+            self.socket.sendto(sh.to_json({"kind": kind, "msg": msg}).encode(), address)
             
 
     # adding players to server. 
@@ -520,7 +520,7 @@ class ServerState:
         self.send_to_player(self.players[name].address, "add_player", name)
         
         # Send state
-        self.socket.sendto(to_json(self.package_state(name, include_board=True)).encode(), address)
+        self.socket.sendto(sh.to_json(self.package_state(name, include_board=True)).encode(), address)
 
 
     def randomize_player_order(self):
@@ -573,7 +573,7 @@ class ServerState:
         hex_a, hex_b, hex_c = location_hexes.values()
         if location_hexes["hex_c"] is not None and self.mode == "build_settlement":
             for node in self.board.nodes:
-                if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
+                if node.hexes == sh.sort_hexes([hex_a, hex_b, hex_c]):
                     location_node = node
 
             if action == "build_settlement" and location_node is not None:
@@ -587,7 +587,7 @@ class ServerState:
                     if self.players[self.current_player_name].num_settlements == 1:
 
                         # can prob shorten hex_to_resource and be more precise - create lookup dict if needed
-                        hex_to_resource = {self.board.land_hexes[i]: terrain_to_resource[self.board.terrains[i]] for i in range(len(self.board.land_hexes))}
+                        hex_to_resource = {self.board.land_hexes[i]: sh.terrain_to_resource[self.board.terrains[i]] for i in range(len(self.board.land_hexes))}
                         for hex in location_node.hexes:
                             try:
                                 self.players[self.current_player_name].hand[hex_to_resource[hex]] += 1
@@ -601,7 +601,7 @@ class ServerState:
 
         elif location_hexes["hex_b"] is not None and self.mode == "build_road":
             for edge in self.board.edges:
-                if edge.hexes == sort_hexes([hex_a, hex_b]):
+                if edge.hexes == sh.sort_hexes([hex_a, hex_b]):
                     location_edge = edge
 
             if action == "build_road" and location_edge is not None:
@@ -859,7 +859,7 @@ class ServerState:
                 return
             location_edge = None
             for edge in self.board.edges:
-                if edge.hexes == sort_hexes([hex_a, hex_b]):
+                if edge.hexes == sh.sort_hexes([hex_a, hex_b]):
                     location_edge = edge
 
             if action == "build_road":
@@ -959,13 +959,12 @@ class ServerState:
 
 
     def pay_for(self, item):
-        for resource, count in building_costs[item].items():
+        for resource, count in sh.building_costs[item].items():
             self.players[self.current_player_name].hand[resource] -= count
 
 
     def cost_check(self, item):
-        # global constant building_costs
-        cost = building_costs[item]
+        cost = sh.building_costs[item]
         hand = self.players[self.current_player_name].hand
         if all(hand[resource] >= cost[resource] for resource in cost.keys()):
             return True
@@ -1071,13 +1070,13 @@ class ServerState:
 
 
     def distribute_resources(self):
+
+        # find tiles corresponding to dice roll 
         token_indices = [i for i, token in enumerate(self.board.tokens) if token == (self.die1 + self.die2)]
 
-        tiles = [LandTile(self.board.land_hexes[i], self.board.terrains[i], self.board.tokens[i]) for i in token_indices]
+        tiles = [sh.LandTile(self.board.land_hexes[i], self.board.terrains[i], self.board.tokens[i]) for i in token_indices]
 
-        # making this a global dict so client can use too
-        # terrain_to_resource = {"mountain": "ore", "field": "wheat", "pasture": "sheep", "forest": "wood", "hill": "brick"}
-
+        # add resources to players' hands
         for node in self.board.nodes:
             if node.player is not None:
                 for hex in node.hexes:
@@ -1085,11 +1084,11 @@ class ServerState:
                         if hex == tile.hex and hex != self.board.robber_hex:
                             # cheat
                             if self.ITSOVER9000:
-                                self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 9
+                                self.players[node.player].hand[sh.terrain_to_resource[tile.terrain]] += 9
                                 return
-                            self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
+                            self.players[node.player].hand[sh.terrain_to_resource[tile.terrain]] += 1
                             if node.town == "city":
-                                self.players[node.player].hand[terrain_to_resource[tile.terrain]] += 1
+                                self.players[node.player].hand[sh.terrain_to_resource[tile.terrain]] += 1
 
 
     def perform_roll(self, cheat=""):
@@ -1337,7 +1336,7 @@ class ServerState:
             self.send_broadcast("chat", client_request["chat"])
 
         elif client_request["action"] == "request_board":
-            self.socket.sendto(to_json(self.package_state(client_request["name"], include_board=True)).encode(), address)
+            self.socket.sendto(sh.to_json(self.package_state(client_request["name"], include_board=True)).encode(), address)
             return
         
         elif client_request["action"] == "submit" and self.mode == "select_color" and client_request["color"] is not None:
@@ -1564,7 +1563,7 @@ class ServerState:
         if location_hexes["hex_c"] is not None:
             if self.mode == "build_settlement" or self.mode == "build_city":
                 for node in self.board.nodes:
-                    if node.hexes == sort_hexes([hex_a, hex_b, hex_c]):
+                    if node.hexes == sh.sort_hexes([hex_a, hex_b, hex_c]):
                         location_node = node
 
             if client_request["action"] == "build_settlement":
@@ -1577,7 +1576,7 @@ class ServerState:
 
         elif location_hexes["hex_b"] is not None and self.mode == "build_road":
             for edge in self.board.edges:
-                if edge.hexes == sort_hexes([hex_a, hex_b]):
+                if edge.hexes == sh.sort_hexes([hex_a, hex_b]):
                     location_edge = edge
 
             if client_request["action"] == "build_road":
@@ -1605,12 +1604,12 @@ class ServerState:
             for p_name, p_object in self.players.items():
                 # print(f"current_time = {sh.time.time()}, last_updated = {p_object.last_updated}")
                 # if sh.time.time() - p_object.last_updated > buffer_time:
-                self.socket.sendto(to_json(self.package_state(p_name)).encode(), p_object.address)
+                self.socket.sendto(sh.to_json(self.package_state(p_name)).encode(), p_object.address)
                 p_object.last_updated = sh.time.time()
 
         # if combined:
         #     # or just return
-        #     return to_json(self.package_state("combined")).encode()
+        #     return sh.to_json(self.package_state("combined")).encode()
 
 
 def run_server(IP_address, debug=False, port=sh.default_port):

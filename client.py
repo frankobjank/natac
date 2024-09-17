@@ -293,8 +293,8 @@ class ClientState:
 
         self.trade_buttons = {}
         for i, resource in enumerate(self.resource_cards):
-            self.trade_buttons[f"offer_{resource}"] = Button(pr.Rectangle(self.info_box.x + (i+1)*(self.info_box.width//10) + offset/1.4*i, self.info_box.y + offset, self.info_box.width//6, self.info_box.height/8), f"offer_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
-            self.trade_buttons[f"request_{resource}"] = Button(pr.Rectangle(self.info_box.x + (i+1)*(self.info_box.width//10) + offset/1.4*i, self.info_box.y + self.info_box.height - 2.7*offset, self.info_box.width//6, self.info_box.height/8), f"request_{resource}", color=rf.game_color_dict[resource_to_terrain[resource]], resource=resource, action=True)
+            self.trade_buttons[f"offer_{resource}"] = Button(pr.Rectangle(self.info_box.x + (i+1)*(self.info_box.width//10) + offset/1.4*i, self.info_box.y + offset, self.info_box.width//6, self.info_box.height/8), f"offer_{resource}", color=rf.game_color_dict[sh.resource_to_terrain[resource]], resource=resource, action=True)
+            self.trade_buttons[f"request_{resource}"] = Button(pr.Rectangle(self.info_box.x + (i+1)*(self.info_box.width//10) + offset/1.4*i, self.info_box.y + self.info_box.height - 2.7*offset, self.info_box.width//6, self.info_box.height/8), f"request_{resource}", color=rf.game_color_dict[sh.resource_to_terrain[resource]], resource=resource, action=True)
         
         self.dev_card_buttons = {}
 
@@ -349,11 +349,11 @@ class ClientState:
     def print_debug(self):
         debug_msgs = [f"Screen mouse at: ({int(pr.get_mouse_x())}, {int(pr.get_mouse_y())})", f"Current player = {self.current_player_name}", f"Turn number: {self.turn_num}", f"Mode: {self.mode}"]
         if self.current_hex_3:
-            msg1 = f"Current Node: {Node(self.current_hex, self.current_hex_2, self.current_hex_3)}"
+            msg1 = f"Current Node: {sh.Node(self.current_hex, self.current_hex_2, self.current_hex_3)}"
         elif self.current_hex_2:
-            msg1 = f"Current Edge: {Edge(self.current_hex, self.current_hex_2)}"
+            msg1 = f"Current Edge: {sh.Edge(self.current_hex, self.current_hex_2)}"
         elif self.current_hex:
-            msg1 = f"Current Hex: {obj_to_int(self.current_hex)}"
+            msg1 = f"Current Hex: {sh.obj_to_int(self.current_hex)}"
         else:
             msg1 = ""
 
@@ -425,7 +425,7 @@ class ClientState:
             node_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in node["hexes"]]
 
             # create node
-            node_object = Node(node_hexes[0], node_hexes[1], node_hexes[2])
+            node_object = sh.Node(node_hexes[0], node_hexes[1], node_hexes[2])
             
             # assign attributes
             node_object.player = node["player"]
@@ -442,7 +442,7 @@ class ClientState:
             edge_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in edge["hexes"]]
             
             # create edge
-            edge_object = Edge(edge_hexes[0], edge_hexes[1])
+            edge_object = sh.Edge(edge_hexes[0], edge_hexes[1])
             
             # assign player
             edge_object.player = edge["player"]
@@ -789,19 +789,22 @@ class ClientState:
         # defining current_hex, current_edge, current_node
         # check radius for current hex
         for hex in self.board["all_hexes"]:
-            if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hex), 60):
+            # replacing radius_check_v with raylib function
+            if pr.check_collision_point_circle(self.world_position, hh.hex_to_pixel(sh.pointy, hex), 60):
                 self.current_hex = hex
                 break
         # 2nd loop for edges - current_hex_2
         for hex in self.board["all_hexes"]:
             if self.current_hex != hex:
-                if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hex), 60):
+                # replacing radius_check_v with raylib function
+                if pr.check_collision_point_circle(self.world_position, hh.hex_to_pixel(sh.pointy, hex), 60):
                     self.current_hex_2 = hex
                     break
         # 3rd loop for nodes - current_hex_3
         for hex in self.board["all_hexes"]:
             if self.current_hex != hex and self.current_hex_2 != hex:
-                if radius_check_v(self.world_position, hh.hex_to_pixel(pointy, hex), 60):
+                # replacing radius_check_v with raylib function
+                if pr.check_collision_point_circle(self.world_position, hh.hex_to_pixel(sh.pointy, hex), 60):
                     self.current_hex_3 = hex
                     break
 
@@ -1358,6 +1361,7 @@ class ClientState:
     def render_board(self):
         # hex details - layout = type, size, origin
         size = 50
+        # is this definition of pointy different from one in shared?
         pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
         # LandTile = namedtuple("LandTile", ["hex", "terrain", "token"])
@@ -1429,7 +1433,7 @@ class ClientState:
             # highlight node for building settlement or city
             if self.current_hex_3 and (self.mode == "build_settlement" or self.mode == "build_city"):
                 # create node object
-                node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
+                node_object = sh.Node(self.current_hex, self.current_hex_2, self.current_hex_3)
                 
                 # find if node is occupied
                 # linear search, could turn nodes/edges into dict for easier lookup
@@ -1446,29 +1450,29 @@ class ClientState:
 
             # highlight current edge if building is possible
             elif self.current_hex_2 and (self.mode == "build_road" or self.mode == "road_building"):
-                edge_object = Edge(self.current_hex, self.current_hex_2)
+                edge_object = sh.Edge(self.current_hex, self.current_hex_2)
                 # draw line from edge_point[0] to edge_point[1]
                 pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
 
             # highlight current hex if moving robber is possible
             elif self.current_hex and self.mode == "move_robber":
-                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(sh.pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
 
         elif self.debug:
 
             # highlight current node
             if self.current_hex_3:
-                node_object = Node(self.current_hex, self.current_hex_2, self.current_hex_3)
+                node_object = sh.Node(self.current_hex, self.current_hex_2, self.current_hex_3)
                 pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
 
             # highlight current edge
             elif self.current_hex_2:
-                edge_object = Edge(self.current_hex, self.current_hex_2)
+                edge_object = sh.Edge(self.current_hex, self.current_hex_2)
                 pr.draw_line_ex(edge_object.get_edge_points()[0], edge_object.get_edge_points()[1], 12, pr.BLACK)
 
             # highlight current hex
             elif self.current_hex:
-                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(sh.pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
 
 
     def render_client(self):
