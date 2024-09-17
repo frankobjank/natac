@@ -1,5 +1,6 @@
 import pyray as pr
 import hex_helper as hh
+import shared as sh
 
 # CONSTANTS FOR CLIENT DISPLAY
 
@@ -28,9 +29,6 @@ game_color_dict = {
     "desert": pr.get_color(0xffd966ff),
     "ocean": pr.get_color(0x4fa6ebff)
     }
-
-resource_to_terrain = {"ore": "mountain", "wheat": "field", "sheep": "pasture", "wood": "forest", "brick": "hill"}
-
 
 
 port_to_display = {
@@ -244,7 +242,7 @@ def draw_building_costs(button):
     for i, resource in enumerate(building_costs[button.name]):
         size = button.rec.width//5.5
         resource_rec = pr.Rectangle(int(button.rec.x+2+1.1*(i*size)), int(button.rec.y+1.05*button.rec.height), size, size)
-        pr.draw_rectangle_rec(resource_rec, game_color_dict[resource_to_terrain[resource]])
+        pr.draw_rectangle_rec(resource_rec, game_color_dict[sh.resource_to_terrain[resource]])
         pr.draw_rectangle_lines_ex(resource_rec, 2, pr.BLACK)
 
 
@@ -280,7 +278,7 @@ def draw_player_info(c_state, player_object):
 
             # draw color rec per resource
             resource_rec = pr.Rectangle(int(location.x - 1.1*size), int(location.y - size + i*size), size, size)
-            pr.draw_rectangle_rec(resource_rec, game_color_dict[resource_to_terrain[card_type]])
+            pr.draw_rectangle_rec(resource_rec, game_color_dict[sh.resource_to_terrain[card_type]])
             pr.draw_rectangle_lines_ex(resource_rec, 2, pr.BLACK)
 
     # scores for everyone
@@ -314,7 +312,7 @@ def draw_button_outline(button_object):
 
 
 def draw_mode_text(c_state, title, text):
-    pr.draw_text_ex(pr.gui_get_font(), " "+to_title(title), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
+    pr.draw_text_ex(pr.gui_get_font(), " "+sh.to_title(title), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
     for i, line in enumerate(reversed(text.split("\n"))):
         pr.draw_text_ex(pr.gui_get_font(), line, (c_state.info_box.x, c_state.info_box.y+c_state.info_box.height-c_state.med_text*(i+1)), c_state.med_text*.9, 0, pr.BLACK)
     # draw remaining roads, settle, cities
@@ -367,7 +365,7 @@ def draw_infobox(c_state, hover_object=None):
         return
     # gameplay
     if c_state.mode == "discard":
-        pr.draw_text_ex(pr.gui_get_font(), " "+to_title(c_state.mode), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
+        pr.draw_text_ex(pr.gui_get_font(), " "+sh.to_title(c_state.mode), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
 
         if c_state.client_players[c_state.name].num_to_discard > 0:
             # instructions on discarding
@@ -549,13 +547,6 @@ def draw_banktrade_interface(buttons, info_box, font_size, selected_cards, bank_
             if button_object.hover:
                 draw_button_outline(button_object)
 
-
-# to titlecase
-def to_title(s: str) -> str:
-    cap = ""
-    for word in s.split("_"):
-        cap += word.capitalize() + " "
-    return cap[:-1]
 
 
 mode_text = {
