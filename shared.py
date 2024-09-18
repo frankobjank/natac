@@ -3,6 +3,7 @@ from collections import namedtuple
 import json
 import math
 from operator import attrgetter
+import sys
 import time
 
 # Local Python Files
@@ -13,6 +14,18 @@ local_IP = '127.0.0.1'
 default_port = 12345
 buffer_size = 10000
 buffer_time = .5
+
+
+def check_ip(ip: str) -> bool:
+    # check all chars are allowed
+    if not all(c in ".0123456789" for c in ip):
+        return False
+    
+    ip_list = ip.split(".")
+
+    # IP address cannot start or end with "." and must have 4 numbers
+    # AND numbers cannot exceed 255
+    return ip_list[0] != "." and ip_list[-1] != "." and len(ip_list) == 4 and all(255 >= int(num) >= 0 for num in ip_list)
 
 
 def to_json(obj):
@@ -39,7 +52,7 @@ def sort_hexes(hexes) -> list:
 
 
 # layout = type, size, origin
-size = 50 # (radius)
+size = 50 # hexagon radius
 pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
 # might be useful
@@ -447,3 +460,29 @@ class Player:
 #     def __repr__(self) -> str:
 #         return f"Player: {self.name}, color: {self.color}, order: {self.order}"
 
+
+def parse_cmd_line() -> tuple[str, bool]:
+    cmd_line_input = sys.argv[1:]
+    
+    # IP address defaults to 127.0.0.1
+    IP_address = "127.0.0.1"
+
+    # debug defaults to False
+    debug_flag = False
+    
+    # checks if arg 1 is a valid IP address
+    if len(cmd_line_input) > 0:
+        if cmd_line_input[0] == "-d" or cmd_line_input[0] == "debug":
+            # first arg is debug flag
+            debug_flag = True
+
+        elif check_ip(cmd_line_input[0]):
+            # first arg is IP
+            IP_address = cmd_line_input[0]
+
+            if len(cmd_line_input) > 1:
+                if cmd_line_input[1] == "-d" or "debug":
+                    # second arg is debug flag
+                    debug_flag = True
+
+    return IP_address, debug_flag

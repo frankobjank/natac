@@ -2,7 +2,6 @@
 from collections import namedtuple
 import json
 import socket
-import sys
 import time
 
 # External Libraries
@@ -24,11 +23,13 @@ import shared as sh
     # find sound for each resource, like metal clank for ore, baah for sheep. use chimes/vibes for selecting
 
 
-
-def vector2_round(vector2):
+def vector2_round(vector2: pr.Vector2) -> pr.Vector2:
     return pr.Vector2(int(vector2.x), int(vector2.y))
 
 
+# for raylib functions that expect Vector2 instead of Point
+def point_to_vector2(p: hh.Point) -> pr.Vector2:
+    return pr.Vector2(p.x, p.y)
 
 class Button:
     def __init__(self, rec: pr.Rectangle, name: str, color: pr.Color=pr.RAYWHITE, resource: str|None=None, mode: bool=False, action: bool=False):
@@ -742,11 +743,17 @@ class ClientState:
         if not self.connected:
             if self.mode == "connect":
                 if self.check_submit(user_input):
-                    if not all(255 >= int(num) >= 0 for num in self.info_box_buttons["input_IP"].text_input.split(".")):
+                    
+                    # validating IP address
+                    if not sh.check_ip(self.info_box_buttons["input_IP"].text_input):
                         self.add_to_log("Invalid IP address.")
                         return None
+                    
+                    # validate name
                     if len(self.info_box_buttons["input_name"].text_input) == 0:
-                        self.add_to_log("Please enter a name.")
+                        self.add_to_log("Please enter a valid name.")
+                        return None
+                    
                     name = self.info_box_buttons["input_name"].text_input
                     self.server_IP = self.info_box_buttons["input_IP"].text_input
                     self.add_to_log("Connecting to server...")
@@ -1366,34 +1373,38 @@ class ClientState:
     def render_board(self):
         # hex details - layout = type, size, origin
         size = 50
-        # is this definition of pointy different from one in shared?
-        pointy = hh.Layout(hh.layout_pointy, hh.Point(size, size), hh.Point(0, 0))
 
         # LandTile = namedtuple("LandTile", ["hex", "terrain", "token"])
         # draw land tiles, numbers, dots
         for tile in self.board["land_tiles"]:
             # draw resource hexes
             color = rf.game_color_dict[tile.terrain]
-            pr.draw_poly(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, color)
+            # if needed: point_to_vector2
+            pr.draw_poly(hh.hex_to_pixel(sh.pointy, tile.hex), 6, size, 30, color)
             # draw yellow outlines around hexes if token matches dice and not robber'd, otherwise outline in black
             # use len(dice) to see if whole game state has been received
             if (self.dice[0] + self.dice[1]) == tile.token and tile.hex != self.board["robber_hex"] and self.has_rolled:
-                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 6, pr.YELLOW)
+                # if needed: point_to_vector2
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(sh.pointy, tile.hex), 6, size, 30, 6, pr.YELLOW)
             else:
-                pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 2, pr.BLACK)
+                
+                # if needed: point_to_vector2
+                pr.draw_poly_lines_ex(hh.hex_to_pixel(sh.pointy, tile.hex), 6, size, 30, 2, pr.BLACK)
 
             # draw numbers, dots on hexes
             if tile.token is not None:
                 # have to specify hex layout for hex calculations
-                rf.draw_tokens(tile.hex, tile.token, layout=pointy)      
+                rf.draw_tokens(tile.hex, tile.token, layout=sh.pointy)      
 
         # draw ocean hexes
         for tile in self.board["ocean_tiles"]:
-            pr.draw_poly_lines_ex(hh.hex_to_pixel(pointy, tile.hex), 6, size, 30, 2, pr.BLACK)
+            # if needed: point_to_vector2
+            pr.draw_poly_lines_ex(hh.hex_to_pixel(sh.pointy, tile.hex), 6, size, 30, 2, pr.BLACK)
         
             # draw ports
             if tile.port is not None:
-                hex_center = hh.hex_to_pixel(pointy, tile.hex)
+                # if needed: point_to_vector2
+                hex_center = hh.hex_to_pixel(sh.pointy, tile.hex)
                 display_text = rf.port_to_display[tile.port]
                 text_offset = pr.measure_text_ex(pr.gui_get_font(), display_text, 16, 0)
                 text_location = pr.Vector2(hex_center.x-text_offset.x//2, hex_center.y-16)
@@ -1402,8 +1413,10 @@ class ClientState:
                 # draw active port corners
                 for i in range(6):
                     if i in tile.port_corners:
-                        corner = hh.hex_corners_list(pointy, tile.hex)[i]
-                        center = hh.hex_to_pixel(pointy, tile.hex)
+                        # if needed: point_to_vector2
+                        corner = hh.hex_corners_list(sh.pointy, tile.hex)[i]
+                        # if needed: point_to_vector2
+                        center = hh.hex_to_pixel(sh.pointy, tile.hex)
                         midpoint = ((center.x+corner.x)//2, (center.y+corner.y)//2)
                         pr.draw_line_ex(midpoint, corner, 3, pr.BLACK)
 
@@ -1424,7 +1437,8 @@ class ClientState:
         alpha = 255
         if self.current_hex == self.board["robber_hex"]:
             alpha = 50
-        robber_hex_center = vector2_round(hh.hex_to_pixel(pointy, self.board["robber_hex"]))
+        # if needed: point_to_vector2
+        robber_hex_center = vector2_round(hh.hex_to_pixel(sh.pointy, self.board["robber_hex"]))
         
         # draw robber
         rf.draw_robber(robber_hex_center, alpha)
@@ -1461,6 +1475,7 @@ class ClientState:
 
             # highlight current hex if moving robber is possible
             elif self.current_hex and self.mode == "move_robber":
+                # if needed: point_to_vector2
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(sh.pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
 
         elif self.debug:
@@ -1477,6 +1492,7 @@ class ClientState:
 
             # highlight current hex
             elif self.current_hex:
+                # if needed: point_to_vector2
                 pr.draw_poly_lines_ex(hh.hex_to_pixel(sh.pointy, self.current_hex), 6, 50, 30, 6, pr.BLACK)
 
 
@@ -1740,7 +1756,11 @@ class ClientState:
         pr.close_window()
 
 
-def run_client(server_IP=sh.local_IP, debug=False):
+def run_client():
+
+    # gets args from cmd line - IP defaults to local, debug to False
+    server_IP, debug = sh.parse_cmd_line()
+
     c_state = ClientState(server_IP=server_IP, port=sh.default_port, debug=debug)
     c_state.init_raylib()
     c_state.info_box_buttons["input_IP"].text_input = server_IP
@@ -1771,25 +1791,6 @@ def run_client(server_IP=sh.local_IP, debug=False):
     c_state.socket.close()
 
 
-# sys.argv = list of args passed thru command line
-cmd_line_input = sys.argv[1:]
-
-def parse_cmd_line(cmd_line_input):
-
-    # parsing cmd_line_input
-    if len(cmd_line_input) > 0:
-
-        # starts debug client
-        if len(cmd_line_input) == 1 and cmd_line_input[0] == "-d":
-                run_client(server_IP=sh.local_IP, debug=True)
-    else:
-        run_client(server_IP=sh.local_IP)
-
-
+# client: python3 client.py IP_ADDRESS [-d]
 # tag -d or debug sets debug to True
-
-# client: python3 main.py [-d]
-# server: python3 main.py IP_ADDRESS [-d]
-
-# runs client or server depending on cmd line args
-parse_cmd_line(cmd_line_input)
+run_client()

@@ -2,7 +2,6 @@
 import json
 import random
 import socket
-import sys
 import time
 
 # Local Python Files
@@ -247,6 +246,7 @@ class Board:
                 if port_node_hexes[i] == node.hexes:
                     node.port = ports_to_nodes[i]
         
+        # currently not used but could be a good solution for edge/ node lookup
         self.int_to_edge = {sh.obj_to_int(edge): edge for edge in self.edges}
         self.int_to_node = {sh.obj_to_int(node): node for node in self.nodes}
 
@@ -447,19 +447,36 @@ class ServerState:
     def is_server_full(self, max_players=4):
         return len(self.player_order) >= max_players
     
+
+    # print to terminal log msgs sent to players
+    def print_msg(self, msg: str, address: str="ALL") -> None:
+        # get player name from address
+        if address != "ALL":
+            for p_object in self.players.values():
+                if p_object.address == address:
+                    address = p_object.name
+        
+        # split on newline if newline is in msg
+        for m in msg.split("\n"):
+            # address defaults to All, specific player for send_to_player
+            print(f"TO {address}: {m}")
     
-    def send_broadcast(self, kind: str, msg: str):
+    
+    # send to all players
+    def send_broadcast(self, kind: str, msg: str) -> None:
         if kind == "log":
-            for m in msg.split("\n"):
-                print(m)
+            self.print_msg(msg)
+            
         for p_object in self.players.values():
             self.socket.sendto(sh.to_json({"kind": kind, "msg": msg}).encode(), p_object.address)
 
 
-    def send_to_player(self, address: str, kind: str, msg: str):
+    # send to specific player
+    def send_to_player(self, address: str, kind: str, msg: str) -> None:
+        # print to terminal log msgs sent to players
         if kind == "log":
-            for m in msg.split("\n"):
-                print(m)
+            self.print_msg(msg, address=address)
+
         if isinstance(msg, str):
             self.socket.sendto(sh.to_json({"kind": kind, "msg": msg}).encode(), address)
             
@@ -1604,8 +1621,14 @@ class ServerState:
         #     return sh.to_json(self.package_state("combined")).encode()
 
 
-def run_server(IP_address, debug=False, port=sh.default_port):
-    s_state = ServerState(IP_address=IP_address, port=port, debug=debug)
+def run_server():
+    
+    # gets and validates args from cmd line - IP defaults to local, debug to False
+    IP_address, debug = sh.parse_cmd_line()
+
+    print(f"Starting server on {IP_address} - {time.asctime()}")
+
+    s_state = ServerState(IP_address=IP_address, port=sh.default_port, debug=debug)
     s_state.initialize_game()
     while True:
         # receives msg, updates s_state, then sends message
@@ -1618,39 +1641,7 @@ def run_server(IP_address, debug=False, port=sh.default_port):
     s_state.socket.close()
 
 
-# sys.argv = list of args passed thru command line
-cmd_line_input = sys.argv[1:]
-
-def parse_cmd_line(cmd_line_input):
-
-    # parsing cmd_line_input
-    if len(cmd_line_input) > 0:
-
-        # local = alias for "127.0.0.1"
-        if cmd_line_input[0] == "local":
-
-            if len(cmd_line_input) > 1:
-                if cmd_line_input[1] == "-d" or cmd_line_input[1] == "debug":
-                    # start local debug server
-                    run_server(sh.local_IP, debug=True)
-            else:
-                # start local server
-                run_server(sh.local_IP)
-        
-        else:
-
-            # start remote debug server
-            if len(cmd_line_input) > 2:
-                run_server(cmd_line_input[1], cmd_line_input[2])
-            
-            # start remote server
-            else:
-                run_server(cmd_line_input[1])
-
-
-
-# client: python3 client.py [-d]
 # server: python3 server.py IP_ADDRESS [-d]
-    # tag -d or debug sets debug to True
-
-parse_cmd_line(cmd_line_input)
+  # IP_ADDRESS defaults to 127.0.0.1
+  # tag -d or debug sets debug to True
+run_server()
