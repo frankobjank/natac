@@ -89,17 +89,32 @@ def radius_check_two_circles(center1: hh.Point, radius1: int, center2: hh.Point,
 
 
 class Edge:
-    def __init__(self, hex_a, hex_b):
+    def __init__(self, hex_a, hex_b) -> None:
         assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
+        # make hexes a tuple to allow hashing. hexes never have to be reassigned
         self.hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
         self.player = None
    
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         # return f"Edge('hexes': {self.hexes}, 'player': {self.player})"
         return obj_to_int(self)
-   
+    
+    # HASH
+    # def __eq__(self, other) -> bool:
+    #     # only allow comparisons between Edges
+    #     if not isinstance(other, Edge):
+    #         return False
+        
+    #     # test equality using hexes
+    #     return self.hexes == other.hexes
 
+
+    # def __hash__(self) -> int:
+    #     # self.hexes is hashable (tuple)
+    #     return hash(self.hexes)
+        
+   
     def get_edge_points_set(self) -> set:
         return hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1])
 
@@ -198,7 +213,7 @@ class Edge:
                     s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
                     print("building next to settlement")
                     # -1 since this is before road gets added to board
-                    s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {15-1-len(owned_roads)} total roads remaining.")
+                    s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {15 - 1 - len(owned_roads)} total roads remaining.")
                 return True
         
         
@@ -249,7 +264,7 @@ class Edge:
         if verbose:
             s_state.send_broadcast("log", f"{s_state.current_player_name} built a road.")
             # -1 since this is before road gets added to board
-            s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {15-1-len(owned_roads)} total roads remaining.")
+            s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {15 - 1 - len(owned_roads)} total roads remaining.")
 
             print("no conflicts")
         return True
@@ -259,15 +274,30 @@ class Edge:
 
 
 class Node:
-    def __init__(self, hex_a, hex_b, hex_c):
+    def __init__(self, hex_a, hex_b, hex_c) -> None:
+        # make hexes a tuple to allow hashing. hexes never have to be reassigned
         self.hexes = sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s"))
         self.player = None
         self.town = None # city or settlement
         self.port = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         # return f"Node('hexes': {self.hexes}, 'player': {self.player}, 'town': {self.town}, 'port': {self.port})"
         return obj_to_int(self)       
+
+    # HASH
+    # def __eq__(self, other) -> bool:
+    #     # only allow comparisons between Nodes
+    #     if not isinstance(other, Node):
+    #         return False
+        
+    #     # test equality using hexes
+    #     return self.hexes == other.hexes
+
+
+    # def __hash__(self) -> int:
+    #     # self.hexes is hashable (tuple)
+    #     return hash(self.hexes)
 
 
     def get_node_point(self):
@@ -360,8 +390,8 @@ class Node:
                         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a settlement.")
         
-        # -1 since this is before road gets added to board
-        s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {5-1-s_state.players[s_state.current_player_name].num_settlements} settlements remaining.")
+        # -1 since this is before settlement gets added to board
+        s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {5 - 1 - s_state.players[s_state.current_player_name].num_settlements} settlements remaining.")
         print("no conflicts, building settlement")
         return True
     
@@ -381,21 +411,29 @@ class Node:
             return False
         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a city.")
-        # -1 since this is before road gets added to board
-        s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {4-1-s_state.players[s_state.current_player_name].num_cities} cities remaining.")
+        # -1 since this is before coty gets added to board
+        s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {4 - 1 - s_state.players[s_state.current_player_name].num_cities} cities remaining.")
         print("no conflicts, building city")
         return True
 
 
-def obj_to_int(hex_edge_node):
-    name=""
+# help with debug. essentially a hash function for edges/nodes
+# where each edge/node that has the same hexes return the same value
+# could achieve a similar effect with overriding __eq__() for edge/node
+def obj_to_int(hex_edge_node) -> str:
+    name = ""
+
+    # obj is hex, return hash of hex
     if isinstance(hex_edge_node, hh.Hex):
-        name += str(hex_edge_node.q+3)+str(hex_edge_node.r+3)
+        name = str(hex_edge_node.q + 3) + str(hex_edge_node.r + 3)
+
+    # obj is edge or node, calc value of each hex
     else:
         for hex in hex_edge_node.hexes:
             for i in hex[:-1]:
                 i += 3
                 name += str(i)
+    
     return name
 
 # Player is only for server. But with shared, could combine ClientPlayer and Player?

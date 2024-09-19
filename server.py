@@ -579,6 +579,9 @@ class ServerState:
         
         hex_a, hex_b, hex_c = location_hexes.values()
         if location_hexes["hex_c"] is not None and self.mode == "build_settlement":
+            # instead of doing this loop, could do self.board.[hash(Node(hex_a, hex_b, hex_c))]
+                # make a temporary node to get hash
+                # use hash in lookup table to get desired node
             for node in self.board.nodes:
                 if node.hexes == sh.sort_hexes([hex_a, hex_b, hex_c]):
                     location_node = node
