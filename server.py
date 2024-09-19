@@ -22,6 +22,12 @@ class Board:
         self.robber_hex = None
         self.edges = []
         self.nodes = []
+        
+        # hash(edge): edge for lookup
+        self.edge_hash = {}
+        self.node_hash = {}
+
+        # pseudo hashing
         self.int_to_edge = {}
         self.int_to_node = {}
 
@@ -50,7 +56,6 @@ class Board:
         # afterwards add None for the desert
         randomized_tokens.insert(terrain_list.index("desert"), None)
         return randomized_tokens
-
 
 
     def get_random_ports(self):
@@ -219,7 +224,7 @@ class Board:
             sh.sort_hexes((hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0), hh.set_hex(-2, 3, -1))),
             sh.sort_hexes((hh.set_hex(-2, 3, -1), hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2))),
             sh.sort_hexes((hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2), hh.set_hex(0, 2, -2)))
-            ]
+        ]
 
         # triple 'for' loop to fill s_state.edges and s_state.nodes lists
         all_hexes = self.land_hexes + self.ocean_hexes
@@ -249,6 +254,10 @@ class Board:
         # currently not used but could be a good solution for edge/ node lookup
         self.int_to_edge = {sh.obj_to_int(edge): edge for edge in self.edges}
         self.int_to_node = {sh.obj_to_int(node): node for node in self.nodes}
+        
+        # implement hash table
+        self.edge_hash = {hash(edge): edge for edge in self.edges}
+        self.node_hash = {hash(node): node for node in self.nodes}
 
 
     def assign_demo_settlements(self, player_object, spec_nodes, spec_edges):
@@ -260,11 +269,14 @@ class Board:
                     player_object.num_settlements += 1
                     node.player = player_object.name
                     node.town = "settlement"
+
         for edge in self.edges:
             for red_edge in spec_edges:
                 if edge.hexes[0] == red_edge.hexes[0] and edge.hexes[1] == red_edge.hexes[1]:
                     player_object.num_roads += 1
                     edge.player = player_object.name
+
+        # give player resources from 2nd settlement
         for hex in spec_nodes[1].hexes:
             player_object.hand[hex_to_resource[hex]] += 1
 
@@ -273,11 +285,23 @@ class Board:
         # self.land_hexes = []
         # self.terrains = []
         # self.tokens = []
+        hex_to_resource = {self.land_hexes[i]: sh.terrain_to_resource[self.terrains[i]] for i in range(len(self.land_hexes))}
+
 
         # for demo, initiate default roads and settlements
         # Red - p1
         red_nodes = [sh.Node(hh.Hex(0, -2, 2), hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), sh.Node(hh.Hex(-2, 0, 2), hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
         red_edges = [sh.Edge(hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), sh.Edge(hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
+        
+        # test if hashing works
+        for node in red_nodes:
+            self.node_hash[hash(node)].player = player_object.name
+            self.node_hash[hash(node)].town = "settlement"
+            player_object.num_settlements += 1
+        
+        for edge in red_edges:
+            self.edge_hash[hash(edge)].player = player_object.name
+            player_object.num_roads += 1
 
         # White - p2
         white_nodes = [sh.Node(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1), hh.Hex(q=0, r=-1, s=1)), sh.Node(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=1, r=1, s=-2), hh.Hex(q=2, r=0, s=-2))]
@@ -292,14 +316,14 @@ class Board:
         blue_edges = [sh.Edge(hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), sh.Edge(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2))]
 
 
-        if order == 0:
-            self.assign_demo_settlements(player_object, red_nodes, red_edges)
-        elif order == 1:
-            self.assign_demo_settlements(player_object, white_nodes, white_edges)
-        elif order == 2:
-            self.assign_demo_settlements(player_object, orange_nodes, orange_edges)
-        elif order == 3:
-            self.assign_demo_settlements(player_object, blue_nodes, blue_edges)
+        # if order == 0:
+        #     self.assign_demo_settlements(player_object, red_nodes, red_edges)
+        # elif order == 1:
+        #     self.assign_demo_settlements(player_object, white_nodes, white_edges)
+        # elif order == 2:
+        #     self.assign_demo_settlements(player_object, orange_nodes, orange_edges)
+        # elif order == 3:
+        #     self.assign_demo_settlements(player_object, blue_nodes, blue_edges)
             
 
 class Player:
@@ -513,7 +537,7 @@ class ServerState:
             self.players[name] = Player(name, order, address)
             self.player_order.append(name)
             if self.debug:
-                self.board.set_demo_settlements(self, name)
+                self.board.set_demo_settlements(self.players[name], name)
                 # starting hand for debug
                 self.players[name].hand = {"ore": 4, "wheat": 4, "sheep": 4, "wood": 4, "brick": 4}
                 self.players[name].dev_cards = {"knight": 3, "road_building": 1,  "year_of_plenty": 1, "monopoly": 1, "victory_point": 4}

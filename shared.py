@@ -51,8 +51,8 @@ LandTile = namedtuple("LandTile", ["hex", "terrain", "token"])
 OceanTile = namedtuple("OceanTile", ["hex", "port", "port_corners"])
 
 
-def sort_hexes(hexes) -> list:
-    return sorted(hexes, key=attrgetter("q", "r", "s"))
+def sort_hexes(hexes) -> tuple:
+    return tuple(sorted(hexes, key=attrgetter("q", "r", "s")))
 
 
 # layout = type, size, origin
@@ -92,7 +92,7 @@ class Edge:
     def __init__(self, hex_a, hex_b) -> None:
         assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
         # make hexes a tuple to allow hashing. hexes never have to be reassigned
-        self.hexes = sorted([hex_a, hex_b], key=attrgetter("q", "r", "s"))
+        self.hexes = tuple(sorted([hex_a, hex_b], key=attrgetter("q", "r", "s")))
         self.player = None
    
 
@@ -100,19 +100,19 @@ class Edge:
         # return f"Edge('hexes': {self.hexes}, 'player': {self.player})"
         return obj_to_int(self)
     
-    # HASH
-    # def __eq__(self, other) -> bool:
-    #     # only allow comparisons between Edges
-    #     if not isinstance(other, Edge):
-    #         return False
+
+    def __eq__(self, other) -> bool:
+        # only allow comparisons between Edges
+        if not isinstance(other, Edge):
+            return False
         
-    #     # test equality using hexes
-    #     return self.hexes == other.hexes
+        # test equality using hexes
+        return self.hexes == other.hexes
 
 
-    # def __hash__(self) -> int:
-    #     # self.hexes is hashable (tuple)
-    #     return hash(self.hexes)
+    def __hash__(self) -> int:
+        # self.hexes is hashable (tuple)
+        return hash(self.hexes)
         
    
     def get_edge_points_set(self) -> set:
@@ -276,7 +276,7 @@ class Edge:
 class Node:
     def __init__(self, hex_a, hex_b, hex_c) -> None:
         # make hexes a tuple to allow hashing. hexes never have to be reassigned
-        self.hexes = sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s"))
+        self.hexes = tuple(sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s")))
         self.player = None
         self.town = None # city or settlement
         self.port = None
@@ -285,19 +285,19 @@ class Node:
         # return f"Node('hexes': {self.hexes}, 'player': {self.player}, 'town': {self.town}, 'port': {self.port})"
         return obj_to_int(self)       
 
-    # HASH
-    # def __eq__(self, other) -> bool:
-    #     # only allow comparisons between Nodes
-    #     if not isinstance(other, Node):
-    #         return False
+
+    def __eq__(self, other) -> bool:
+        # only allow comparisons between Nodes
+        if not isinstance(other, Node):
+            return False
         
-    #     # test equality using hexes
-    #     return self.hexes == other.hexes
+        # test equality using hexes
+        return self.hexes == other.hexes
 
 
-    # def __hash__(self) -> int:
-    #     # self.hexes is hashable (tuple)
-    #     return hash(self.hexes)
+    def __hash__(self) -> int:
+        # self.hexes is hashable (tuple)
+        return hash(self.hexes)
 
 
     def get_node_point(self):
