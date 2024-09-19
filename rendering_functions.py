@@ -363,8 +363,15 @@ def draw_infobox(c_state, hover_object=None):
                     text_color = pr.WHITE
                 pr.draw_text_ex(pr.gui_get_font(), f" {color}", (c_state.info_box.x, c_state.info_box.y + c_state.info_box.height//3 + c_state.med_text*(i+1)), c_state.med_text*.9, 0, text_color)
         return
-    # gameplay
-    if c_state.mode == "discard":
+    
+    # game over (all players)
+    if c_state.mode == "game_over":
+        draw_mode_text(c_state, c_state.mode, mode_text[c_state.mode])
+        return
+
+
+    # discard (all players)
+    elif c_state.mode == "discard":
         pr.draw_text_ex(pr.gui_get_font(), " "+sh.to_title(c_state.mode), (c_state.info_box.x, c_state.info_box.y+c_state.large_text*1.1), c_state.large_text, 0, pr.BLACK)
 
         if c_state.client_players[c_state.name].num_to_discard > 0:
@@ -566,6 +573,7 @@ mode_text = {
     "year_of_plenty": " Pick 2 resources to receive.\n Use arrow keys to select cards.\n Hit Submit or enter to submit.",
     "monopoly": " Pick a type of resource to\n steal from all players.\n Use arrow keys to select cards.\n Hit Submit or enter to submit.",
     "roll_dice": " Click on the dice to roll.",
+    "game_over": "The game is over. Go home.",
 }
 
 hover_text = {

@@ -7,3 +7,4 @@ specs/
 .DS_Store
 assets/.DS_Store
 old_main.py
+scratch.py

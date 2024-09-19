@@ -107,13 +107,13 @@ def pixel_to_hex(layout, p):
     r = M.b2 * pt.x + M.b3 * pt.y
     return set_hex(q, r, -q - r)
 
-def hex_corner_offset(layout, corner):
+def hex_corner_offset(layout, corner) -> Point:
     M = layout.orientation
     size = layout.size
     angle = 2.0 * math.pi * (M.start_angle - corner) / 6.0
     return Point(size.x * math.cos(angle), size.y * math.sin(angle))
 
-def hex_corners_list(layout, h):
+def hex_corners_list(layout, h) -> list:
     corners = []
     center = hex_to_pixel(layout, h)
     for i in range(0, 6):
@@ -121,7 +121,7 @@ def hex_corners_list(layout, h):
         corners.append(Point(center.x + offset.x, center.y + offset.y))
     return corners
 
-def hex_corners_set(layout, h):
+def hex_corners_set(layout, h) -> set:
     corners = set()
     center = hex_to_pixel(layout, h)
     for i in range(0, 6):

@@ -780,9 +780,12 @@ class ClientState:
         if self.log_buttons["chat"].toggle and self.check_submit(user_input):
             return self.client_request_to_dict(action="submit", chat=self.chat_msg)
         
+        # Game over - can be expanded, right now it should just stop 
+        # regular gameplay and send mode to client. Still allows chat.
+        if self.mode == "game_over":
+            return None
 
-
-        if self.mode == "select_color":
+        elif self.mode == "select_color":
             if self.name in self.client_players.keys() and self.client_players[self.name].color == pr.GRAY:
                 return self.select_color(user_input)
                 

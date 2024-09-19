@@ -17,6 +17,10 @@ buffer_time = .5
 
 
 def check_ip(ip: str) -> bool:
+    # check for empty string
+    if len(ip) == 0:
+        return False
+
     # check all chars are allowed
     if not all(c in ".0123456789" for c in ip):
         return False
@@ -24,7 +28,7 @@ def check_ip(ip: str) -> bool:
     ip_list = ip.split(".")
 
     # IP address cannot start or end with "." and must have 4 numbers
-    # AND numbers cannot exceed 255
+        # AND numbers cannot exceed 255
     return ip_list[0] != "." and ip_list[-1] != "." and len(ip_list) == 4 and all(255 >= int(num) >= 0 for num in ip_list)
 
 
@@ -484,5 +488,9 @@ def parse_cmd_line() -> tuple[str, bool]:
                 if cmd_line_input[1] == "-d" or "debug":
                     # second arg is debug flag
                     debug_flag = True
+        
+        else:
+            print("Invalid IP")
+            IP_address = ""
 
     return IP_address, debug_flag

@@ -382,11 +382,9 @@ class ServerState:
         self.dice_rolls = 0
         self.mode = "select_color"
 
-        # game states
+        # need this because modes like build_settlement behave 
+        # differently depending on if setup is complete
         self.setup = True
-        # could potentially check if len(self.current_player_name) > 0 instead of has_started
-        # self.has_started = False
-        self.game_over = False
 
         # cheat
         self.ITSOVER9000 = False
@@ -417,31 +415,31 @@ class ServerState:
         self.shuffle_dev_cards()
 
     
-    # hardcoded players for debug
-    def initialize_dummy_players(self, name1=None, name2=None, name3=None, name4=None):
-        order = 0
-        if name1:
-            self.players[name1] = Player(name1, order)
-            order += 1
-        if name2:
-            self.players[name2] = Player(name2, order)
-            order += 1
-        if name3:
-            self.players[name3] = Player(name3, order)
-            order += 1
-        if name4:
-            self.players[name4] = Player(name4, order)
-            order += 1
+    # # hardcoded players for debug
+    # def initialize_dummy_players(self, name1=None, name2=None, name3=None, name4=None):
+    #     order = 0
+    #     if name1:
+    #         self.players[name1] = Player(name1, order)
+    #         order += 1
+    #     if name2:
+    #         self.players[name2] = Player(name2, order)
+    #         order += 1
+    #     if name3:
+    #         self.players[name3] = Player(name3, order)
+    #         order += 1
+    #     if name4:
+    #         self.players[name4] = Player(name4, order)
+    #         order += 1
 
-        self.player_order = [name for name in self.players.keys()]
-        self.player_order.sort(key=lambda player_name: self.players[player_name].order)
+    #     self.player_order = [name for name in self.players.keys()]
+    #     self.player_order.sort(key=lambda player_name: self.players[player_name].order)
 
-        self.board.set_demo_settlements(self)
+    #     self.board.set_demo_settlements(self)
 
-        # DEBUG - start each player with 1 of every resource
-        for player_object in self.players.values():
-            for r in player_object.hand.keys():
-                player_object.hand[r] = 1
+    #     # DEBUG - start each player with 1 of every resource
+    #     for player_object in self.players.values():
+    #         for r in player_object.hand.keys():
+    #             player_object.hand[r] = 1
 
 
     def is_server_full(self, max_players=4):
@@ -1166,11 +1164,11 @@ class ServerState:
             
             for p_name in self.players.keys():
                 if p_name == self.current_player_name:
-                    self.send_to_player(self.players[self.current_player_name].address, "log", f"Congratulations, you won!")
+                    self.send_to_player(self.players[self.current_player_name].address, "log", f"Congratulations, you win!")
                 else:
-                    self.send_to_player(self.players[p_name].address, "log", f"{self.current_player_name} won!")
+                    self.send_to_player(self.players[p_name].address, "log", f"{self.current_player_name} wins!")
             
-            self.game_over = True
+            self.mode = "game_over"
 
 
     def package_board(self) -> dict:
@@ -1399,6 +1397,10 @@ class ServerState:
                     self.send_broadcast("reset", "trade")
                     self.mode = None
                 return
+        
+        # Game over - can be expanded, right now it should just stop regular gameplay and send mode to client
+        elif self.mode == "game_over":
+            return
 
         # cheats
         elif client_request["action"] == "ITSOVER9000":
@@ -1594,7 +1596,7 @@ class ServerState:
                     self.calc_longest_road()
 
         # only checks if current player is at 10+ vps per the official rulebook
-        self.check_for_win()
+        self.check_for_win()            
 
         
     def server_to_client(self):
@@ -1625,8 +1627,14 @@ def run_server():
     
     # gets and validates args from cmd line - IP defaults to local, debug to False
     IP_address, debug = sh.parse_cmd_line()
+    
+    # returns "" if invalid IP, let user enter another one
+    while not sh.check_ip(IP_address):
+        IP_address = input("Enter a valid IP address: ")
 
-    print(f"Starting server on {IP_address} - {time.asctime()}")
+    print(f"Starting server on {IP_address}")
+    print(f"{time.asctime()}")
+    print(f"Debug = {debug}")
 
     s_state = ServerState(IP_address=IP_address, port=sh.default_port, debug=debug)
     s_state.initialize_game()
@@ -1641,7 +1649,7 @@ def run_server():
     s_state.socket.close()
 
 
-# server: python3 server.py IP_ADDRESS [-d]
+# server: python3 server.py [IP_ADDRESS] [-d]
   # IP_ADDRESS defaults to 127.0.0.1
   # tag -d or debug sets debug to True
 run_server()
