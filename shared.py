@@ -125,6 +125,9 @@ class Edge:
 
     # using points
     def get_adj_nodes(self, nodes) -> list:
+        # don't think this can be improved using a hash table without creating a new one
+        # associating nodes with their points and edges with their nodes. this might be useful
+        # for longest road calculations
         edge_points = self.get_edge_points()
         adj_nodes = []
         for point in edge_points:
@@ -146,19 +149,20 @@ class Edge:
         
         adj_nodes = []
         self_nodes = [Node(self.hexes[0], self.hexes[1], h) for h in adj_hexes]
-        for self_node in self_nodes:
-            for node in state.board.nodes:
-                if self_node.hexes == node.hexes:
-                    adj_nodes.append(node)
+
+        adj_nodes = [state.board.node_hash[hash(self_node)] for self_node in self_nodes]
+
         return adj_nodes
     
 
-    def get_adj_node_edges(self, nodes, edges) -> list:
+    def get_adj_node_edges(self, nodes, edge_hash) -> list:
         adj_nodes = self.get_adj_nodes(nodes)
+
         if len(adj_nodes) < 2:
             return None
-        adj_edges_1 = adj_nodes[0].get_adj_edges_set(edges)
-        adj_edges_2 = adj_nodes[1].get_adj_edges_set(edges)
+        
+        adj_edges_1 = adj_nodes[0].get_adj_edges_set(edge_hash)
+        adj_edges_2 = adj_nodes[1].get_adj_edges_set(edge_hash)
 
         return list(adj_edges_1.symmetric_difference(adj_edges_2))
 
@@ -218,7 +222,7 @@ class Edge:
         
         
         # contiguous check. if no edges are not owned by player, break
-        adj_edges = self.get_adj_node_edges(s_state.board.nodes, s_state.board.edges)
+        adj_edges = self.get_adj_node_edges(s_state.board.nodes, s_state.board.edge_hash)
         # origin_edge = None
         origin_edges = []
         for edge in adj_edges:
@@ -303,26 +307,21 @@ class Node:
 
 
     def get_node_point(self):
+        # finds intersection of sets of all corners of self.hexes
         node_list = list(hh.hex_corners_set(pointy, self.hexes[0]) & hh.hex_corners_set(pointy, self.hexes[1]) & hh.hex_corners_set(pointy, self.hexes[2]))
+
+        # return list should have len 1, return first element of list
         if len(node_list) != 0:
             return node_list[0]
-    
-    def get_adj_edges(self, edges) -> list:
-        self_edges = [Edge(self.hexes[0], self.hexes[1]), Edge(self.hexes[0], self.hexes[2]), Edge(self.hexes[1], self.hexes[2])]
-        adj_edges = []
-        for self_edge in self_edges:
-            for edge in edges:
-                if self_edge.hexes == edge.hexes:
-                    adj_edges.append(edge)
-        return adj_edges
 
-    def get_adj_edges_set(self, edges) -> set:
+
+    def get_adj_edges_set(self, edge_hash) -> set:
+        # node has 3 adj edges
         self_edges = [Edge(self.hexes[0], self.hexes[1]), Edge(self.hexes[0], self.hexes[2]), Edge(self.hexes[1], self.hexes[2])]
-        adj_edges = set()
-        for self_edge in self_edges:
-            for edge in edges:
-                if self_edge.hexes == edge.hexes:
-                    adj_edges.add(edge)
+
+        # use edges above to find board edges with hash
+        adj_edges = {edge_hash[hash(self_edge)] for self_edge in self_edges}
+        
         return adj_edges
             
     def get_adj_nodes_from_node(self, nodes) -> list:
@@ -340,7 +339,7 @@ class Node:
     def build_check_settlement(self, s_state, setup=False):
         # print("build_check_settlement")
 
-        if s_state.current_player_name is None:
+        if len(s_state.current_player_name) == 0:
             return False
 
         # check num_settlements
@@ -361,7 +360,6 @@ class Node:
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes and self.hexes[2] in s_state.board.ocean_hexes:
             s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You cannot build in the ocean.")
-            print("can't build in ocean")
             return False
         
         # get 3 adjacent nodes and make sure no town is built there
@@ -369,26 +367,24 @@ class Node:
         for node in adj_nodes:
             if node.town == "settlement":
                 s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "Too close to another settlement.")
-                print("too close to settlement")
                 return False
             elif node.town == "city":
                 s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "Too close to a city.")
-                print("too close to city")
                 return False
 
         if not setup:
-            adj_edges = self.get_adj_edges(s_state.board.edges)
+            # turn the set into a list to be iterated over - this may not be necessary?
+            adj_edges = [self.get_adj_edges_set(s_state.board.edges)]
+
             # is node adjacent to at least 1 same-colored road
             if all(edge.player != s_state.current_player_name for edge in adj_edges):
                 s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You have no adjacent roads.")
-                print("no adjacent roads")
                 return False
                         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a settlement.")
         
         # -1 since this is before settlement gets added to board
         s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {5 - 1 - s_state.players[s_state.current_player_name].num_settlements} settlements remaining.")
-        print("no conflicts, building settlement")
         return True
     
     def build_check_city(self, s_state):
@@ -396,20 +392,18 @@ class Node:
             s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "This location must be a settlement.")
             return False
         
+        # will not be empty since town must equal "settlement"
         if self.player != s_state.current_player_name:
             s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"{self.player} already owns this location.")
-            print("owned by someone else")
             return False
 
         if s_state.players[s_state.current_player_name].num_cities >= 4:
             s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You have no more available cities (max 4).")
-            print("no available cities")
             return False
         
         s_state.send_broadcast("log", f"{s_state.current_player_name} built a city.")
         # -1 since this is before coty gets added to board
         s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"You have {4 - 1 - s_state.players[s_state.current_player_name].num_cities} cities remaining.")
-        print("no conflicts, building city")
         return True
 
 

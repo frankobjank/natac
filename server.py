@@ -684,7 +684,8 @@ class ServerState:
                     current_node = self.get_next_node(visited_nodes, current_edge, edges_to_nodes)
                     if current_node is None:
                         break
-                    if current_node.player != p_object.name:
+                    # check if node is owned AND owned by another player
+                    if len(current_node.player) > 0 and current_node.player != p_object.name:
                         print(f"finding path for {p_object.name}, node {current_node} player = {current_node.player}")
                         break
 
@@ -704,7 +705,7 @@ class ServerState:
                         # print(f"breaking fork at {current_edge}, no other Nodes found")
                         # print(f"total visited nodes: {visited_nodes}, visited edges: {visited_edges}")
                         break
-                    elif current_node.player != p_object.name:
+                    elif len(current_node.player) > 0 and current_node.player != p_object.name:
                         # print(f"finding path for {p_object.name}, node {current_node} player = {current_node.player}")
                         break
 
@@ -973,7 +974,7 @@ class ServerState:
         for node in self.board.nodes:
             # if node is associated with player and contains the robber hex
             # add to set of adj players
-            if self.board.robber_hex in node.hexes and node.player != self.current_player_name:
+            if self.board.robber_hex in node.hexes and len(node.player) > 0 and node.player != self.current_player_name:
                 adj_players.add(node.player)
         
         self.to_steal_from = []
