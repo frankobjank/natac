@@ -93,7 +93,7 @@ class Edge:
         assert hh.hex_distance(hex_a, hex_b) == 1, "hexes must be adjacent"
         # make hexes a tuple to allow hashing. hexes never have to be reassigned
         self.hexes = tuple(sorted([hex_a, hex_b], key=attrgetter("q", "r", "s")))
-        self.player = None
+        self.player = ""
    
 
     def __repr__(self) -> str:
@@ -188,7 +188,7 @@ class Edge:
             return False
         
         # check if edge is owned
-        if self.player is not None:
+        if len(self.player) > 0:
             if self.player == s_state.players[s_state.current_player_name]:
                 if verbose:
                     s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "This location is already owned by you.")
@@ -247,10 +247,12 @@ class Edge:
                 destination_node = self_nodes[0]
 
             # match with adj edge, build is ok
-            if origin_node.player is not None and origin_node.player == s_state.current_player_name:
+            # check if origin node is owned, and if it's current player
+            if len(origin_node.player) > 0 and origin_node.player == s_state.current_player_name:
                 break
+            
             # origin node blocked by another player
-            elif origin_node.player is not None and origin_node.player != s_state.current_player_name:
+            elif len(origin_node.player) > 0 and origin_node.player != s_state.current_player_name:
                 if verbose:
                     print("adjacent node blocked by settlement, checking others")
                 blocked_count += 1
@@ -277,9 +279,9 @@ class Node:
     def __init__(self, hex_a, hex_b, hex_c) -> None:
         # make hexes a tuple to allow hashing. hexes never have to be reassigned
         self.hexes = tuple(sorted([hex_a, hex_b, hex_c], key=attrgetter("q", "r", "s")))
-        self.player = None
-        self.town = None # city or settlement
-        self.port = None
+        self.player = "" # name of player
+        self.town = "" # "city" or "settlement"
+        self.port = "" # name of port
 
     def __repr__(self) -> str:
         # return f"Node('hexes': {self.hexes}, 'player': {self.player}, 'town': {self.town}, 'port': {self.port})"
@@ -348,19 +350,13 @@ class Node:
             return False
 
         # check if player owns node
-        if self.player is not None:
+        if len(self.player) > 0:
             if self.player == s_state.players[s_state.current_player_name]:
                 s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "You already own this location.")
             else:
                 s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", f"{self.player} already owns this location.")
             print("location already owned")
             return False
-        
-        # check if town is None - is redundant because self.player already checks for this
-        if self.town is not None:
-            s_state.send_to_player(s_state.players[s_state.current_player_name].address, "log", "This location must be empty.")
-            return False
-
         
         # ocean check
         if self.hexes[0] in s_state.board.ocean_hexes and self.hexes[1] in s_state.board.ocean_hexes and self.hexes[2] in s_state.board.ocean_hexes:
@@ -436,45 +432,45 @@ def obj_to_int(hex_edge_node) -> str:
     
     return name
 
-# Player is only for server. But with shared, could combine ClientPlayer and Player?
-class Player:
-    def __init__(self, name, order, address="local"):
-        # gameplay
-        self.name = name
-        self.order = order
-        self.color = "gray"
-        self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
-        self.num_to_discard = 0
-        self.dev_cards = {"knight": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
-        self.visible_knights = 0 # can use to count largest army
-        self.num_cities = 0
-        self.num_settlements = 0 # for counting victory points
-        self.num_roads = 0 # use for setup
-        self.ports = []
+# Could combine ClientPlayer and Player, although it does make some sense to keep them separate
 
-        # for setup
-        self.setup_settlement = None
+# class Player:
+#     def __init__(self, name, order, address="local"):
+#         # gameplay
+#         self.name = name
+#         self.order = order
+#         self.color = "gray"
+#         self.hand = {"ore": 0, "wheat": 0, "sheep": 0, "wood": 0, "brick": 0}
+#         self.num_to_discard = 0
+#         self.dev_cards = {"knight": 0, "road_building": 0,  "year_of_plenty": 0, "monopoly": 0, "victory_point": 0}
+#         self.visible_knights = 0 # can use to count largest army
+#         self.num_cities = 0
+#         self.num_settlements = 0 # for counting victory points
+#         self.num_roads = 0 # use for setup
+#         self.ports = []
 
-        # networking
-        self.address = address
-        self.has_board = False
-        self.time_joined = time.time()
-        self.last_updated = time.time()
-        # potentially add timeout to know when to disconnect a player
+#         # for setup
+#         self.setup_settlement = None
 
-    def __repr__(self):
-        return f"Player {self.name}"
+#         # networking
+#         self.address = address
+#         self.has_board = False
+#         self.time_joined = time.time()
+#         self.last_updated = time.time()
+#         # potentially add timeout to know when to disconnect a player
+
+#     def __repr__(self):
+#         return f"Player {self.name}"
             
-    def get_vp_public(self, longest_road, largest_army):
-        # settlements/ cities
-        victory_points = self.num_cities*2 + self.num_settlements
-        # largest army/ longest road
-        if longest_road == self.name:
-            victory_points += 2
-        if largest_army == self.name:
-            victory_points += 2
-        return victory_points
-
+#     def get_vp_public(self, longest_road, largest_army):
+#         # settlements/ cities
+#         victory_points = self.num_cities*2 + self.num_settlements
+#         # largest army/ longest road
+#         if longest_road == self.name:
+#             victory_points += 2
+#         if largest_army == self.name:
+#             victory_points += 2
+#         return victory_points
 
 # class ClientPlayer:
 #     def __init__(self, name: str, order: int, rec: pr.Rectangle):

@@ -23,13 +23,13 @@ class Board:
         self.edges = []
         self.nodes = []
         
-        # hash(edge): edge for lookup
+        # these dicts - this will probably replace the above lists
         self.edge_hash = {}
         self.node_hash = {}
 
-        # pseudo hashing
-        self.int_to_edge = {}
-        self.int_to_node = {}
+        # pseudo hashing - can probably delete
+        # self.int_to_edge = {}
+        # self.int_to_node = {}
 
 
     # 4 ore, 4 wheat, 3 sheep, 4 wood, 3 brick, 1 desert
@@ -58,7 +58,7 @@ class Board:
         return randomized_tokens
 
 
-    def get_random_ports(self):
+    def get_random_ports(self) -> list:
         ports_list = []
         port_counts = {"three": 4, "ore": 1, "wood": 1, "wheat": 1, "brick": 1, "sheep": 1}
         ports_for_random = [k for k in port_counts.keys()]
@@ -68,6 +68,7 @@ class Board:
                 if port_counts[rand_port] > 0:
                     ports_list.append(rand_port)
                     port_counts[rand_port] -= 1
+
         # padding with None to make same as the default set
         ports_list.insert(1, None)
         ports_list.insert(3, None)
@@ -80,23 +81,23 @@ class Board:
         ports_list.append(None)
         return ports_list
     
-    def get_port_to_nodes(self, ports):
+    def get_port_to_nodes(self, ports) -> list:
         port_order_for_nodes_random = []
         for port in ports:
-            if port is not None:
+            if len(port) > 0:
                 port_order_for_nodes_random.append(port)
                 port_order_for_nodes_random.append(port)
         return port_order_for_nodes_random
 
 
-    def randomize_tiles(self):
+    def randomize_tiles(self) -> tuple:
         terrains = self.get_random_terrain()
         tokens = self.randomize_tokens(terrains)
         ports_ordered = self.get_random_ports()
         ports_to_nodes = self.get_port_to_nodes(ports_ordered)
         return terrains, tokens, ports_ordered, ports_to_nodes
     
-    def set_default_tiles(self):
+    def set_default_tiles(self) -> tuple:
         terrains = [
             "mountain", "pasture", "forest",
             "field", "hill", "pasture", "hill",
@@ -136,7 +137,7 @@ class Board:
         return terrains, tokens, ports_ordered, ports_to_nodes
 
 
-    def initialize_board(self, fixed:bool=False):
+    def initialize_board(self, fixed: bool=False):
         if fixed:
             self.terrains, self.tokens, self.ports_ordered, ports_to_nodes = self.set_default_tiles()
         
@@ -205,25 +206,25 @@ class Board:
             (2, 1), None, (2, 3), None
         ]
         
-        port_node_hexes = [
-            sh.sort_hexes((hh.set_hex(-1, -2, 3), hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2))),
-            sh.sort_hexes((hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2), hh.set_hex(1, -3, 2))),
-            sh.sort_hexes((hh.set_hex(1, -3, 2), hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1))),
-            sh.sort_hexes((hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1), hh.set_hex(2, -2, 0))),
-            sh.sort_hexes((hh.set_hex(2, -2, 0), hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1))),
-            sh.sort_hexes((hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1), hh.set_hex(3, -1, -2))),
-            sh.sort_hexes((hh.set_hex(-2, -1, 3), hh.set_hex(-1, -2, 3), hh.set_hex(-1, -1, 2))),
-            sh.sort_hexes((hh.set_hex(-2, -1, 3), hh.set_hex(-2, 0, 2), hh.set_hex(-1, -1, 2))),
-            sh.sort_hexes((hh.set_hex(2, 0, -2), hh.set_hex(3, -1, -2), hh.set_hex(3, 0, -3))),
-            sh.sort_hexes((hh.set_hex(2, 0, -2), hh.set_hex(2, 1, -3), hh.set_hex(3, 0, -3))),
-            sh.sort_hexes((hh.set_hex(-3, 1, 2), hh.set_hex(-2, 0, 2), hh.set_hex(-2, 1, 1))),
-            sh.sort_hexes((hh.set_hex(-3, 1, 2), hh.set_hex(-3, 2, 1), hh.set_hex(-2, 1, 1))),
-            sh.sort_hexes((hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3), hh.set_hex(2, 1, -3))),
-            sh.sort_hexes((hh.set_hex(0, 2, -2), hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3))),
-            sh.sort_hexes((hh.set_hex(-3, 2, 1), hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0))),
-            sh.sort_hexes((hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0), hh.set_hex(-2, 3, -1))),
-            sh.sort_hexes((hh.set_hex(-2, 3, -1), hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2))),
-            sh.sort_hexes((hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2), hh.set_hex(0, 2, -2)))
+        port_temp_nodes = [
+            sh.Node(hh.set_hex(-1, -2, 3), hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2)),
+            sh.Node(hh.set_hex(0, -3, 3), hh.set_hex(0, -2, 2), hh.set_hex(1, -3, 2)),
+            sh.Node(hh.set_hex(1, -3, 2), hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1)),
+            sh.Node(hh.set_hex(1, -2, 1), hh.set_hex(2, -3, 1), hh.set_hex(2, -2, 0)),
+            sh.Node(hh.set_hex(2, -2, 0), hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1)),
+            sh.Node(hh.set_hex(2, -1, -1), hh.set_hex(3, -2, -1), hh.set_hex(3, -1, -2)),
+            sh.Node(hh.set_hex(-2, -1, 3), hh.set_hex(-1, -2, 3), hh.set_hex(-1, -1, 2)),
+            sh.Node(hh.set_hex(-2, -1, 3), hh.set_hex(-2, 0, 2), hh.set_hex(-1, -1, 2)),
+            sh.Node(hh.set_hex(2, 0, -2), hh.set_hex(3, -1, -2), hh.set_hex(3, 0, -3)),
+            sh.Node(hh.set_hex(2, 0, -2), hh.set_hex(2, 1, -3), hh.set_hex(3, 0, -3)),
+            sh.Node(hh.set_hex(-3, 1, 2), hh.set_hex(-2, 0, 2), hh.set_hex(-2, 1, 1)),
+            sh.Node(hh.set_hex(-3, 1, 2), hh.set_hex(-3, 2, 1), hh.set_hex(-2, 1, 1)),
+            sh.Node(hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3), hh.set_hex(2, 1, -3)),
+            sh.Node(hh.set_hex(0, 2, -2), hh.set_hex(1, 1, -2), hh.set_hex(1, 2, -3)),
+            sh.Node(hh.set_hex(-3, 2, 1), hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0)),
+            sh.Node(hh.set_hex(-3, 3, 0), hh.set_hex(-2, 2, 0), hh.set_hex(-2, 3, -1)),
+            sh.Node(hh.set_hex(-2, 3, -1), hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2)),
+            sh.Node(hh.set_hex(-1, 2, -1), hh.set_hex(-1, 3, -2), hh.set_hex(0, 2, -2))
         ]
 
         # triple 'for' loop to fill s_state.edges and s_state.nodes lists
@@ -241,40 +242,33 @@ class Board:
 
 
         # start robber in desert
-        # using lists instead of Tile objects
-        desert_index = self.terrains.index("desert")
-        self.robber_hex = self.land_hexes[desert_index]
+        self.robber_hex = self.land_hexes[self.terrains.index("desert")]
 
-        # activating port nodes
-        for i in range(len(port_node_hexes)):
-            for node in self.nodes:
-                if port_node_hexes[i] == node.hexes:
-                    node.port = ports_to_nodes[i]
-        
-        # currently not used but could be a good solution for edge/ node lookup
-        self.int_to_edge = {sh.obj_to_int(edge): edge for edge in self.edges}
-        self.int_to_node = {sh.obj_to_int(node): node for node in self.nodes}
-        
         # implement hash table
         self.edge_hash = {hash(edge): edge for edge in self.edges}
         self.node_hash = {hash(node): node for node in self.nodes}
+
+        # activating port nodes
+        for i, node in enumerate(port_temp_nodes):
+            self.node_hash[hash(node)].port = ports_to_nodes[i]
+        
+        # pseudo hashing, probably won't need this
+        # self.int_to_edge = {sh.obj_to_int(edge): edge for edge in self.edges}
+        # self.int_to_node = {sh.obj_to_int(node): node for node in self.nodes}
+        
 
 
     def assign_demo_settlements(self, player_object, spec_nodes, spec_edges):
         hex_to_resource = {self.land_hexes[i]: sh.terrain_to_resource[self.terrains[i]] for i in range(len(self.land_hexes))}
 
-        for node in self.nodes:
-            for red_node in spec_nodes:
-                if node.hexes[0] == red_node.hexes[0] and node.hexes[1] == red_node.hexes[1] and node.hexes[2] == red_node.hexes[2]:
-                    player_object.num_settlements += 1
-                    node.player = player_object.name
-                    node.town = "settlement"
-
-        for edge in self.edges:
-            for red_edge in spec_edges:
-                if edge.hexes[0] == red_edge.hexes[0] and edge.hexes[1] == red_edge.hexes[1]:
-                    player_object.num_roads += 1
-                    edge.player = player_object.name
+        for node in spec_nodes:
+            self.node_hash[hash(node)].player = player_object.name
+            self.node_hash[hash(node)].town = "settlement"
+            player_object.num_settlements += 1
+        
+        for edge in spec_edges:
+            self.edge_hash[hash(edge)].player = player_object.name
+            player_object.num_roads += 1
 
         # give player resources from 2nd settlement
         for hex in spec_nodes[1].hexes:
@@ -282,26 +276,11 @@ class Board:
 
 
     def set_demo_settlements(self, player_object, order):
-        # self.land_hexes = []
-        # self.terrains = []
-        # self.tokens = []
-        hex_to_resource = {self.land_hexes[i]: sh.terrain_to_resource[self.terrains[i]] for i in range(len(self.land_hexes))}
-
-
         # for demo, initiate default roads and settlements
+        # set hexes and edges explicitly
         # Red - p1
         red_nodes = [sh.Node(hh.Hex(0, -2, 2), hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), sh.Node(hh.Hex(-2, 0, 2), hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
         red_edges = [sh.Edge(hh.Hex(1, -2, 1), hh.Hex(0, -1, 1)), sh.Edge(hh.Hex(-1, 0, 1), hh.Hex(-2, 1, 1))]
-        
-        # test if hashing works
-        for node in red_nodes:
-            self.node_hash[hash(node)].player = player_object.name
-            self.node_hash[hash(node)].town = "settlement"
-            player_object.num_settlements += 1
-        
-        for edge in red_edges:
-            self.edge_hash[hash(edge)].player = player_object.name
-            player_object.num_roads += 1
 
         # White - p2
         white_nodes = [sh.Node(hh.Hex(q=-1, r=-1, s=2), hh.Hex(q=-1, r=0, s=1), hh.Hex(q=0, r=-1, s=1)), sh.Node(hh.Hex(q=1, r=0, s=-1), hh.Hex(q=1, r=1, s=-2), hh.Hex(q=2, r=0, s=-2))]
@@ -316,14 +295,14 @@ class Board:
         blue_edges = [sh.Edge(hh.Hex(-1, 1, 0), hh.Hex(-2, 2, 0)), sh.Edge(hh.Hex(0, 1, -1), hh.Hex(1, 1, -2))]
 
 
-        # if order == 0:
-        #     self.assign_demo_settlements(player_object, red_nodes, red_edges)
-        # elif order == 1:
-        #     self.assign_demo_settlements(player_object, white_nodes, white_edges)
-        # elif order == 2:
-        #     self.assign_demo_settlements(player_object, orange_nodes, orange_edges)
-        # elif order == 3:
-        #     self.assign_demo_settlements(player_object, blue_nodes, blue_edges)
+        if order == 0:
+            self.assign_demo_settlements(player_object, red_nodes, red_edges)
+        elif order == 1:
+            self.assign_demo_settlements(player_object, white_nodes, white_edges)
+        elif order == 2:
+            self.assign_demo_settlements(player_object, orange_nodes, orange_edges)
+        elif order == 3:
+            self.assign_demo_settlements(player_object, blue_nodes, blue_edges)
             
 
 class Player:
@@ -438,33 +417,6 @@ class ServerState:
         self.board.initialize_board(fixed=self.debug)
         self.shuffle_dev_cards()
 
-    
-    # # hardcoded players for debug
-    # def initialize_dummy_players(self, name1=None, name2=None, name3=None, name4=None):
-    #     order = 0
-    #     if name1:
-    #         self.players[name1] = Player(name1, order)
-    #         order += 1
-    #     if name2:
-    #         self.players[name2] = Player(name2, order)
-    #         order += 1
-    #     if name3:
-    #         self.players[name3] = Player(name3, order)
-    #         order += 1
-    #     if name4:
-    #         self.players[name4] = Player(name4, order)
-    #         order += 1
-
-    #     self.player_order = [name for name in self.players.keys()]
-    #     self.player_order.sort(key=lambda player_name: self.players[player_name].order)
-
-    #     self.board.set_demo_settlements(self)
-
-    #     # DEBUG - start each player with 1 of every resource
-    #     for player_object in self.players.values():
-    #         for r in player_object.hand.keys():
-    #             player_object.hand[r] = 1
-
 
     def is_server_full(self, max_players=4):
         return len(self.player_order) >= max_players
@@ -481,7 +433,7 @@ class ServerState:
         # split on newline if newline is in msg
         for m in msg.split("\n"):
             # address defaults to All, specific player for send_to_player
-            print(f"TO {address}: {m}")
+            print(f"To {address}: {m}")
     
     
     # send to all players
@@ -606,9 +558,7 @@ class ServerState:
             # instead of doing this loop, could do self.board.[hash(Node(hex_a, hex_b, hex_c))]
                 # make a temporary node to get hash
                 # use hash in lookup table to get desired node
-            for node in self.board.nodes:
-                if node.hexes == sh.sort_hexes([hex_a, hex_b, hex_c]):
-                    location_node = node
+            location_node = self.board.node_hash[hash(sh.Node(hex_a, hex_b, hex_c))]
 
             if action == "build_settlement" and location_node is not None:
                 if location_node.build_check_settlement(self, setup=True):
@@ -620,7 +570,7 @@ class ServerState:
                     # check if this is second settlement (for resources)
                     if self.players[self.current_player_name].num_settlements == 1:
 
-                        # can prob shorten hex_to_resource and be more precise - create lookup dict if needed
+                        # get resource to add to hand
                         hex_to_resource = {self.board.land_hexes[i]: sh.terrain_to_resource[self.board.terrains[i]] for i in range(len(self.board.land_hexes))}
                         for hex in location_node.hexes:
                             try:
@@ -634,10 +584,9 @@ class ServerState:
 
 
         elif location_hexes["hex_b"] is not None and self.mode == "build_road":
-            for edge in self.board.edges:
-                if edge.hexes == sh.sort_hexes([hex_a, hex_b]):
-                    location_edge = edge
-
+            # lookup edge with hexes from client
+            location_edge = self.board.edge_hash[hash(sh.Edge(hex_a, hex_b))]
+            
             if action == "build_road" and location_edge is not None:
                 if location_edge.build_check_road(self, setup=True):
                     self.mode = "build_settlement"
@@ -695,6 +644,7 @@ class ServerState:
         all_paths = {} # player: longest_road
         for p_object in self.players.values():
 
+            # not hashable yet since player objects do not store what edges they own
             owned_edges = [edge for edge in self.board.edges if edge.player == p_object.name]
             # owned_nodes = [edge.get_adj_nodes(self.board.nodes) for edge in owned_edges]
             edges_to_nodes = {edge: edge.get_adj_nodes(self.board.nodes) for edge in owned_edges}
@@ -734,7 +684,7 @@ class ServerState:
                     current_node = self.get_next_node(visited_nodes, current_edge, edges_to_nodes)
                     if current_node is None:
                         break
-                    if current_node.player is not None and current_node.player != p_object.name:
+                    if current_node.player != p_object.name:
                         print(f"finding path for {p_object.name}, node {current_node} player = {current_node.player}")
                         break
 
@@ -754,7 +704,7 @@ class ServerState:
                         # print(f"breaking fork at {current_edge}, no other Nodes found")
                         # print(f"total visited nodes: {visited_nodes}, visited edges: {visited_edges}")
                         break
-                    elif current_node.player is not None and current_node.player != p_object.name:
+                    elif current_node.player != p_object.name:
                         # print(f"finding path for {p_object.name}, node {current_node} player = {current_node.player}")
                         break
 
@@ -831,6 +781,8 @@ class ServerState:
     def can_build_road(self) -> bool:
         # used in road_building to check if building a road is possible
         # TODO general rules question - can you exit early if you only want one road?
+
+        # not hashable yet since players do not know what edges they own
         owned_roads = [edge for edge in self.board.edges if edge.player == self.current_player_name]
         for road in owned_roads:
             adj_edges = road.get_adj_node_edges(self.board.nodes, self.board.edges)
@@ -891,10 +843,8 @@ class ServerState:
 
             if hex_b is None:
                 return
-            location_edge = None
-            for edge in self.board.edges:
-                if edge.hexes == sh.sort_hexes([hex_a, hex_b]):
-                    location_edge = edge
+            
+            location_edge = self.board.edge_hash[hash(sh.Edge(hex_a, hex_b))]
 
             if action == "build_road":
                 if location_edge.build_check_road(self):
@@ -904,8 +854,8 @@ class ServerState:
                     self.send_to_player(self.players[self.current_player_name].address, "log", f"Road placed, you have {2-self.road_building_counter} left.")
                     self.calc_longest_road()
                     
-
-            if self.road_building_counter == 2 or not self.can_build_road:
+            # stop road building mode if 2 roads built or cannot built anymore
+            if self.road_building_counter == 2 or not self.can_build_road():
                 self.send_to_player(self.players[self.current_player_name].address, "log", f"Exiting Road Building Mode.")
 
                 self.mode = None
@@ -942,6 +892,7 @@ class ServerState:
             # lets client know action was accepted - client resets vars
             self.send_to_player(self.players[self.current_player_name].address, "reset", "monopoly")
 
+        # set mode to "roll_dice" if played card before rolling
         if self.mode is None and not self.has_rolled:
             self.mode = "roll_dice"
 
@@ -1000,21 +951,13 @@ class ServerState:
     def cost_check(self, item):
         cost = sh.building_costs[item]
         hand = self.players[self.current_player_name].hand
+
         if all(hand[resource] >= cost[resource] for resource in cost.keys()):
             return True
+        
         self.send_to_player(self.players[self.current_player_name].address, "log", f"Insufficient resources for {item}.")
+        
         return False
-        # still_needed = []
-        
-        # changing for all() statement to for loop to tell what resources are needed
-        # for resource in cost.keys():
-            # if cost[resource] > hand[resource]:
-                # still_needed.append(resource)
-        
-        # if len(still_needed) == 0:
-        #     return True
-
-        # self.send_to_player(self.players[self.current_player_name].address, "log", f"Not enough {', '.join(still_needed)} for {item}")
 
 
     def move_robber(self, location_hex):
@@ -1026,17 +969,20 @@ class ServerState:
         self.send_broadcast("log", f"{self.current_player_name} moved the robber.")
         
         adj_players = set()
+        # loops through all nodes to find which nodes contain this hex
         for node in self.board.nodes:
-            # if node is associated with player and contains the robber hex, add to list
-            if self.board.robber_hex in node.hexes and node.player is not None and node.player != self.current_player_name:
+            # if node is associated with player and contains the robber hex
+            # add to set of adj players
+            if self.board.robber_hex in node.hexes and node.player != self.current_player_name:
                 adj_players.add(node.player)
         
         self.to_steal_from = []
         
         # check if adj players have any cards
         for player_name in list(adj_players):
-            if sum(self.players[player_name].hand.values()) > 0:
+            if len(player_name) > 0 and sum(self.players[player_name].hand.values()) > 0:
                 self.to_steal_from.append(player_name)
+
         # if more than one player, change mode to steal and get player to select
         if len(self.to_steal_from) > 1:
             self.mode = "steal"
@@ -1108,11 +1054,12 @@ class ServerState:
         # find tiles corresponding to dice roll 
         token_indices = [i for i, token in enumerate(self.board.tokens) if token == (self.die1 + self.die2)]
 
+        # constructs list of LandTile namedtuple
         tiles = [sh.LandTile(self.board.land_hexes[i], self.board.terrains[i], self.board.tokens[i]) for i in token_indices]
 
         # add resources to players' hands
         for node in self.board.nodes:
-            if node.player is not None:
+            if len(node.player) > 0:
                 for hex in node.hexes:
                     for tile in tiles:
                         if hex == tile.hex and hex != self.board.robber_hex:
@@ -1215,7 +1162,7 @@ class ServerState:
         
         # add all nodes/edge owned by players, abridge hexes
         for node in self.board.nodes:
-            if node.player is not None:
+            if len(node.player) > 0:
                 # reconstruct node so it doesn't change the original
                 new_node = {}
                 new_node["hexes"] = [hex[:2] for hex in node.hexes]
@@ -1225,7 +1172,7 @@ class ServerState:
                 town_nodes.append(new_node)
                 
         for edge in self.board.edges:
-            if edge.player is not None:
+            if len(edge.player) > 0:
                 # reconstruct edge so it doesn't change the original
                 new_edge = {}
                 new_edge["hexes"] = [hex[:2] for hex in edge.hexes]
@@ -1600,9 +1547,7 @@ class ServerState:
         hex_a, hex_b, hex_c = location_hexes.values()
         if location_hexes["hex_c"] is not None:
             if self.mode == "build_settlement" or self.mode == "build_city":
-                for node in self.board.nodes:
-                    if node.hexes == sh.sort_hexes([hex_a, hex_b, hex_c]):
-                        location_node = node
+                location_node = self.board.node_hash[hash(sh.Node(hex_a, hex_b, hex_c))]
 
             if client_request["action"] == "build_settlement":
                 if location_node.build_check_settlement(self, setup=False) and self.cost_check("settlement"):
@@ -1613,17 +1558,15 @@ class ServerState:
                     self.build_city(location_node)
 
         elif location_hexes["hex_b"] is not None and self.mode == "build_road":
-            for edge in self.board.edges:
-                if edge.hexes == sh.sort_hexes([hex_a, hex_b]):
-                    location_edge = edge
+            location_edge = self.board.edge_hash[hash(sh.Edge(hex_a, hex_b))]
 
             if client_request["action"] == "build_road":
                 if location_edge.build_check_road(self) and self.cost_check("road"):
                     self.build_road(location_edge)
                     self.calc_longest_road()
 
-        # only checks if current player is at 10+ vps per the official rulebook
-        self.check_for_win()            
+        # only checks if *current player* is at 10+ VPs per the official rulebook
+        self.check_for_win()
 
         
     def server_to_client(self):

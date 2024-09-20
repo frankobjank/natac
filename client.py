@@ -204,7 +204,7 @@ class ClientState:
 
         self.client_players = {} # {name: ClientPlayer object}
         self.player_order = [] # use len(player_order) to get num_players
-        self.current_player_name = None
+        self.current_player_name = ""
         self.hand_rec = pr.Rectangle(self.screen_width//2 - 150, self.screen_height - 100, self.screen_width - 300, self.screen_height//10)
 
         # GAMEPLAY
@@ -364,7 +364,7 @@ class ClientState:
         elif self.current_hex:
             msg1 = f"Current Hex: {sh.obj_to_int(self.current_hex)}"
         else:
-            msg1 = ""
+            msg1 = "No hex, edge, or node selected"
 
         debug_msgs = [msg1, f"Current player = {self.current_player_name}", f"Mode: {self.mode}"]
         for msg in debug_msgs:
@@ -428,7 +428,8 @@ class ClientState:
             self.board["land_tiles"].append(tile)
     
         # town_nodes from server : [{'hexes': [[0, -2], [0, -1], [1, -2]], 'player': 'red', 'town': 'settlement', 'port': None}
-        self.board["town_nodes"] = []
+        # turn into hash table
+        self.board["town_nodes"] = {}
         for node in server_response["town_nodes"]:
             # expand hexes
             node_hexes = [hh.set_hex(h[0], h[1], -h[0]-h[1]) for h in node["hexes"]]
@@ -440,11 +441,12 @@ class ClientState:
             node_object.player = node["player"]
             node_object.town = node["town"]
             node_object.port = node["port"]
-            
-            # append to list of node objects
-            self.board["town_nodes"].append(node_object)
+
+            # hash node
+            self.board["town_nodes"][hash(node_object)] = node_object
 
         # road_edges from server : [{'hexes': [[0, -1], [1, -2]], 'player': 'red'}
+        # never do a search in road_edges, so this can stay as an array
         self.board["road_edges"] = []
         for edge in server_response["road_edges"]:
             # expand hexes
@@ -1430,7 +1432,8 @@ class ClientState:
         for edge in self.board["road_edges"]:
             rf.draw_road(edge.get_edge_points(), self.client_players[edge.player].color)
 
-        for node in self.board["town_nodes"]:
+        # town_nodes is dict, so select node object with .values()
+        for node in self.board["town_nodes"].values():
             if node.town == "settlement":
                 rf.draw_settlement(node.get_node_point(), self.client_players[node.player].color)
             elif node.town == "city":
@@ -1454,20 +1457,19 @@ class ClientState:
 
             # highlight node for building settlement or city
             if self.current_hex_3 and (self.mode == "build_settlement" or self.mode == "build_city"):
-                # create node object
+                # create temp node object
                 node_object = sh.Node(self.current_hex, self.current_hex_2, self.current_hex_3)
                 
                 # find if node is occupied
-                # linear search, could turn nodes/edges into dict for easier lookup
-                for node in self.board["town_nodes"]:
-                    if node_object.hexes[0] == node.hexes[0] and node_object.hexes[1] == node.hexes[1] and node_object.hexes[2] == node.hexes[2] and node.town is not None:
-                        if node.town == "settlement":
-                            rf.draw_settlement(node_object.get_node_point(), color=None, outline_only=True)
-                        elif node.town == "city":
-                            rf.draw_city(node_object.get_node_point(), color=None, outline_only=True)
-                # node.town = None; else for the FOR loop
+                if hash(node_object) in self.board["town_nodes"].keys():
+                    if self.board["town_nodes"][hash(node_object)].town == "settlement":
+                        rf.draw_settlement(node_object.get_node_point(), color = None, outline_only = True)
+                    elif self.board["town_nodes"][hash(node_object)].town == "city":
+                        rf.draw_city(node_object.get_node_point(), color = None, outline_only = True)
+                
+                # else town is not occupied
                 else:
-                # draw circle 
+                    # draw circle at node
                     pr.draw_circle_v(node_object.get_node_point(), 10, pr.BLACK)
 
             # highlight current edge if building is possible
